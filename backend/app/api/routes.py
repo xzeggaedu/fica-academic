@@ -1,3 +1,5 @@
+"""API routes for the FICA Academic API."""
+
 from fastapi import APIRouter
 
 router = APIRouter()
@@ -5,5 +7,5 @@ router = APIRouter()
 
 @router.get("/health", tags=["system"])
 def health_check():
-    """Verifica que la API esté corriendo correctamente"""
-    return {"status": "ok", "message": "API funcionando"}
+    """Check that the API is running correctly."""
+    return {"status": "ok", "message": "API is running"}

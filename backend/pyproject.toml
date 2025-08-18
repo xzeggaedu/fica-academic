@@ -1,0 +1,14 @@
+[tool.black]
+line-length = 88
+exclude = '''
+/(
+    __pycache__
+    | migrations
+    | .venv
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+skip = ["__pycache__", "migrations", ".venv"]
