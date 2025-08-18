@@ -1,0 +1,12 @@
+{
+  "editor.formatOnSave": true,
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.linting.flake8Path": "flake8",
+  "python.linting.pylintPath": "pylint",
+  "python.linting.lintOnSave": true,
+  "python.formatting.provider": "black",
+  "python.sortImports.args": ["--profile", "black"],
+  "python.linting.ignorePatterns": ["**/__pycache__/**", "**/migrations/**", "**/.venv/**"]
+}
