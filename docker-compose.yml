@@ -9,14 +9,18 @@ services:
       - "3025:8080" # API accesible en localhost:3025
     volumes:
       - ./backend:/app
+    working_dir: /app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
     env_file:
       - ./backend/.env
+    environment:
+      - PYTHONUNBUFFERED=1
     depends_on:
       - db
 
   db:
     image: postgres:15
-    container_name: fica_db
+    # container_name eliminado para evitar conflicto si el contenedor ya existe
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -42,6 +46,24 @@ services:
       - "5050:80"
     depends_on:
       - db
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fica_frontend
+    restart: always
+    ports:
+      - "3000:5173" # Acceso a la app React/Vite en localhost:3000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    working_dir: /app
+    command: npm run dev -- --host
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - api
 
 volumes:
   db_data:
