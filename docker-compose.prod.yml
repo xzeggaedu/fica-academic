@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   api:
-    image: ghcr.io/xzeggaedu/fica-academic:latest
+    image: ghcr.io/xzeggaedu/fica-academic-backend:latest
     container_name: fica_api
     restart: always
     ports:
@@ -41,7 +41,7 @@ services:
       - db
 
   frontend:
-    image: ghcr.io/tu-usuario-de-github/tu-repositorio-frontend:latest
+    image: ghcr.io/xzeggaedu/fica-academic-frontend:latest
     container_name: fica_frontend
     restart: always
     ports:
