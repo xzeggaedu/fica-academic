@@ -1,0 +1,41 @@
+# Workflow Name
+name: Production Deployment (On-Prem)
+
+# Event that triggers the workflow
+on:
+  push:
+    branches:
+      - main
+
+# Jobs to be executed
+jobs:
+  build_and_push:
+    # Runner environment for the job
+    runs-on: ubuntu-latest
+
+    # Job steps
+    steps:
+      - name: Checkout code
+        # Uses a GitHub action to clone the repository
+        uses: actions/checkout@v3
+
+      - name: Log in to Docker Registry (GHCR)
+        # Uses a GitHub action to authenticate
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
+
+      - name: Build and push Backend image
+        # The 'run' command executes shell commands
+        # Builds the image using the production Dockerfile and tags it
+        run: |
+          docker build ./backend -f ./backend/Dockerfile.prod -t ghcr.io/${{ github.repository }}-backend:latest
+          docker push ghcr.io/${{ github.repository }}-backend:latest
+
+      - name: Build and push Frontend image
+        # Repeats the process for the frontend service
+        run: |
+          docker build ./frontend -f ./frontend/Dockerfile.prod -t ghcr.io/${{ github.repository }}-frontend:latest
+          docker push ghcr.io/${{ github.repository }}-frontend:latest
