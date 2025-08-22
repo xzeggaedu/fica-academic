@@ -8,3 +8,5 @@ flake8
 black
 isort
 pylint
+httpx
+pytest-asyncio
