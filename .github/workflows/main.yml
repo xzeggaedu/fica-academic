@@ -9,33 +9,60 @@ on:
 
 # Jobs to be executed
 jobs:
-  build_and_push:
-    # Runner environment for the job
+  test-frontend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install
+      - name: Run frontend tests
+        run: npm run test -- --run
 
-    # Job steps
+  test-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+      - name: Run backend tests
+        run: |
+          source .venv/bin/activate
+          PYTHONPATH=./ pytest tests
+
+  build_and_push:
+    runs-on: ubuntu-latest
+    needs: [test-frontend, test-backend]
     steps:
       - name: Checkout code
-        # Uses a GitHub action to clone the repository
         uses: actions/checkout@v3
-
       - name: Log in to Docker Registry (GHCR)
-        # Uses a GitHub action to authenticate
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GH_TOKEN }}
-
       - name: Build and push Backend image
-        # The 'run' command executes shell commands
-        # Builds the image using the production Dockerfile and tags it
         run: |
           docker build ./backend -f ./backend/Dockerfile.prod -t ghcr.io/${{ github.repository }}-backend:latest
           docker push ghcr.io/${{ github.repository }}-backend:latest
-
       - name: Build and push Frontend image
-        # Repeats the process for the frontend service
         run: |
           docker build ./frontend -f ./frontend/Dockerfile.prod -t ghcr.io/${{ github.repository }}-frontend:latest
           docker push ghcr.io/${{ github.repository }}-frontend:latest

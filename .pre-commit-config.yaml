@@ -28,3 +28,15 @@ repos:
         language_version: python3.11
         additional_dependencies: []
         args: ["--rcfile=.pylintrc", "backend/app"]
+  - repo: local
+    hooks:
+      - id: vitest-frontend
+        name: Run Vitest on frontend
+        entry: bash -c "cd frontend && npm run test -- --run"
+        language: system
+        files: ^frontend/
+      - id: pytest-backend
+        name: Run pytest on backend
+        entry: bash -c "PYTHONPATH=./backend pytest backend/tests"
+        language: system
+        files: ^backend/
