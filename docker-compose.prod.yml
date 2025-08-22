@@ -2,9 +2,7 @@ version: "3.9"
 
 services:
   api:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/xzeggaedu/fica-academic:latest
     container_name: fica_api
     restart: always
     ports:
@@ -43,9 +41,7 @@ services:
       - db
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/tu-usuario-de-github/tu-repositorio-frontend:latest
     container_name: fica_frontend
     restart: always
     ports:
