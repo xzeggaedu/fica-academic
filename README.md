@@ -56,47 +56,27 @@ fica-academic/
    docker-compose up --build
    ```
    Esto levantará:
-   - Backend API en `localhost:3025`
+   - Backend API en `http://localhost:3025`
+   - Frontend en `http://localhost:3000`
    - PostgreSQL en `localhost:5432` (puerto configurable)
-   - pgAdmin en `localhost:5050`
-   - (Frontend: próximamente)
+   - pgAdmin en `http://localhost:5050`
 
-### Opción 2: Entorno local sin Docker
+## Visualización de la aplicación en producción
 
-#### Backend
+Para levantar el entorno de producción, usa:
 
-1. Instala Python 3.11 usando pyenv para asegurar soporte SSL:
-   ```bash
-   brew install openssl readline zlib xz
-   env PYTHON_CONFIGURE_OPTS="--with-openssl=$(brew --prefix openssl)" pyenv install 3.11.0
-   pyenv local 3.11.0
-   ```
-2. Crea el entorno virtual y actívalo:
-   ```bash
-   python3.11 -m venv .venv
-   source .venv/bin/activate
-   ```
-3. Instala las dependencias y pre-commit:
-   ```bash
-   pip install --upgrade pip
-   pip install -r backend/requirements.txt
-   pip install pre-commit
-   ```
-4. Configura pre-commit para ejecutar linters antes de cada commit:
-   ```bash
-   pre-commit install
-   pre-commit run --all-files
-   ```
-5. Configura el archivo `backend/.env` con tus variables de entorno.
-6. Ejecuta la API:
-   ```bash
-   uvicorn app.main:app --host 0.0.0.0 --port 8080
-   ```
+```bash
+docker-compose -f docker-compose.prod.yml up --build -d
+```
 
-#### Frontend (próximamente)
+Esto levantará:
 
-- Instala Node.js y npm.
-- Sigue las instrucciones en el futuro archivo `frontend/README.md`.
+- Backend API en `http://localhost:3025`
+- Frontend en `http://localhost:3000`
+- PostgreSQL en `localhost:5432`
+- pgAdmin en `http://localhost:5050`
+
+Accede al frontend desde tu navegador en `http://localhost:3000` y al backend en `http://localhost:3025`.
 
 ---
 

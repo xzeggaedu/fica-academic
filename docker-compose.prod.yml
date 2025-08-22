@@ -2,25 +2,18 @@ version: "3.9"
 
 services:
   api:
-    build: ./backend
+    image: ghcr.io/xzeggaedu/fica-academic:latest
     container_name: fica_api
     restart: always
     ports:
-      - "3025:8080" # API accesible en localhost:3025
-    volumes:
-      - ./backend:/app
-    working_dir: /app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+      - "3025:8080"
     env_file:
       - ./backend/.env
-    environment:
-      - PYTHONUNBUFFERED=1
     depends_on:
       - db
 
   db:
     image: postgres:15
-    # container_name eliminado para evitar conflicto si el contenedor ya existe
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -48,20 +41,11 @@ services:
       - db
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ghcr.io/tu-usuario-de-github/tu-repositorio-frontend:latest
     container_name: fica_frontend
     restart: always
     ports:
-      - "3000:5173" # Acceso a la app React/Vite en localhost:3000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    working_dir: /app
-    command: npm run dev -- --host
-    environment:
-      - CHOKIDAR_USEPOLLING=true
+      - "3000:80"
     depends_on:
       - api
 

@@ -16,7 +16,7 @@ app = FastAPI(
 @app.get("/")
 def root():
     """Welcome root endpoint."""
-    return {"message": "Bienvenido a la FICA Academic API 🚀"}
+    return {"message": "Bienvenido a la FICA Academic API V1.0 🚀"}
 
 
 # Register routes
