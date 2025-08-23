@@ -10,3 +10,13 @@ isort
 pylint
 httpx
 pytest-asyncio
+
+# DB Migration Dependencies
+alembic==1.13.2
+asyncpg==0.29.0
+
+python-jose[cryptography]==3.3.0
+passlib[argon2]==1.7.4        # usa argon2-cffi por debajo
+
+fastapi-limiter==0.1.6
+redis==5.0.8

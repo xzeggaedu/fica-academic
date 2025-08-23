@@ -65,5 +65,13 @@ services:
     depends_on:
       - api
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./.data/redis:/data
+
 volumes:
   db_data:
