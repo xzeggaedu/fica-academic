@@ -8,7 +8,7 @@ del servicio de autenticación y evitar dependencias en la base de
 datos o en la lógica interna de la aplicación.
 """
 
-from typing import Optional, Tuple
+from typing import Tuple
 
 import pytest
 from fastapi import HTTPException
@@ -31,11 +31,9 @@ def test_auth_register_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # Función simulada para register_user
     def fake_register_user(
-        _self: object,
-        _schema: object,
-        _ip: Optional[str] = None,
-        _user_agent: Optional[str] = None,
+        _self: object, *args, **kwargs  # noqa: W0613
     ) -> Tuple[str, str]:
+        # pylint: disable=unused-argument
         return access_token, refresh_token
 
     # Sustituir el método register_user
@@ -66,12 +64,9 @@ def test_auth_login_invalid_credentials(
 
     # Función simulada para authenticate
     def fake_authenticate(
-        _self: object,
-        _email: str,
-        _password: str,
-        _ip: Optional[str] = None,
-        _user_agent: Optional[str] = None,
+        _self: object, *args, **kwargs  # noqa: W0613
     ) -> Tuple[str, str]:
+        # pylint: disable=unused-argument
         raise HTTPException(
             status_code=401, detail="Incorrect email or password"
         )  # noqa: E501

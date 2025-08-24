@@ -154,7 +154,7 @@ def logout(
     request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> None:
+) -> Response:
     """
     Cierra la sesión revocando explícitamente un refresh token.
     """
@@ -165,4 +165,4 @@ def logout(
         user_agent=request.headers.get("user-agent"),
     )
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return Response(status_code=status.HTTP_204_NO_CONTENT, content=b"")

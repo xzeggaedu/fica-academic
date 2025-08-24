@@ -13,7 +13,10 @@ from typing import Optional
 import pytest
 from fastapi.testclient import TestClient
 
+from app.auth.routes.auth_router import get_current_user
 from app.main import app
+from app.user.models.user import UserRoleEnum
+from app.user.routes.user_router import require_admin
 
 
 def test_users_list_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -43,7 +46,7 @@ def test_create_user_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     class DummyUser:
         id: int = 1
         email: str = "new@example.com"
-        role: str = "DIRECTOR"
+        role: str = "director"
         is_active: bool = True
         created_at = "2025-01-01T00:00:00"
         updated_at = "2025-01-01T00:00:00"
@@ -59,6 +62,16 @@ def test_create_user_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
         "app.user.services.user_service.UserService.get_by_email",
         fake_get_by_email,
     )
+
+    # DummyUser con rol de administrador
+    class DummyAdmin:
+        id = 1
+        role = "admin"
+
+    # Añade overrides
+    app.dependency_overrides[require_admin] = lambda: None
+    app.dependency_overrides[get_current_user] = DummyAdmin
+
     monkeypatch.setattr(
         "app.user.services.user_service.UserService.create",
         fake_create,
@@ -68,14 +81,14 @@ def test_create_user_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
         payload = {
             "email": "new@example.com",
             "password": "pass123",
-            "role": "DIRECTOR",
+            "role": "director",
         }
         response = client.post("/api/users/", json=payload)
         assert response.status_code == 201
         data = response.json()
         assert data["id"] == 1
         assert data["email"] == "new@example.com"
-        assert data["role"] == "DIRECTOR"
+        assert data["role"] == "director"
         assert data["is_active"] is True
 
 
@@ -86,12 +99,22 @@ def test_delete_user_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     # Clase simulada de usuario
     class DummyUser:
         id: int = 2
+        role: str = UserRoleEnum.DIRECTOR.value
 
     def fake_get(*_args, **_kwargs) -> Optional[object]:
         return DummyUser() if _args and _args[-1] == 2 else None
 
     def fake_delete(*_args, **_kwargs) -> None:
         return None
+
+    # DummyUser con rol de administrador
+    class DummyAdmin:
+        id = 1
+        role = "admin"
+
+    # Añade overrides
+    app.dependency_overrides[require_admin] = lambda: None
+    app.dependency_overrides[get_current_user] = DummyAdmin
 
     monkeypatch.setattr(
         "app.user.services.user_service.UserService.get",

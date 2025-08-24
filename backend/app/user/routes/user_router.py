@@ -55,7 +55,7 @@ def read_user(user_id: int, db: Session = Depends(get_db)) -> UserOut:
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_admin)],
 )
-def delete_user(user_id: int, db: Session = Depends(get_db)) -> None:
+def delete_user(user_id: int, db: Session = Depends(get_db)) -> Response:
     """
     Elimina un usuario por ID. Devuelve estado 204 si la operación es exitosa.
     """
@@ -66,7 +66,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db)) -> None:
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     service.delete(user_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return Response(status_code=status.HTTP_204_NO_CONTENT, content=b"")
 
 
 @router.post(
