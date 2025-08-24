@@ -12,11 +12,16 @@ un contexto controlado e independiente, facilitando el uso de
 mocks adicionales en los ficheros de pruebas.
 """
 
+# pylint: disable=import-outside-toplevel
+from typing import Iterator
+
 import pytest
 
 
 @pytest.fixture(autouse=True)
-def configure_test_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+def configure_test_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[None]:  # noqa: E501
     """Configura variables de entorno y anula servicios externos.
 
     - Establece valores para las variables de entorno necesarias,
@@ -31,9 +36,8 @@ def configure_test_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     automáticamente a cada función de prueba sin necesidad de
     importarlo explícitamente.
     """
-    import os
-    from redis.asyncio import Redis as AsyncRedis
-    from fastapi_limiter import FastAPILimiter
+    from fastapi_limiter import FastAPILimiter  # noqa: C0415
+    from redis.asyncio import Redis as AsyncRedis  # noqa: C0415
 
     # Variables de entorno mínimas para la configuración de la app
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")

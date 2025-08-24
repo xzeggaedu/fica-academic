@@ -21,7 +21,7 @@ def test_users_list_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     vacía cuando no hay usuarios."""
 
     # Función simulada para devolver una lista vacía
-    def fake_list(self: object) -> list:
+    def fake_list(*_args, **_kwargs) -> list:
         return []
 
     monkeypatch.setattr(
@@ -49,10 +49,10 @@ def test_create_user_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
         updated_at = "2025-01-01T00:00:00"
 
     # Simular inexistencia del correo y creación del usuario
-    def fake_get_by_email(self: object, email: str) -> Optional[object]:
+    def fake_get_by_email(*_args, **_kwargs) -> Optional[object]:
         return None
 
-    def fake_create(self: object, obj_in: object) -> object:
+    def fake_create(*_args, **_kwargs) -> object:
         return DummyUser()
 
     monkeypatch.setattr(
@@ -87,10 +87,10 @@ def test_delete_user_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     class DummyUser:
         id: int = 2
 
-    def fake_get(self: object, user_id: int) -> Optional[object]:
-        return DummyUser() if user_id == 2 else None
+    def fake_get(*_args, **_kwargs) -> Optional[object]:
+        return DummyUser() if _args and _args[-1] == 2 else None
 
-    def fake_delete(self: object, user_id: int) -> None:
+    def fake_delete(*_args, **_kwargs) -> None:
         return None
 
     monkeypatch.setattr(
@@ -111,7 +111,7 @@ def test_get_user_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     """Valida que GET /api/users/{user_id} retorna 404 cuando
     el usuario no existe."""
 
-    def fake_get(self: object, user_id: int) -> Optional[object]:
+    def fake_get(*_args, **_kwargs) -> Optional[object]:
         return None
 
     monkeypatch.setattr(

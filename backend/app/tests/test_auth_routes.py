@@ -31,10 +31,10 @@ def test_auth_register_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # Función simulada para register_user
     def fake_register_user(
-        self: object,
-        schema: object,
-        ip: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        _self: object,
+        _schema: object,
+        _ip: Optional[str] = None,
+        _user_agent: Optional[str] = None,
     ) -> Tuple[str, str]:
         return access_token, refresh_token
 
@@ -54,7 +54,9 @@ def test_auth_register_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
         assert data["token_type"] == "bearer"
 
 
-def test_auth_login_invalid_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_auth_login_invalid_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:  # noqa: E501
     """Comprueba que el endpoint POST /api/auth/login
     devuelve 401 ante credenciales incorrectas.
 
@@ -64,11 +66,11 @@ def test_auth_login_invalid_credentials(monkeypatch: pytest.MonkeyPatch) -> None
 
     # Función simulada para authenticate
     def fake_authenticate(
-        self: object,
-        email: str,
-        password: str,
-        ip: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        _self: object,
+        _email: str,
+        _password: str,
+        _ip: Optional[str] = None,
+        _user_agent: Optional[str] = None,
     ) -> Tuple[str, str]:
         raise HTTPException(
             status_code=401, detail="Incorrect email or password"

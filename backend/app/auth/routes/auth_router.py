@@ -3,7 +3,14 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import (  # noqa: E501
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    status,
+)
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from pydantic import BaseModel, EmailStr
@@ -157,3 +164,5 @@ def logout(
         ip=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
