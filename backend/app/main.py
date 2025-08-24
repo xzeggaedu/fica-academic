@@ -1,4 +1,5 @@
-"""Main entry point for the FICA Academic API."""
+# app/main.py
+"""Punto de entrada principal para la API FICA Academic."""
 
 import os
 from contextlib import asynccontextmanager
@@ -8,9 +9,10 @@ from fastapi_limiter import FastAPILimiter
 from redis.asyncio import Redis
 from starlette.middleware.cors import CORSMiddleware
 
-# from app.auth.routes.auth_router import auth_router
+# Importamos los routers definidos en los módulos de autenticación y usuarios
+from app.auth.routes.auth_router import router as auth_router
 from app.core.config_loader import settings
-from app.user.routes.user_router import user_router
+from app.user.routes.user_router import router as user_router
 
 
 @asynccontextmanager
@@ -23,10 +25,10 @@ async def lifespan(_app: FastAPI):
     redis = Redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
     await FastAPILimiter.init(redis)
 
-    # Store redis instance in app.state for reuse
+    # Guardar instancia de Redis en app.state para reutilizarla
     _app.state.redis = redis
 
-    yield  # <-- Here the application runs
+    yield  # <-- Aquí se ejecuta la aplicación
 
     # ---- Shutdown ----
     redis: Redis | None = getattr(_app.state, "redis", None)
@@ -39,10 +41,10 @@ app = FastAPI(
     title="FICA Academic API",
     description="API para la generación de estadísticos",
     version="0.1.0",
-    lifespan=lifespan,  # 👈 reemplazo de on_event
+    lifespan=lifespan,
 )
 
-
+# Configuración de CORS según variables de entorno
 if settings.BACKEND_CORS_ORIGINS:
     app.add_middleware(
         CORSMiddleware,
@@ -54,11 +56,12 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
-
-# app.include_router(auth_router, prefix="/api")
-app.include_router(user_router, prefix="/api", tags=["Users"])
+# Incluir los routers con el prefijo común '/api'
+app.include_router(auth_router, prefix="/api")
+app.include_router(user_router, prefix="/api")
 
 
 @app.get("/health", tags=["Health Checks"])
 def read_root():
+    """Endpoint de verificación de salud."""
     return {"health": "true"}

@@ -1,35 +1,47 @@
-from auth.utils.auth_utils import get_password_hash
+# app/user/services/user_service.py
+from __future__ import annotations
+
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
-from user.models.user import User
-from user.schemas.user import UserCreate
+
+from app.auth.utils.auth_utils import hash_password
+from app.user.models.user import User, UserRoleEnum
+from app.user.schemas.user import UserCreate
 
 
-def get_users(db: Session):
-    return db.query(User).all()
+class UserService:
+    """Servicio para operaciones CRUD de usuarios."""
 
+    def __init__(self, db: Session) -> None:
+        self.db = db
 
-def get_user(db: Session, user_id: int):
-    return db.query(User).filter(User.id == user_id).first()
+    def get(self, user_id: int) -> Optional[User]:
+        return self.db.query(User).filter(User.id == user_id).first()
 
+    def get_by_email(self, email: str) -> Optional[User]:
+        return self.db.query(User).filter(User.email == email).first()
 
-def get_user_by_email(db: Session, email: str):
-    return db.query(User).filter(User.email == email).first()
+    def list(self) -> List[User]:
+        return self.db.query(User).all()
 
+    def create(self, obj_in: UserCreate) -> User:
+        """Crea un nuevo usuario. Hashea la contraseña con Argon2id."""
+        # Determinar rol: si no se especifica,
+        # usar valor por defecto del modelo
+        role = obj_in.role or UserRoleEnum.DIRECTOR
+        db_user = User(
+            email=str(obj_in.email),
+            role=role,
+            hashed_password=hash_password(obj_in.password),
+        )
+        self.db.add(db_user)
+        self.db.commit()
+        self.db.refresh(db_user)
+        return db_user
 
-def create_user(db: Session, user: UserCreate):
-    db_user = User(
-        email=str(user.email),
-        role=user.role,
-        hashed_password=get_password_hash(user.password),
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
-
-
-def delete_user(db: Session, user_id: int):
-    db_user = db.query(User).filter(User.id == user_id).first()
-    if db_user:
-        db.delete(db_user)
-        db.commit()
+    def delete(self, user_id: int) -> None:
+        user = self.get(user_id)
+        if user:
+            self.db.delete(user)
+            self.db.commit()
