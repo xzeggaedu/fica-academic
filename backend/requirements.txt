@@ -1,22 +1,84 @@
+##############################
+# Core Web Framework
+##############################
 fastapi==0.115.0
-uvicorn[standard]==0.30.3
-sqlalchemy==2.0.32
-psycopg2-binary==2.9.9
-python-dotenv==1.0.1
-pytest==8.3.2
-flake8
-black
-isort
-pylint
-httpx
-pytest-asyncio
+fastapi-cli==0.0.7
+starlette==0.38.5
+uvicorn[standard]==0.34.2
 
-# DB Migration Dependencies
-alembic==1.13.2
+##############################
+# Database and ORM
+##############################
+alembic==1.15.2
 asyncpg==0.29.0
+psycopg==3.2.6
+psycopg-binary==3.2.6
+psycopg-pool==3.2.6
+psycopg2-binary==2.9.10
+SQLAlchemy==2.0.40
 
+##############################
+# Data Validation and Settings
+##############################
+annotated-types==0.7.0
+email_validator==2.2.0
+pydantic==2.11.3
+pydantic-settings==2.9.1
+pydantic_core==2.33.1
+
+##############################
+# Security and Auth
+##############################
+bcrypt==4.3.0
+passlib[argon2]==1.7.4        # uses argon2-cffi internally
 python-jose[cryptography]==3.3.0
-passlib[argon2]==1.7.4        # usa argon2-cffi por debajo
+PyJWT==2.10.1
 
+##############################
+# Caching and Rate Limiting
+##############################
 fastapi-limiter==0.1.6
 redis==5.0.8
+
+##############################
+# Utilities
+##############################
+anyio==4.9.0
+certifi==2025.1.31
+click==8.1.8
+dnspython==2.7.0
+greenlet==3.2.0
+h11==0.14.0
+httpcore==1.0.8
+httptools==0.6.4
+httpx==0.28.1
+idna==3.10
+Jinja2==3.1.6
+Mako==1.3.10
+markdown-it-py==3.0.0
+MarkupSafe==3.0.2
+mdurl==0.1.2
+Pygments==2.19.1
+python-dotenv==1.1.0
+python-multipart==0.0.20
+PyYAML==6.0.2
+rich==14.0.0
+rich-toolkit==0.14.1
+shellingham==1.5.4
+sniffio==1.3.1
+typer==0.15.2
+typing-inspection==0.4.0
+typing_extensions==4.13.2
+uvloop==0.21.0
+watchfiles==1.0.5
+websockets==15.0.1
+
+##############################
+# Development and Testing
+##############################
+black
+flake8
+isort
+pylint
+pytest==8.3.2
+pytest-asyncio

@@ -37,6 +37,9 @@ RUN pip install --no-cache-dir --upgrade-strategy eager -r requirements.txt
 # --- Copy source code ---
 COPY . .
 
+# COPY ../entrypoint.sh /entrypoint.sh
+# RUN chmod +x /entrypoint.sh
+
 # --- Drop root privileges ---
 RUN adduser -D appuser && chown -R appuser:appuser /app
 USER appuser

@@ -6,8 +6,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi_limiter import FastAPILimiter
 from redis.asyncio import Redis
+from starlette.middleware.cors import CORSMiddleware
 
-from app.api.routes import router as api_router
+# from app.auth.routes.auth_router import auth_router
+from app.core.config_loader import settings
+from app.user.routes.user_router import user_router
 
 
 @asynccontextmanager
@@ -40,17 +43,22 @@ app = FastAPI(
 )
 
 
-@app.get("/")
-def root():
-    """Welcome root endpoint."""
-    return {"message": "Bienvenido a la FICA Academic API V1.0 🚀"}
+if settings.BACKEND_CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            str(origin).strip("/") for origin in settings.BACKEND_CORS_ORIGINS
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
-@app.get("/healthz")
-def healthz():
-    """Lightweight liveness probe (does not touch external deps)."""
-    return {"status": "ok"}
+# app.include_router(auth_router, prefix="/api")
+app.include_router(user_router, prefix="/api", tags=["Users"])
 
 
-# Register routes
-app.include_router(api_router)
+@app.get("/health", tags=["Health Checks"])
+def read_root():
+    return {"health": "true"}

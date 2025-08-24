@@ -37,6 +37,6 @@ repos:
         files: ^frontend/
       - id: pytest-backend
         name: Run pytest on backend
-        entry: bash -c "PYTHONPATH=./backend pytest backend/tests"
+        entry: bash -c "PYTHONPATH=./backend pytest backend/app/tests"
         language: system
         files: ^backend/

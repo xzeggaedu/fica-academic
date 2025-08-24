@@ -19,19 +19,21 @@ services:
       - db
 
   db:
-    image: postgres:15
-    # container_name eliminado para evitar conflicto si el contenedor ya existe
-    restart: always
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    env_file:
-      - ./.env
+    image: bitnami/postgresql:17.4.0
+    platform: linux/amd64
     ports:
-      - "5433:5432"
+      - ${POSTGRESQL_PORT}:5432
+    restart: always
     volumes:
       - db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRESQL_USERNAME: ${POSTGRESQL_USERNAME}
+      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD}
+      POSTGRESQL_DATABASE: ${POSTGRESQL_DATABASE}
+    env_file:
+      - backend/.env
+    networks:
+      - docker-fastapi-base
 
   pgadmin:
     image: dpage/pgadmin4
@@ -41,7 +43,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     env_file:
-      - ./.env
+      - backend/.env
     ports:
       - "5050:80"
     depends_on:
