@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-"""
-Database initialization script.
+"""Database initialization script.
+
 This script runs migrations and creates the first superuser.
 """
 import asyncio
 import logging
 import subprocess
 import sys
-import time
-from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,7 +22,7 @@ async def run_migrations():
             cwd="/code/src",
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         logger.info("Migrations completed successfully")
         logger.debug(f"Migration output: {result.stdout}")
@@ -40,12 +38,12 @@ async def create_superuser():
     logger.info("Creating first superuser...")
     try:
         # Import and run the superuser creation
-        from src.scripts.create_first_superuser import create_first_user
         from src.app.core.db.database import local_session
-        
+        from src.scripts.create_first_superuser import create_first_user
+
         async with local_session() as session:
             await create_first_user(session)
-        
+
         logger.info("Superuser creation completed")
         return True
     except Exception as e:
@@ -56,23 +54,24 @@ async def create_superuser():
 async def wait_for_db(max_retries=60, delay=2):
     """Wait for database to be ready."""
     logger.info("Waiting for database to be ready...")
-    
+
     for attempt in range(max_retries):
         try:
             # Try to connect to database
-            from src.app.core.db.database import async_engine
             from sqlalchemy import text
-            
+
+            from src.app.core.db.database import async_engine
+
             async with async_engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
-            
+
             logger.info("Database is ready!")
             return True
-            
+
         except Exception as e:
             logger.info(f"Database not ready yet (attempt {attempt + 1}/{max_retries}): {e}")
             await asyncio.sleep(delay)
-    
+
     logger.error("Database did not become ready in time")
     return False
 
@@ -80,22 +79,22 @@ async def wait_for_db(max_retries=60, delay=2):
 async def main():
     """Main initialization function."""
     logger.info("Starting database initialization...")
-    
+
     # Wait for database
     if not await wait_for_db():
         logger.error("Failed to connect to database")
         sys.exit(1)
-    
+
     # Run migrations
     if not await run_migrations():
         logger.error("Failed to run migrations")
         sys.exit(1)
-    
+
     # Create superuser
     if not await create_superuser():
         logger.error("Failed to create superuser")
         sys.exit(1)
-    
+
     logger.info("Database initialization completed successfully!")
 
 

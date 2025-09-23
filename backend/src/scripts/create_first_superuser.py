@@ -1,15 +1,13 @@
 import asyncio
 import logging
-from uuid6 import uuid7 #126
-from datetime import UTC, datetime
 
 from sqlalchemy import select
 
 from ..app.core.config import settings
 from ..app.core.db.database import AsyncSession, local_session
 from ..app.core.security import get_password_hash
-from ..app.models.user import User
 from ..app.models.role import UserRoleEnum
+from ..app.models.user import User
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,9 +32,9 @@ async def create_first_user(session: AsyncSession) -> None:
                 username=username,
                 hashed_password=hashed_password,
                 role=UserRoleEnum.ADMIN.value,  # Use the enum VALUE (not the key)
-                profile_image_url="https://profileimageurl.com"
+                profile_image_url="https://profileimageurl.com",
             )
-            
+
             session.add(new_user)
             await session.commit()
 

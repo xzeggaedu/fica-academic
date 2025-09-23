@@ -1,1 +1,1 @@
-from .user import User
+# Import models here when needed

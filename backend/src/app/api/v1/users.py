@@ -15,11 +15,9 @@ router = APIRouter(tags=["users"])
 
 
 @router.get("/me", response_model=dict[str, Any])
-async def get_current_user_info(
-    current_user: Annotated[dict, Depends(get_current_user)]
-) -> dict[str, Any]:
+async def get_current_user_info(current_user: Annotated[dict, Depends(get_current_user)]) -> dict[str, Any]:
     """Get current user information with RBAC claims.
-    
+
     Returns
     -------
     dict[str, Any]
@@ -30,7 +28,9 @@ async def get_current_user_info(
 
 @router.post("/user", response_model=UserRead, status_code=201)
 async def write_user(
-    request: Request, user: UserCreate, db: Annotated[AsyncSession, Depends(async_get_db)]
+    request: Request,
+    user: UserCreate,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> UserRead:
     email_row = await crud_users.exists(db=db, email=user.email)
     if email_row:
@@ -56,7 +56,10 @@ async def write_user(
 
 @router.get("/users", response_model=PaginatedListResponse[UserRead])
 async def read_users(
-    request: Request, db: Annotated[AsyncSession, Depends(async_get_db)], page: int = 1, items_per_page: int = 10
+    request: Request,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    page: int = 1,
+    items_per_page: int = 10,
 ) -> dict:
     users_data = await crud_users.get_multi(
         db=db,
@@ -81,7 +84,6 @@ async def read_user(request: Request, username: str, db: Annotated[AsyncSession,
         raise NotFoundException("User not found")
 
     return cast(UserRead, db_user)
-
 
 
 @router.patch("/user/{username}")
@@ -109,7 +111,7 @@ async def patch_user(
     if values.email is not None and values.email != db_email:
         if await crud_users.exists(db=db, email=values.email):
             raise DuplicateValueException("Email is already registered")
- 
+
     if values.username is not None and values.username != db_username:
         if await crud_users.exists(db=db, username=values.username):
             raise DuplicateValueException("Username not available")

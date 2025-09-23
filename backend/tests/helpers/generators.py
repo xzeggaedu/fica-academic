@@ -1,10 +1,9 @@
-from uuid6 import uuid7 #126
-
 from sqlalchemy.orm import Session
+from uuid6 import uuid7  # 126
 
 from src.app import models
-from src.app.models.role import UserRoleEnum
 from src.app.core.security import get_password_hash
+from src.app.models.role import UserRoleEnum
 from tests.conftest import fake
 
 

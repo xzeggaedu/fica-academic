@@ -9,10 +9,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import Session
-from src.app.schemas.user import UserRead
-from src.app.models.role import UserRoleEnum
+
 from src.app.core.config import settings
 from src.app.main import app
+from src.app.models.role import UserRoleEnum
+from src.app.schemas.user import UserRead
 
 DATABASE_URI = settings.POSTGRES_URI
 DATABASE_PREFIX = settings.POSTGRES_SYNC_PREFIX

@@ -13,7 +13,6 @@ from fastapi.openapi.utils import get_openapi
 
 from ..api.dependencies import get_current_superuser
 from ..middleware.client_cache_middleware import ClientCacheMiddleware
-from ..models import *  # noqa: F403
 from .config import (
     AppSettings,
     ClientSideCacheSettings,
@@ -201,7 +200,11 @@ def create_application(
 
             @docs_router.get("/openapi.json", include_in_schema=False)
             async def openapi() -> dict[str, Any]:
-                out: dict = get_openapi(title=application.title, version=application.version, routes=application.routes)
+                out: dict = get_openapi(
+                    title=application.title,
+                    version=application.version,
+                    routes=application.routes,
+                )
                 return out
 
             application.include_router(docs_router)

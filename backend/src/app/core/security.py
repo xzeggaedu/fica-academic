@@ -90,14 +90,14 @@ async def create_refresh_token(data: dict[str, Any], expires_delta: timedelta | 
 
 async def create_access_token_with_rbac(user_data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
     """Create an access token with RBAC claims.
-    
+
     Parameters
     ----------
     user_data : dict[str, Any]
         User data dictionary containing user information
     expires_delta : timedelta | None
         Token expiration time
-        
+
     Returns
     -------
     str
@@ -105,19 +105,19 @@ async def create_access_token_with_rbac(user_data: dict[str, Any], expires_delta
     """
     to_encode = {
         "sub": user_data["username"],  # Subject (username)
-        "user_id": user_data["id"],    # User ID
-        "email": user_data["email"],   # User email
-        "name": user_data["name"],     # User full name
-        "role": user_data["role"],     # User role for RBAC
+        "user_id": user_data["id"],  # User ID
+        "email": user_data["email"],  # User email
+        "name": user_data["name"],  # User full name
+        "role": user_data["role"],  # User role for RBAC
         "is_deleted": user_data["is_deleted"],  # Account status
         "uuid": str(user_data["uuid"]),  # User UUID
     }
-    
+
     if expires_delta:
         expire = datetime.now(UTC).replace(tzinfo=None) + expires_delta
     else:
         expire = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    
+
     to_encode.update({"exp": expire, "token_type": TokenType.ACCESS})
     encoded_jwt: str = jwt.encode(to_encode, SECRET_KEY.get_secret_value(), algorithm=ALGORITHM)
     return encoded_jwt
@@ -125,14 +125,14 @@ async def create_access_token_with_rbac(user_data: dict[str, Any], expires_delta
 
 async def create_refresh_token_with_rbac(user_data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
     """Create a refresh token with minimal RBAC claims.
-    
+
     Parameters
     ----------
     user_data : dict[str, Any]
         User data dictionary containing user information
     expires_delta : timedelta | None
         Token expiration time
-        
+
     Returns
     -------
     str
@@ -140,15 +140,15 @@ async def create_refresh_token_with_rbac(user_data: dict[str, Any], expires_delt
     """
     to_encode = {
         "sub": user_data["username"],  # Subject (username)
-        "user_id": user_data["id"],    # User ID
-        "role": user_data["role"],     # User role for RBAC
+        "user_id": user_data["id"],  # User ID
+        "role": user_data["role"],  # User role for RBAC
     }
-    
+
     if expires_delta:
         expire = datetime.now(UTC).replace(tzinfo=None) + expires_delta
     else:
         expire = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    
+
     to_encode.update({"exp": expire, "token_type": TokenType.REFRESH})
     encoded_jwt: str = jwt.encode(to_encode, SECRET_KEY.get_secret_value(), algorithm=ALGORITHM)
     return encoded_jwt
@@ -193,7 +193,7 @@ async def verify_token_with_rbac(token: str, expected_token_type: TokenType, db:
             "is_deleted": payload.get("is_deleted"),
             "uuid": payload.get("uuid"),
         }
-        
+
         return rbac_claims
 
     except JWTError:

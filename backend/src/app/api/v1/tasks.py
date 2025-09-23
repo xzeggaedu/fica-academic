@@ -1,7 +1,7 @@
 from typing import Any
 
 from arq.jobs import Job as ArqJob
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 
 from ...core.utils import queue
 from ...schemas.job import Job

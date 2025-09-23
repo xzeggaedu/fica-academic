@@ -1,5 +1,6 @@
 import enum as py_enum
 
+
 class UserRoleEnum(str, py_enum.Enum):
     ADMIN = "admin"
     DIRECTOR = "director"

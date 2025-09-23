@@ -1,25 +1,23 @@
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.config import settings
 from ..core.db.database import async_get_db
 from ..core.exceptions.http_exceptions import ForbiddenException, UnauthorizedException
 from ..core.logger import logging
 from ..core.security import TokenType, oauth2_scheme, verify_token_with_rbac
-from ..crud.crud_users import crud_users
-from ..models.user import User as UserModel
 from ..models.role import UserRoleEnum
 
 logger = logging.getLogger(__name__)
 
 
 async def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)], db: Annotated[AsyncSession, Depends(async_get_db)]
+    token: Annotated[str, Depends(oauth2_scheme)],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, Any] | None:
     """Get current user with RBAC claims from JWT token.
-    
+
     Returns
     -------
     dict[str, Any] | None
@@ -34,7 +32,7 @@ async def get_current_user(
 
 async def get_optional_user(request: Request, db: AsyncSession = Depends(async_get_db)) -> dict | None:
     """Get optional user with RBAC claims from JWT token.
-    
+
     Returns
     -------
     dict | None
