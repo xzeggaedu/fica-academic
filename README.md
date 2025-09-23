@@ -1,102 +1,159 @@
-# fica-academic
+# FICA Academic System
 
-FICA Academic API es el backend desarrollado en FastAPI para el Sistema de Estadísticos de la Carga Académica de la Facultad de Informática y Ciencias Aplicadas (FICA) de la Universidad Tecnológica de El Salvador.
+Sistema de Estadísticos de la Carga Académica de la Facultad de Informática y Ciencias Aplicadas (FICA) de la Universidad Tecnológica de El Salvador.
 
-Este repositorio contiene el entorno completo para el desarrollo del sistema FICA Academic, incluyendo backend (FastAPI) y próximamente frontend. Aquí encontrarás todo lo necesario para configurar y trabajar como developer en este proyecto.
+## 🏗️ Arquitectura del Proyecto
 
-## Requisitos generales
-
-- Docker y Docker Compose
-- Python 3.11 (recomendado instalar con pyenv)
-- Node.js y npm (para el frontend, próximamente)
-
-## Estructura del proyecto
+Este es un **monorepo** que contiene todos los componentes del sistema FICA Academic:
 
 ```
 fica-academic/
-│── backend/
-│   │── app/
-│   │── requirements.txt
-│   │── Dockerfile
-│   │── .env
-│── frontend/   # (próximamente)
-│── docker-compose.yml
-│── .env
+├── backend/               # API Backend (FastAPI)
+├── frontend/              # Aplicación Web (React/Vite)
+├── docker-compose.yml     # Desarrollo
+├── docker-compose.prod.yml # Producción
+├── .pre-commit-config.yaml # Calidad de código
+└── README.md              # Este archivo
 ```
 
----
+## 🚀 Inicio Rápido
 
-## Configuración del entorno de desarrollo
+### Prerrequisitos
 
-### Opción 1: Usando Docker (recomendado)
+- Docker y Docker Compose
+- Git
 
-1. Clona el repositorio y entra al directorio:
+### Desarrollo
+
+1. **Clonar el repositorio**:
+
    ```bash
    git clone https://github.com/xzeggaedu/fica-academic.git
    cd fica-academic
    ```
-2. Crea manualmente el archivo `.env` en la raíz del proyecto con las variables necesarias. Ejemplo:
-   ```env
-   # .env (global) - ejemplo
-   POSTGRES_USER=your_db_user
-   POSTGRES_PASSWORD=your_db_password
-   POSTGRES_DB=your_db_name
-   PGADMIN_EMAIL=your_pgadmin_email@example.com
-   PGADMIN_PASSWORD=your_pgadmin_password
-   ```
-   Para el backend, crea manualmente `backend/.env` así:
-   ```env
-   # backend/.env - ejemplo
-   DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-   SECRET_KEY=your_secret_key
-   DEBUG=True
-   ```
-3. Levanta los servicios:
+
+1. **Configurar variables de entorno**:
+
    ```bash
-   docker-compose up --build
+   # Backend
+   cp backend/src/.env.example backend/src/.env
+   # Editar las variables según tu entorno
    ```
-   Esto levantará:
-   - Backend API en `http://localhost:3025`
-   - Frontend en `http://localhost:3000`
-   - PostgreSQL en `localhost:5432` (puerto configurable)
-   - pgAdmin en `http://localhost:5050`
 
-## Visualización de la aplicación en producción
+1. **Levantar todos los servicios**:
 
-Para levantar el entorno de producción, usa:
+   ```bash
+   docker-compose up -d
+   ```
+
+1. **Acceder a la aplicación**:
+
+   - **Frontend**: http://localhost:3000
+   - **Backend API**: http://localhost:8000
+   - **API Docs**: http://localhost:8000/docs
+   - **PGAdmin**: http://localhost:5050
+
+## 🛠️ Servicios
+
+### Backend (FastAPI)
+
+- **Puerto**: 8000
+- **Tecnologías**: FastAPI, PostgreSQL, Redis
+- **Documentación**: Ver `backend/README.md`
+
+### Frontend (React/Vite)
+
+- **Puerto**: 3000
+- **Tecnologías**: React, TypeScript, Vite
+- **Documentación**: Ver `frontend/README.md`
+
+### Base de Datos
+
+- **PostgreSQL**: Puerto 5432
+- **Redis**: Puerto 6379
+- **PGAdmin**: Puerto 5050
+
+## 🚀 Producción
+
+### Despliegue con Docker
 
 ```bash
-docker-compose -f docker-compose.prod.yml up --build -d
+# Levantar en producción
+docker-compose -f docker-compose.prod.yml up -d
+
+# Ver logs
+docker-compose -f docker-compose.prod.yml logs -f
+
+# Detener servicios
+docker-compose -f docker-compose.prod.yml down
 ```
 
-Esto levantará:
+### GitHub Actions
 
-- Backend API en `http://localhost:3025`
-- Frontend en `http://localhost:3000`
-- PostgreSQL en `localhost:5432`
-- pgAdmin en `http://localhost:5050`
+El proyecto incluye CI/CD automático que:
 
-Accede al frontend desde tu navegador en `http://localhost:3000` y al backend en `http://localhost:3025`.
+- Ejecuta tests en cada push
+- Construye imágenes Docker
+- Despliega a producción
 
----
+## 🧪 Testing
 
-## Buenas prácticas para developers
+```bash
+# Tests del backend
+cd backend && pytest
 
-- Usa siempre un entorno virtual para Python.
-- Ejecuta los linters y pre-commit antes de cada commit para mantener la calidad del código.
-- Si usas Docker, asegúrate de que los puertos necesarios estén libres.
-- Mantén tus archivos `.env` seguros y nunca los subas a repositorios públicos.
-- Documenta cualquier cambio relevante en el README o en los archivos de configuración.
+# Tests del frontend
+cd frontend && npm test
 
----
+# Tests de todo el proyecto
+npm run test:all
+```
 
-## Endpoints principales del backend
+## 🔧 Desarrollo
 
-- `/` - Mensaje de bienvenida
-- `/api/health` - Verifica el estado de la API
+### Pre-commit Hooks
 
----
+El proyecto incluye hooks de pre-commit para mantener la calidad del código:
 
-## Contacto y soporte
+```bash
+# Instalar pre-commit
+pip install pre-commit
+pre-commit install
 
-Para dudas técnicas, sugerencias o soporte, contacta a los responsables del proyecto o abre un issue en GitHub.
+# Ejecutar manualmente
+pre-commit run --all-files
+```
+
+### Estándares de Código
+
+- **Backend**: Black, Flake8, Pylint, Pytest
+- **Frontend**: ESLint, Prettier, Vitest
+- **Commits**: Conventional Commits
+
+## 📚 Documentación
+
+- **Backend**: [backend/README.md](backend/README.md)
+- **Frontend**: [frontend/README.md](frontend/README.md)
+- **API Docs**: http://localhost:8000/docs
+- **Documentación completa**: Ver `backend/docs/`
+
+## 🤝 Contribución
+
+1. Fork el proyecto
+1. Crea una branch (`git checkout -b feature/nueva-funcionalidad`)
+1. Commit tus cambios (`git commit -m 'feat: agregar nueva funcionalidad'`)
+1. Push a la branch (`git push origin feature/nueva-funcionalidad`)
+1. Abre un Pull Request
+
+## 📞 Soporte
+
+- **Issues**: [GitHub Issues](https://github.com/xzeggaedu/fica-academic/issues)
+- **Documentación**: Ver directorio `docs/`
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia Apache 2.0 - ver el archivo [LICENSE](LICENSE) para más detalles.
+
+______________________________________________________________________
+
+**Desarrollado para la Universidad Tecnológica de El Salvador - Facultad de Informática y Ciencias Aplicadas (FICA)**
