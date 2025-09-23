@@ -1,2 +1,7 @@
 # ruff: noqa
-from fastcrud.exceptions.http_exceptions import ForbiddenException, UnauthorizedException
+from fastcrud.exceptions.http_exceptions import (
+    DuplicateValueException,
+    ForbiddenException,
+    NotFoundException,
+    UnauthorizedException,
+)
