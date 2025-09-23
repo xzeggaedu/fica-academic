@@ -19,15 +19,17 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     # Create user_role_enum type if it doesn't exist
     op.execute(
-        "DO $$ BEGIN CREATE TYPE user_role_enum AS ENUM "
-        "('admin', 'director', 'decano', 'vicerrector', 'unauthorized'); "
-        "EXCEPTION WHEN duplicate_object THEN null; END $$;"
+        "DO $$ BEGIN "
+        "IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role_enum') THEN "
+        "CREATE TYPE user_role_enum AS ENUM ('admin', 'director', 'decano', 'vicerrector', 'unauthorized'); "
+        "END IF; "
+        "END $$;"
     )
 
-    # Create user table
+    # Create user table if it doesn't exist
     op.execute(
         """
-        CREATE TABLE "user" (
+        CREATE TABLE IF NOT EXISTS "user" (
             id SERIAL PRIMARY KEY,
             name VARCHAR(30) NOT NULL,
             username VARCHAR(20) NOT NULL UNIQUE,
