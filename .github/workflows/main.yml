@@ -1,0 +1,81 @@
+# Workflow Name
+name: Production Deployment (On-Prem)
+
+# Event that triggers the workflow
+on:
+  push:
+    branches:
+      - main
+
+# Jobs to be executed
+jobs:
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install
+      - name: Run frontend tests
+        run: npm run test -- --run
+
+  test-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+      - name: Run backend tests
+        run: |
+          source .venv/bin/activate
+          PYTHONPATH=./ pytest tests
+
+  build_and_push_backend:
+    runs-on: ubuntu-latest
+    needs: [test-backend]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Log in to Docker Registry (GHCR)
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
+      - name: Build and push Backend image
+        run: |
+          docker build ./backend -f ./backend/Dockerfile.prod -t ghcr.io/${{ github.repository }}-backend:latest
+          docker push ghcr.io/${{ github.repository }}-backend:latest
+
+  build_and_push_frontend:
+    runs-on: ubuntu-latest
+    needs: [test-frontend]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Log in to Docker Registry (GHCR)
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
+      - name: Build and push Frontend image
+        run: |
+          docker build ./frontend -f ./frontend/Dockerfile.prod -t ghcr.io/${{ github.repository }}-frontend:latest
+          docker push ghcr.io/${{ github.repository }}-frontend:latest

@@ -1,0 +1,111 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fica_api
+    restart: always
+    command: uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - ./backend/src/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+      - init_db
+    volumes:
+      - ./backend/src:/code/src
+      - ./backend/src/.env:/code/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fica_frontend
+    restart: always
+    ports:
+      - "3000:5173" # Acceso a la app React/Vite en localhost:3000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    working_dir: /app
+    command: npm run dev -- --host
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - api
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: arq src.app.core.worker.settings.WorkerSettings
+    env_file:
+      - ./backend/src/.env
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./backend/src:/code/src
+      - ./backend/src/.env:/code/.env
+
+  db:
+    image: postgres:13
+    env_file:
+      - ./backend/src/.env
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U utec_fica -d fica_academic"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:alpine
+    volumes:
+      - redis-data:/data
+    expose:
+      - "6379"
+
+  pgadmin:
+    container_name: pgadmin4
+    image: dpage/pgadmin4:latest
+    restart: always
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    env_file:
+      - ./backend/src/.env
+    depends_on:
+      - db
+
+  init_db:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/src/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python -m src.scripts.init_db
+    volumes:
+      - ./backend/src:/code/src
+    restart: "no"
+
+volumes:
+  postgres-data:
+  redis-data:
+  pgadmin-data:

@@ -1,0 +1,42 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        language_version: python3.11
+        additional_dependencies: []
+        files: backend/
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        language_version: python3.11
+        additional_dependencies: []
+        files: backend/
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        language_version: python3.11
+        additional_dependencies: []
+        files: backend/
+  - repo: https://github.com/PyCQA/pylint
+    rev: v3.1.0
+    hooks:
+      - id: pylint
+        entry: ./.venv/bin/pylint
+        language_version: python3.11
+        additional_dependencies: []
+        args: ["--rcfile=.pylintrc", "backend/app"]
+  - repo: local
+    hooks:
+      - id: vitest-frontend
+        name: Run Vitest on frontend
+        entry: bash -c "cd frontend && npm run test -- --run"
+        language: system
+        files: ^frontend/
+      - id: pytest-backend
+        name: Run pytest on backend
+        entry: bash -c "PYTHONPATH=./backend pytest backend/app/tests"
+        language: system
+        files: ^backend/
