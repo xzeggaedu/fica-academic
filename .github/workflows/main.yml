@@ -22,10 +22,8 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm ci
-      - name: List contents of src/lib
-        run: ls -R src for a recursive listing
       - name: Run frontend tests
-        run: DEBUG=vite-tsconfig-paths npm run test:run -- --run
+        run: npm run test:run -- --run
 
   test-backend:
     runs-on: ubuntu-latest
