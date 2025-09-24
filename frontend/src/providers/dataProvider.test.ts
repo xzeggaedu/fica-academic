@@ -24,7 +24,7 @@ describe('DataProvider', () => {
           { id: 1, name: 'User 1', email: 'user1@example.com' },
           { id: 2, name: 'User 2', email: 'user2@example.com' },
         ],
-        total: 2,
+        total_count: 2,
       };
 
       global.fetch = vi.fn().mockResolvedValue({
@@ -156,6 +156,10 @@ describe('DataProvider', () => {
     it('should delete resource successfully', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
+        status: 200,
+        headers: {
+          get: vi.fn().mockReturnValue('application/json'),
+        },
         json: () => Promise.resolve({ message: 'User deleted successfully' }),
       });
 
