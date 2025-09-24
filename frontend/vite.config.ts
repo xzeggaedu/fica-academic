@@ -7,6 +7,11 @@ import tsconfigPaths from "vite-tsconfig-paths";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), tsconfigPaths()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src/'), // Explicitly define the alias
+    },
+  },
   server: {
     port: 3000,
     host: true,
