@@ -19,4 +19,10 @@ export default defineConfig({
     // Disable Refine Devtools in development to avoid WebSocket errors
     __REFINE_DEVTOOLS_PORT__: JSON.stringify(null),
   },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    css: true,
+  },
 });

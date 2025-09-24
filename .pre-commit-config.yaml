@@ -61,11 +61,18 @@ repos:
 
   - repo: local
     hooks:
-    - id: unit_test
-      name: Unit test
+    - id: backend_unit_test
+      name: Backend Unit Tests
       language: system
-      entry: uv run pytest
+      entry: bash -c 'cd backend && uv run pytest'
       pass_filenames: false
       always_run: true
       types: [python]
+      stages: [manual]
+    - id: frontend_unit_test
+      name: Frontend Unit Tests
+      language: system
+      entry: bash -c 'cd frontend && npm run test:run'
+      pass_filenames: false
+      always_run: true
       stages: [manual]
