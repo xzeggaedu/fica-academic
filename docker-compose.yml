@@ -31,13 +31,33 @@ services:
     container_name: fica_frontend
     restart: always
     ports:
-      - "3000:5173" # Acceso a la app React/Vite en localhost:3000
+      - "3000:3000" # Acceso a la app Refine.dev en localhost:3000
     volumes:
       - ./frontend:/app
       - /app/node_modules
     working_dir: /app
-    command: npm run dev -- --host
+    command: npm run dev
     environment:
+      # API Configuration
+      - VITE_API_URL=http://localhost:8000
+      - VITE_API_BASE_PATH=/api/v1
+      # Authentication Endpoints
+      - VITE_AUTH_LOGIN_ENDPOINT=/api/v1/login
+      - VITE_AUTH_LOGOUT_ENDPOINT=/api/v1/logout
+      - VITE_AUTH_REFRESH_ENDPOINT=/api/v1/refresh
+      - VITE_AUTH_ME_ENDPOINT=/api/v1/me
+      # Development Configuration
+      - VITE_DEV_TOOLS=true
+      - VITE_DEBUG_MODE=true
+      - VITE_LOG_LEVEL=debug
+      # Security Configuration
+      - VITE_TOKEN_STORAGE_KEY=fica-access-token
+      - VITE_REFRESH_TOKEN_STORAGE_KEY=fica-refresh-token
+      # Performance Configuration
+      - VITE_API_TIMEOUT=10000
+      - VITE_API_RETRY_ATTEMPTS=3
+      - VITE_API_RETRY_DELAY=1000
+      # Development Tools
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - api

@@ -47,6 +47,21 @@ class UserCreate(UserBase):
     ]
 
 
+class UserCreateAdmin(UserBase):
+    """Schema for admin to create users with specific roles."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    password: Annotated[
+        str,
+        Field(
+            pattern=r"^.{8,}|[0-9]+|[A-Z]+|[a-z]+|[^a-zA-Z0-9]+$",
+            examples=["Str1ngst!"],
+        ),
+    ]
+    role: Annotated[UserRoleEnum, Field(default=UserRoleEnum.UNAUTHORIZED)]
+
+
 class UserCreateInternal(UserBase):
     hashed_password: str
     role: UserRoleEnum = UserRoleEnum.UNAUTHORIZED
@@ -80,6 +95,12 @@ class UserUpdate(BaseModel):
     ]
 
 
+class UserUpdateAdmin(UserUpdate):
+    """Schema for admin to update users including role changes."""
+
+    role: Annotated[UserRoleEnum | None, Field(default=None)]
+
+
 class UserUpdateInternal(UserUpdate):
     updated_at: datetime
 
@@ -89,6 +110,27 @@ class UserDelete(BaseModel):
 
     is_deleted: bool
     deleted_at: datetime
+
+
+class UserPasswordUpdate(BaseModel):
+    """Schema for password update with current password verification."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: Annotated[
+        str,
+        Field(
+            min_length=1,
+            examples=["CurrentPassword123!"],
+        ),
+    ]
+    new_password: Annotated[
+        str,
+        Field(
+            pattern=r"^.{8,}|[0-9]+|[A-Z]+|[a-z]+|[^a-zA-Z0-9]+$",
+            examples=["NewPassword123!"],
+        ),
+    ]
 
 
 class UserRestoreDeleted(BaseModel):

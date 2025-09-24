@@ -1,20 +1,17 @@
-# --------- Development Dockerfile ---------
-FROM node:20-alpine AS development
+FROM node:20-alpine
 
 WORKDIR /app
 
 # Copy package files first (for better layer caching)
 COPY package.json package-lock.json* ./
-
-# Install all dependencies (including dev dependencies)
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci
+RUN npm install --legacy-peer-deps
 
 # Copy source code
 COPY . .
 
-# Expose port for development server
-EXPOSE 3000
+# Update OS packages to reduce vulnerabilities
+RUN apk update && apk upgrade
 
-# Start development server
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+EXPOSE 3000
+ENV PORT=3000
+CMD ["npm", "run", "dev", "--", "--host"]

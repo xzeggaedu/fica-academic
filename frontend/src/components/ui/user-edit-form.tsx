@@ -1,0 +1,572 @@
+import React, { useState } from "react";
+import { UserRoleEnum } from "../../types/auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useGetIdentity } from "@refinedev/core";
+
+interface UserEditFormProps {
+  data: any;
+  isLoading: boolean;
+  error: any;
+  onSuccess?: () => void;
+}
+
+interface FormErrors {
+  name?: string;
+  username?: string;
+  email?: string;
+  profile_image_url?: string;
+  role?: string;
+  submit?: string;
+}
+
+interface PasswordErrors {
+  current_password?: string;
+  new_password?: string;
+  confirm_password?: string;
+  submit?: string;
+}
+
+export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditFormProps) {
+  const [formData, setFormData] = useState({
+    name: "",
+    username: "",
+    email: "",
+    profile_image_url: "",
+    role: UserRoleEnum.UNAUTHORIZED,
+  });
+  const [passwordData, setPasswordData] = useState({
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [passwordErrors, setPasswordErrors] = useState<PasswordErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showPasswordConfirmDialog, setShowPasswordConfirmDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState("profile");
+
+  const { data: currentUser } = useGetIdentity();
+  const isCurrentUser = currentUser?.id === data?.id;
+
+  // Update form data when data prop changes
+  React.useEffect(() => {
+    if (data && data.role) {
+      setFormData({
+        name: data.name || "",
+        username: data.username || "",
+        email: data.email || "",
+        profile_image_url: data.profile_image_url || "",
+        role: data.role,
+      });
+    }
+  }, [data]);
+
+  const roleOptions = [
+    { value: UserRoleEnum.UNAUTHORIZED, label: "No Autorizado" },
+    { value: UserRoleEnum.ADMIN, label: "Administrador" },
+    { value: UserRoleEnum.DIRECTOR, label: "Director" },
+    { value: UserRoleEnum.DECANO, label: "Decano" },
+    { value: UserRoleEnum.VICERRECTOR, label: "Vicerrector" },
+  ];
+
+  const validateForm = () => {
+    const newErrors: FormErrors = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = "Este campo es obligatorio";
+    } else if (formData.name.length < 2) {
+      newErrors.name = "El nombre debe tener al menos 2 caracteres";
+    } else if (formData.name.length > 30) {
+      newErrors.name = "El nombre debe tener máximo 30 caracteres";
+    }
+
+    if (!formData.username.trim()) {
+      newErrors.username = "Este campo es obligatorio";
+    } else if (formData.username.length < 2) {
+      newErrors.username = "El nombre de usuario debe tener al menos 2 caracteres";
+    } else if (formData.username.length > 20) {
+      newErrors.username = "El nombre de usuario debe tener máximo 20 caracteres";
+    } else if (!/^[a-z0-9]+$/.test(formData.username)) {
+      newErrors.username = "El nombre de usuario solo puede contener letras minúsculas y números";
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Este campo es obligatorio";
+    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)) {
+      newErrors.email = "Dirección de correo electrónico inválida";
+    }
+
+    if (formData.profile_image_url && !/^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/.test(formData.profile_image_url)) {
+      newErrors.profile_image_url = "Formato de URL inválido";
+    }
+
+    if (!formData.role) {
+      newErrors.role = "Debe seleccionar un rol";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmUpdate = async () => {
+    setIsSubmitting(true);
+    setShowConfirmDialog(false);
+
+    try {
+      const token = localStorage.getItem("fica-access-token");
+
+      if (!token) {
+        throw new Error("No hay token de autenticación disponible");
+      }
+
+      const url = `http://localhost:8000/api/v1/user/id/${data.id}`;
+
+      // Ensure role has a valid value before sending
+      const dataToSend = {
+        ...formData,
+        role: formData.role || UserRoleEnum.UNAUTHORIZED
+      };
+
+      console.log("UserEditForm - Updating user:", dataToSend);
+
+      const response = await fetch(url, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(dataToSend),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Token expirado o inválido
+          localStorage.removeItem("fica-access-token");
+          localStorage.removeItem("fica-refresh-token");
+          throw new Error("Sesión expirada. Por favor, inicia sesión nuevamente.");
+        }
+
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      console.log("UserEditForm - Update successful");
+
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (err) {
+      console.error("UserEditForm - Update error:", err);
+      const errorMessage = (err as Error).message;
+      setErrors({ submit: errorMessage });
+
+      // Si es error de autenticación, redirigir al login
+      if (errorMessage.includes("Sesión expirada")) {
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 2000);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const validatePasswordForm = () => {
+    const newErrors: PasswordErrors = {};
+
+    if (!passwordData.current_password.trim()) {
+      newErrors.current_password = "La contraseña actual es obligatoria";
+    }
+
+    if (!passwordData.new_password.trim()) {
+      newErrors.new_password = "La nueva contraseña es obligatoria";
+    } else if (passwordData.new_password.length < 8) {
+      newErrors.new_password = "La nueva contraseña debe tener al menos 8 caracteres";
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/.test(passwordData.new_password)) {
+      newErrors.new_password = "La nueva contraseña debe contener al menos una letra minúscula, una mayúscula, un número y un carácter especial";
+    }
+
+    if (!passwordData.confirm_password.trim()) {
+      newErrors.confirm_password = "La confirmación de contraseña es obligatoria";
+    } else if (passwordData.new_password !== passwordData.confirm_password) {
+      newErrors.confirm_password = "Las contraseñas no coinciden";
+    }
+
+    if (passwordData.current_password === passwordData.new_password) {
+      newErrors.new_password = "La nueva contraseña debe ser diferente a la actual";
+    }
+
+    setPasswordErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!validatePasswordForm()) {
+      return;
+    }
+
+    setShowPasswordConfirmDialog(true);
+  };
+
+  const handleConfirmPasswordUpdate = async () => {
+    setIsPasswordSubmitting(true);
+    setShowPasswordConfirmDialog(false);
+
+    try {
+      const token = localStorage.getItem("fica-access-token");
+      const url = `http://localhost:8000/api/v1/user/id/${data.id}/password`;
+
+      console.log("UserEditForm - Updating password for user:", data.id);
+
+      const response = await fetch(url, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          current_password: passwordData.current_password,
+          new_password: passwordData.new_password,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      console.log("UserEditForm - Password update successful");
+
+      // Reset password form
+      setPasswordData({
+        current_password: "",
+        new_password: "",
+        confirm_password: "",
+      });
+      setPasswordErrors({});
+
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (err) {
+      console.error("UserEditForm - Password update error:", err);
+      setPasswordErrors({ submit: (err as Error).message || "Error al actualizar la contraseña" });
+    } finally {
+      setIsPasswordSubmitting(false);
+    }
+  };
+
+  const handlePasswordInputChange = (field: keyof PasswordErrors, value: string) => {
+    setPasswordData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (passwordErrors[field]) {
+      setPasswordErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handleInputChange = (field: keyof FormErrors, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <div className="text-red-600">Error al cargar los datos del usuario</div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <div className="text-gray-600">No se encontraron datos del usuario</div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="profile">Perfil</TabsTrigger>
+          <TabsTrigger value="password">Contraseña</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="profile" className="mt-6">
+          <Card className="border-0 shadow-none">
+            <CardHeader className="px-4 pb-4">
+              <CardTitle className="text-lg font-semibold">Editar Perfil</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">
+                Actualiza la información del usuario.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 px-4 pb-2">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="name" className="text-sm font-medium">Nombre Completo *</Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="Ingrese el nombre completo"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange("name", e.target.value)}
+                      className="h-11"
+                    />
+                    {errors.name && (
+                      <p className="text-sm text-red-600 mt-1">{errors.name}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label htmlFor="username" className="text-sm font-medium">Nombre de Usuario *</Label>
+                    <Input
+                      id="username"
+                      type="text"
+                      placeholder="Ingrese el nombre de usuario"
+                      value={formData.username}
+                      onChange={(e) => handleInputChange("username", e.target.value)}
+                      className="h-11"
+                    />
+                    {errors.username && (
+                      <p className="text-sm text-red-600 mt-1">{errors.username}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="email" className="text-sm font-medium">Correo Electrónico *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Ingrese el correo electrónico"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    className="h-11"
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-red-600 mt-1">{errors.email}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="profile_image_url" className="text-sm font-medium">URL de Imagen de Perfil</Label>
+                    <Input
+                      id="profile_image_url"
+                      type="url"
+                      placeholder="Ingrese la URL de la imagen de perfil"
+                      value={formData.profile_image_url}
+                      onChange={(e) => handleInputChange("profile_image_url", e.target.value)}
+                      className="h-11"
+                    />
+                    {errors.profile_image_url && (
+                      <p className="text-sm text-red-600 mt-1">{errors.profile_image_url}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label htmlFor="role" className="text-sm font-medium">
+                      Rol * {isCurrentUser && <span className="text-orange-600">(No puedes cambiar tu propio rol)</span>}
+                    </Label>
+                    <Select
+                      key={formData.role || 'default'}
+                      value={formData.role}
+                      onValueChange={(value) => handleInputChange("role", value)}
+                      disabled={isCurrentUser}
+                    >
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Seleccione un rol" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roleOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.role && (
+                      <p className="text-sm text-red-600 mt-1">{errors.role}</p>
+                    )}
+                  </div>
+                </div>
+
+                {errors.submit && (
+                  <div className="text-sm text-red-600 text-center py-2">{errors.submit}</div>
+                )}
+
+                <div className="flex justify-end space-x-4 pt-6">
+                  <Button
+                    type="submit"
+                    className="w-full h-11"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Actualizando..." : "Actualizar Usuario"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="password" className="mt-6">
+          <Card className="border-0 shadow-none">
+            <CardHeader className="px-4 pb-4">
+              <CardTitle className="text-lg font-semibold">Cambiar Contraseña</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">
+                Actualiza la contraseña del usuario. Se requiere la contraseña actual para verificar la identidad.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-4 pb-2">
+              <form onSubmit={handlePasswordSubmit} className="space-y-6">
+                <div className="space-y-3">
+                  <Label htmlFor="current_password" className="text-sm font-medium">Contraseña Actual *</Label>
+                  <Input
+                    id="current_password"
+                    type="password"
+                    placeholder="Ingrese la contraseña actual"
+                    value={passwordData.current_password}
+                    onChange={(e) => handlePasswordInputChange("current_password", e.target.value)}
+                    className="h-11"
+                  />
+                  {passwordErrors.current_password && (
+                    <p className="text-sm text-red-600 mt-1">{passwordErrors.current_password}</p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="new_password" className="text-sm font-medium">Nueva Contraseña *</Label>
+                  <Input
+                    id="new_password"
+                    type="password"
+                    placeholder="Ingrese la nueva contraseña"
+                    value={passwordData.new_password}
+                    onChange={(e) => handlePasswordInputChange("new_password", e.target.value)}
+                    className="h-11"
+                  />
+                  {passwordErrors.new_password && (
+                    <p className="text-sm text-red-600 mt-1">{passwordErrors.new_password}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                    Mínimo 8 caracteres con al menos una letra minúscula, una mayúscula, un número y un carácter especial
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="confirm_password" className="text-sm font-medium">Confirmar Nueva Contraseña *</Label>
+                  <Input
+                    id="confirm_password"
+                    type="password"
+                    placeholder="Confirme la nueva contraseña"
+                    value={passwordData.confirm_password}
+                    onChange={(e) => handlePasswordInputChange("confirm_password", e.target.value)}
+                    className="h-11"
+                  />
+                  {passwordErrors.confirm_password && (
+                    <p className="text-sm text-red-600 mt-1">{passwordErrors.confirm_password}</p>
+                  )}
+                </div>
+
+                {passwordErrors.submit && (
+                  <div className="text-sm text-red-600 text-center py-2">{passwordErrors.submit}</div>
+                )}
+
+                <div className="flex justify-end space-x-4 pt-6">
+                  <Button
+                    type="submit"
+                    className="w-full h-11"
+                    disabled={isPasswordSubmitting}
+                  >
+                    {isPasswordSubmitting ? "Actualizando..." : "Actualizar Contraseña"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Confirmation Dialog for Profile Update */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Actualización</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas actualizar la información de este usuario?
+              Esta acción modificará los datos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmUpdate}>
+              Confirmar Actualización
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for Password Update */}
+      <AlertDialog open={showPasswordConfirmDialog} onOpenChange={setShowPasswordConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Cambio de Contraseña</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas cambiar la contraseña de este usuario?
+              Esta acción es irreversible y el usuario deberá usar la nueva contraseña para iniciar sesión.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmPasswordUpdate}>
+              Confirmar Cambio
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
