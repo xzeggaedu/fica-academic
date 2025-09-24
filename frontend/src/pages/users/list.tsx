@@ -9,13 +9,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../components/ui/table";
+} from "../../components/ui/data/table";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { TableFilters } from "../../components/ui/table-filters";
-import { UserActions } from "../../components/ui/user-actions";
-import { UserCreateButton } from "../../components/ui/user-create-button";
+import { TableFilters } from "../../components/ui/data/table-filters";
+import { UserActions } from "../../components/ui/users/user-actions";
+import { UserCreateButton } from "../../components/ui/users/user-create-button";
 
 export const UserList = () => {
   const { query, result } = useList({

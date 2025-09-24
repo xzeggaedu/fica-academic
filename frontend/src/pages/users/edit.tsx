@@ -4,9 +4,9 @@ import { useNavigation, CanAccess } from "@refinedev/core";
 import { UserRoleEnum } from "../../types/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { Input } from "../../components/ui/forms/input";
+import { Label } from "../../components/ui/forms/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/forms/select";
 
 export const UserEdit = () => {
   const { saveButtonProps, formLoading, queryResult, register, formState: { errors } } = useForm();

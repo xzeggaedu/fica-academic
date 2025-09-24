@@ -19,7 +19,7 @@ import {
   SidebarRail as ShadcnSidebarRail,
   SidebarTrigger as ShadcnSidebarTrigger,
   useSidebar as useShadcnSidebar,
-} from "@/components/ui/sidebar";
+} from "@/components/ui/layout/sidebar";
 import { cn } from "@/lib/utils";
 import {
   useLink,

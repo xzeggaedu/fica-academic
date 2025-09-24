@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { UserRoleEnum } from "../../types/auth";
+import { UserRoleEnum } from "../../../types/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
