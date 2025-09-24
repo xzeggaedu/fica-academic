@@ -12,7 +12,6 @@ Este proyecto utiliza **Vitest** y **@testing-library/react** para las pruebas u
 - `@testing-library/user-event` - Simulación de eventos de usuario
 - `@testing-library/dom` - Utilidades base para testing DOM
 - `jsdom` - Entorno DOM simulado
-- `@vitest/coverage-v8` - Generación de reportes de cobertura
 
 ## Scripts disponibles
 
@@ -25,9 +24,6 @@ npm run test:run
 
 # Ejecutar tests con interfaz gráfica
 npm run test:ui
-
-# Ejecutar tests con reporte de cobertura
-npm run test:coverage
 ```
 
 ## Estructura de archivos

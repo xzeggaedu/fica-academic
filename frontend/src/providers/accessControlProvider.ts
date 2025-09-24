@@ -1,11 +1,13 @@
 import { AccessControlProvider } from "@refinedev/core";
-import { UserRoleEnum, hasRolePermission } from "../types/auth";
+import { UserRoleEnum, hasRolePermission, canAccessAdminFeatures } from "../types/auth";
+
+// Usar la misma clave que el authProvider
+const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
 
 export const accessControlProvider: AccessControlProvider = {
   can: async ({ resource, action, params }) => {
-    // Obtener el rol del usuario desde el token o contexto
-    // Por ahora usaremos localStorage, pero en producción debería venir del contexto
-    const token = localStorage.getItem("fica-access-token");
+    // Obtener el rol del usuario desde el token
+    const token = localStorage.getItem(TOKEN_KEY);
 
     if (!token) {
       return {
@@ -31,7 +33,7 @@ export const accessControlProvider: AccessControlProvider = {
             case "edit":
             case "delete":
               // Solo administradores pueden gestionar usuarios
-              if (userRole === UserRoleEnum.ADMIN) {
+              if (canAccessAdminFeatures(userRole)) {
                 return { can: true };
               }
               return {
@@ -54,7 +56,7 @@ export const accessControlProvider: AccessControlProvider = {
             case "edit":
             case "delete":
               // Solo administradores pueden gestionar tareas
-              if (userRole === UserRoleEnum.ADMIN) {
+              if (canAccessAdminFeatures(userRole)) {
                 return { can: true };
               }
               return {

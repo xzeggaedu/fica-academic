@@ -33,6 +33,7 @@ class UserRead(BaseModel):
     email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
     profile_image_url: str
     role: UserRoleEnum
+    created_at: datetime
 
 
 class UserCreate(UserBase):
