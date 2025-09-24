@@ -87,6 +87,27 @@ def sample_user_read():
         created_at=fake.date_time(),
         updated_at=fake.date_time(),
         tier_id=None,
+        hashed_password="hashed_password_for_testing",
+    )
+
+
+@pytest.fixture
+def sample_admin_user_read():
+    """Generate a sample admin UserRead object."""
+    from uuid6 import uuid7
+
+    return UserRead(
+        id=2,
+        uuid=uuid7(),
+        name=fake.name(),
+        username=fake.user_name(),
+        email=fake.email(),
+        profile_image_url=fake.image_url(),
+        role=UserRoleEnum.ADMIN,
+        created_at=fake.date_time(),
+        updated_at=fake.date_time(),
+        tier_id=None,
+        hashed_password="hashed_password_for_testing",
     )
 
 
@@ -100,3 +121,42 @@ def current_user_dict():
         "name": fake.name(),
         "role": UserRoleEnum.UNAUTHORIZED,
     }
+
+
+@pytest.fixture
+def current_admin_user_dict():
+    """Mock current admin user from auth dependency."""
+    return {
+        "id": 2,
+        "username": fake.user_name(),
+        "email": fake.email(),
+        "name": fake.name(),
+        "role": UserRoleEnum.ADMIN,
+    }
+
+
+@pytest.fixture
+def valid_access_token():
+    """Generate a valid access token for testing."""
+    from src.app.core.security import create_access_token
+
+    data = {"sub": "test_user", "role": "user"}
+    return create_access_token(data)
+
+
+@pytest.fixture
+def valid_refresh_token():
+    """Generate a valid refresh token for testing."""
+    from src.app.core.security import create_refresh_token
+
+    data = {"sub": "test_user"}
+    return create_refresh_token(data)
+
+
+@pytest.fixture
+def mock_queue_pool():
+    """Mock ARQ queue pool for testing."""
+    mock_pool = Mock()
+    mock_pool.enqueue_job = AsyncMock()
+    mock_pool.get_job_result = AsyncMock()
+    return mock_pool

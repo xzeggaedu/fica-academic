@@ -95,7 +95,7 @@ class TestReadUsers:
     """Test users list endpoint."""
 
     @pytest.mark.asyncio
-    async def test_read_users_success(self, mock_db):
+    async def test_read_users_success(self, mock_db, current_user_dict):
         """Test successful users list retrieval."""
         mock_users_data = {"data": [{"id": 1}, {"id": 2}], "count": 2}
 
@@ -106,7 +106,7 @@ class TestReadUsers:
                 expected_response = {"data": [{"id": 1}, {"id": 2}], "pagination": {}}
                 mock_paginated.return_value = expected_response
 
-                result = await read_users(Mock(), mock_db, page=1, items_per_page=10)
+                result = await read_users(Mock(), mock_db, current_user_dict, page=1, items_per_page=10)
 
                 assert result == expected_response
                 mock_crud.get_multi.assert_called_once()
