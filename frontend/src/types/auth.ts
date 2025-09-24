@@ -4,6 +4,7 @@ export enum UserRoleEnum {
   DIRECTOR = "director",
   DECANO = "decano",
   VICERRECTOR = "vicerrector",
+  USER = "user",
   UNAUTHORIZED = "unauthorized",
 }
 
@@ -13,7 +14,8 @@ export const ROLE_HIERARCHY: Record<UserRoleEnum, number> = {
   [UserRoleEnum.VICERRECTOR]: 4,
   [UserRoleEnum.DECANO]: 3,
   [UserRoleEnum.DIRECTOR]: 2,
-  [UserRoleEnum.UNAUTHORIZED]: 1,
+  [UserRoleEnum.USER]: 1,
+  [UserRoleEnum.UNAUTHORIZED]: 0,
 };
 
 // Helper function to check if user has required role level

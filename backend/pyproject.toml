@@ -38,7 +38,6 @@ dependencies = [
 dev = [
     "pytest>=7.4.2",
     "pytest-mock>=3.14.0",
-    "pytest-cov>=4.0.0",
     "pytest-asyncio>=0.21.0",
     "faker>=26.0.0",
     "mypy>=1.8.0",
@@ -111,11 +110,6 @@ python_functions = ["test_*"]
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "--cov=src",
-    "--cov-report=term-missing",
-    "--cov-report=html:htmlcov",
-    "--cov-report=xml:coverage.xml",
-    "--cov-fail-under=80",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
@@ -126,7 +120,6 @@ markers = [
 [dependency-groups]
 dev = [
     "pytest-asyncio>=1.0.0",
-    "pytest-cov>=7.0.0",
 ]
 
 [tool.mypy]
