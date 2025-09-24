@@ -8,6 +8,7 @@ import redis.asyncio as redis
 from arq import create_pool
 from arq.connections import RedisSettings
 from fastapi import APIRouter, Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 
@@ -179,6 +180,20 @@ def create_application(
         lifespan = lifespan_factory(settings, create_tables_on_start=create_tables_on_start)
 
     application = FastAPI(lifespan=lifespan, **kwargs)
+
+    # Add CORS middleware
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:3000",  # Frontend original
+            "http://localhost:3001",  # Frontend2.0 (Refine)
+            "http://localhost:5173",  # Vite dev server
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     application.include_router(router)
 
     if isinstance(settings, ClientSideCacheSettings):
