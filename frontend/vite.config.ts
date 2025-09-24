@@ -7,11 +7,6 @@ import tsconfigPaths from "vite-tsconfig-paths";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), tsconfigPaths()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src/'), // Explicitly define the alias
-    },
-  },
   server: {
     port: 3000,
     host: true,
@@ -19,11 +14,5 @@ export default defineConfig({
   define: {
     // Disable Refine Devtools in development to avoid WebSocket errors
     __REFINE_DEVTOOLS_PORT__: JSON.stringify(null),
-  },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    css: true,
   },
 });

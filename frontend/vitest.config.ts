@@ -6,11 +6,6 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), tsconfigPaths()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src/'), // Explicitly define the alias
-    },
-  },
   test: {
     globals: true,
     environment: 'jsdom',
