@@ -9,7 +9,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { UserDetails } from "@/components/ui/user-details";
+import { UserDetails } from "@/components/ui/users/user-details";
 
 interface UserViewSheetProps {
   userId: number;

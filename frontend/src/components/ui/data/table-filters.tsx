@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Search, Settings2, ChevronDown } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/components/ui/forms/input";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
