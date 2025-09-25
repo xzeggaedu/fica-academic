@@ -303,7 +303,7 @@ export function UserCreateForm({ onSuccess }: UserCreateFormProps) {
                   value={formData.role}
                   onValueChange={(value) => handleInputChange("role", value)}
                 >
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger size="lg">
                     <SelectValue placeholder="Seleccione un rol" />
                   </SelectTrigger>
                   <SelectContent>

@@ -70,7 +70,7 @@ export const authProvider: AuthProvider = {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Login failed");
+        throw new Error(errorData.detail || "Error en el inicio de sesión");
       }
 
       const data: LoginResponse = await response.json();
@@ -87,7 +87,7 @@ export const authProvider: AuthProvider = {
         success: false,
         error: {
           name: "LoginError",
-          message: error instanceof Error ? error.message : "Login failed",
+          message: error instanceof Error ? error.message : "Error en el inicio de sesión",
         },
       };
     }
@@ -111,7 +111,7 @@ export const authProvider: AuthProvider = {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Registration failed");
+        throw new Error(errorData.detail || "Error en el registro");
       }
 
       const data = await response.json();
@@ -126,7 +126,7 @@ export const authProvider: AuthProvider = {
         success: false,
         error: {
           name: "RegisterError",
-          message: error instanceof Error ? error.message : "Registration failed",
+          message: error instanceof Error ? error.message : "Error en el registro",
         },
       };
     }

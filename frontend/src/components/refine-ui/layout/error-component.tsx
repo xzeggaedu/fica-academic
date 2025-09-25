@@ -82,7 +82,7 @@ export function ErrorComponent() {
 
         <div className={cn("space-y-4")}>
           <h1 className={cn("text-2xl", "font-semibold", "text-foreground")}>
-            {translate("pages.error.title", "Page not found.")}
+            {translate("pages.error.title", "Página no encontrada.")}
           </h1>
 
           <div
@@ -91,7 +91,7 @@ export function ErrorComponent() {
             <p className={cn("text-muted-foreground")}>
               {translate(
                 "pages.error.description",
-                "The page you're looking for does not exist."
+                "La página que buscas no existe."
               )}
             </p>
             {errorMessage && (
@@ -124,7 +124,7 @@ export function ErrorComponent() {
           className={cn("flex", "items-center", "gap-2", "mx-auto")}
         >
           <ChevronLeft className={cn("h-4", "w-4")} />
-          {translate("pages.error.backHome", "Back to homepage")}
+          {translate("pages.error.backHome", "Volver al inicio")}
         </Button>
       </div>
     </div>

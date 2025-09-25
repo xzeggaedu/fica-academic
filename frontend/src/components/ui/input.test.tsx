@@ -4,8 +4,8 @@ import { Input } from '@/components/ui/forms/input';
 
 describe('Input Component', () => {
   it('renders input with placeholder', () => {
-    render(<Input placeholder="Enter text here" />);
-    expect(screen.getByPlaceholderText('Enter text here')).toBeInTheDocument();
+    render(<Input placeholder="Ingrese texto aquí" />);
+    expect(screen.getByPlaceholderText('Ingrese texto aquí')).toBeInTheDocument();
   });
 
   it('handles value changes', () => {
