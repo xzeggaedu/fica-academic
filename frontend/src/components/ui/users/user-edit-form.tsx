@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGetIdentity } from "@refinedev/core";
 
 interface UserEditFormProps {
@@ -405,26 +406,38 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
                   </div>
 
                   <div className="space-y-3">
-                    <Label htmlFor="role" className="text-sm font-medium">
-                      Rol * {isCurrentUser && <span className="text-orange-600">(No puedes cambiar tu propio rol)</span>}
+                    <Label htmlFor="role" className={`text-sm font-medium ${isCurrentUser ? "text-gray-600" : ""}`}>
+                      Rol
                     </Label>
-                    <Select
-                      key={formData.role || 'default'}
-                      value={formData.role}
-                      onValueChange={(value) => handleInputChange("role", value)}
-                      disabled={isCurrentUser}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Seleccione un rol" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roleOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="relative">
+                          <Select
+                            key={formData.role || 'default'}
+                            value={formData.role}
+                            onValueChange={(value) => handleInputChange("role", value)}
+                            disabled={isCurrentUser}
+
+                          >
+                            <SelectTrigger size="lg">
+                              <SelectValue placeholder="Seleccione un rol" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {roleOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TooltipTrigger>
+                      {isCurrentUser && (
+                        <TooltipContent>
+                          <p>No puedes cambiar tu propio rol</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
                     {errors.role && (
                       <p className="text-sm text-red-600 mt-1">{errors.role}</p>
                     )}

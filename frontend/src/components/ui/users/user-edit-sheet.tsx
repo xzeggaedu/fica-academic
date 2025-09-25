@@ -67,7 +67,7 @@ export function UserEditSheet({ userId, userName, isOpen, onClose, onSuccess }: 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent side="right" className="w-[500px] sm:max-w-[90vw] flex flex-col">
-        <SheetHeader className="flex-shrink-0">
+        <SheetHeader className="flex-shrink-0 pb-0">
           <SheetTitle className="text-xl font-semibold">{userName}</SheetTitle>
         </SheetHeader>
 

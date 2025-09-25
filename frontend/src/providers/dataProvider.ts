@@ -54,14 +54,8 @@ const apiRequest = async <T>(
     signal: AbortSignal.timeout(API_TIMEOUT),
   };
 
-  if (DEBUG_MODE) {
-  }
-
   try {
     const response = await fetch(url, config);
-
-    if (DEBUG_MODE) {
-    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

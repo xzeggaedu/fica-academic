@@ -94,7 +94,7 @@ export const SignInForm = () => {
               <Input
                 id="username"
                 type="text"
-                placeholder="Ingrese su nombre de usuario"
+                placeholder=""
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
