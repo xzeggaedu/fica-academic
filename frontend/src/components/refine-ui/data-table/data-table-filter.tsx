@@ -777,25 +777,25 @@ const CRUD_OPERATOR_LABELS: Record<
   Exclude<CrudOperators, "or" | "and">,
   { i18nKey: string; defaultLabel: string }
 > = {
-  eq: { i18nKey: "table.filter.operator.eq", defaultLabel: "Equals" },
-  ne: { i18nKey: "table.filter.operator.ne", defaultLabel: "Not equals" },
-  lt: { i18nKey: "table.filter.operator.lt", defaultLabel: "Less than" },
-  gt: { i18nKey: "table.filter.operator.gt", defaultLabel: "Greater than" },
+  eq: { i18nKey: "table.filter.operator.eq", defaultLabel: "Igual a" },
+  ne: { i18nKey: "table.filter.operator.ne", defaultLabel: "No igual a" },
+  lt: { i18nKey: "table.filter.operator.lt", defaultLabel: "Menor que" },
+  gt: { i18nKey: "table.filter.operator.gt", defaultLabel: "Mayor que" },
   lte: {
     i18nKey: "table.filter.operator.lte",
-    defaultLabel: "Less than or equal",
+    defaultLabel: "Menor o igual que",
   },
   gte: {
     i18nKey: "table.filter.operator.gte",
-    defaultLabel: "Greater than or equal",
+    defaultLabel: "Mayor o igual que",
   },
   in: {
     i18nKey: "table.filter.operator.in",
-    defaultLabel: "Includes in an array",
+    defaultLabel: "Incluido en lista",
   },
   nin: {
     i18nKey: "table.filter.operator.nin",
-    defaultLabel: "Not includes in an array",
+    defaultLabel: "No incluido en lista",
   },
   ina: {
     i18nKey: "table.filter.operator.ina",
@@ -807,11 +807,11 @@ const CRUD_OPERATOR_LABELS: Record<
   },
   contains: {
     i18nKey: "table.filter.operator.contains",
-    defaultLabel: "Contains",
+    defaultLabel: "Contiene",
   },
   ncontains: {
     i18nKey: "table.filter.operator.ncontains",
-    defaultLabel: "Not contains",
+    defaultLabel: "No contiene",
   },
   containss: {
     i18nKey: "table.filter.operator.containss",
@@ -823,24 +823,24 @@ const CRUD_OPERATOR_LABELS: Record<
   },
   between: {
     i18nKey: "table.filter.operator.between",
-    defaultLabel: "Between",
+    defaultLabel: "Entre",
   },
   nbetween: {
     i18nKey: "table.filter.operator.nbetween",
-    defaultLabel: "Not between",
+    defaultLabel: "No entre",
   },
-  null: { i18nKey: "table.filter.operator.null", defaultLabel: "Is null" },
+  null: { i18nKey: "table.filter.operator.null", defaultLabel: "Es nulo" },
   nnull: {
     i18nKey: "table.filter.operator.nnull",
-    defaultLabel: "Is not null",
+    defaultLabel: "No es nulo",
   },
   startswith: {
     i18nKey: "table.filter.operator.startswith",
-    defaultLabel: "Starts with",
+    defaultLabel: "Comienza con",
   },
   nstartswith: {
     i18nKey: "table.filter.operator.nstartswith",
-    defaultLabel: "Not starts with",
+    defaultLabel: "No comienza con",
   },
   startswiths: {
     i18nKey: "table.filter.operator.startswiths",
@@ -852,11 +852,11 @@ const CRUD_OPERATOR_LABELS: Record<
   },
   endswith: {
     i18nKey: "table.filter.operator.endswith",
-    defaultLabel: "Ends with",
+    defaultLabel: "Termina con",
   },
   nendswith: {
     i18nKey: "table.filter.operator.nendswith",
-    defaultLabel: "Not ends with",
+    defaultLabel: "No termina con",
   },
   endswiths: {
     i18nKey: "table.filter.operator.endswiths",

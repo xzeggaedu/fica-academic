@@ -70,7 +70,7 @@ export const authProvider: AuthProvider = {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Login failed");
+        throw new Error(errorData.detail || "Error en el inicio de sesión");
       }
 
       const data: LoginResponse = await response.json();
@@ -87,7 +87,7 @@ export const authProvider: AuthProvider = {
         success: false,
         error: {
           name: "LoginError",
-          message: error instanceof Error ? error.message : "Login failed",
+          message: error instanceof Error ? error.message : "Error en el inicio de sesión",
         },
       };
     }
@@ -111,7 +111,7 @@ export const authProvider: AuthProvider = {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Registration failed");
+        throw new Error(errorData.detail || "Error en el registro");
       }
 
       const data = await response.json();
@@ -126,7 +126,7 @@ export const authProvider: AuthProvider = {
         success: false,
         error: {
           name: "RegisterError",
-          message: error instanceof Error ? error.message : "Registration failed",
+          message: error instanceof Error ? error.message : "Error en el registro",
         },
       };
     }
@@ -162,6 +162,14 @@ export const authProvider: AuthProvider = {
     const token = localStorage.getItem(TOKEN_KEY);
 
     if (!token) {
+      // Solo disparar evento si no estamos en páginas de autenticación
+      const currentPath = window.location.pathname;
+      const isAuthPage = ['/login', '/register', '/forgot-password'].includes(currentPath);
+
+      if (!isAuthPage) {
+        window.dispatchEvent(new CustomEvent('session-expired'));
+      }
+
       return {
         authenticated: false,
         redirectTo: "/login",
@@ -197,8 +205,9 @@ export const authProvider: AuthProvider = {
             authenticated: true,
           };
         } else {
-          // Refresh falló, limpiar token
+          // Refresh falló, limpiar token y disparar evento
           localStorage.removeItem(TOKEN_KEY);
+          window.dispatchEvent(new CustomEvent('session-expired'));
           return {
             authenticated: false,
             redirectTo: "/login",
@@ -208,6 +217,7 @@ export const authProvider: AuthProvider = {
     } catch (error) {
       console.error("Auth check error:", error);
       localStorage.removeItem(TOKEN_KEY);
+      window.dispatchEvent(new CustomEvent('session-expired'));
       return {
         authenticated: false,
         redirectTo: "/login",
@@ -278,9 +288,13 @@ export const authProvider: AuthProvider = {
   onError: async (error) => {
     if (DEBUG_MODE) console.error("Auth error:", error);
 
-    // Si es un error 401, limpiar token y redirigir a login
+    // Si es un error 401, limpiar token y mostrar modal de sesión expirada
     if (error?.status === 401) {
       localStorage.removeItem(TOKEN_KEY);
+
+      // Disparar evento personalizado para mostrar modal de sesión expirada
+      window.dispatchEvent(new CustomEvent('session-expired'));
+
       return { error };
     }
 

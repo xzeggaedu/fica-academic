@@ -60,11 +60,20 @@ class UserCreateAdmin(UserBase):
             examples=["Str1ngst!"],
         ),
     ]
+    profile_image_url: Annotated[
+        str,
+        Field(
+            pattern=r"^(https?|ftp)://[^\s/$.?#].[^\s]*$",
+            examples=["https://www.profileimageurl.com"],
+            default="https://www.profileimageurl.com",
+        ),
+    ]
     role: Annotated[UserRoleEnum, Field(default=UserRoleEnum.UNAUTHORIZED)]
 
 
 class UserCreateInternal(UserBase):
     hashed_password: str
+    profile_image_url: str = "https://www.profileimageurl.com"
     role: UserRoleEnum = UserRoleEnum.UNAUTHORIZED
 
 

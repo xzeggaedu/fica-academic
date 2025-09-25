@@ -17,6 +17,7 @@ import { Toaster } from "./components/refine-ui/notification/toaster";
 import { useNotificationProvider } from "./components/refine-ui/notification/use-notification-provider";
 import { ThemeProvider } from "./components/refine-ui/theme/theme-provider";
 import { TooltipProvider } from "./components/ui/tooltip";
+import { SessionExpiredProvider } from "./contexts/session-expired-context";
 import {
   UserCreate,
   UserEdit,
@@ -38,6 +39,7 @@ function App() {
       <RefineKbarProvider>
         <ThemeProvider>
           <TooltipProvider>
+            <SessionExpiredProvider>
         {/* <DevtoolsProvider> */}
           <Refine
               dataProvider={dataProvider}
@@ -128,6 +130,7 @@ function App() {
             </Refine>
             {/* <DevtoolsPanel /> */}
           {/* </DevtoolsProvider> */}
+            </SessionExpiredProvider>
           </TooltipProvider>
         </ThemeProvider>
       </RefineKbarProvider>
