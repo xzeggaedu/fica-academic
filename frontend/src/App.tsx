@@ -16,6 +16,7 @@ import { Layout } from "./components/refine-ui/layout/layout";
 import { Toaster } from "./components/refine-ui/notification/toaster";
 import { useNotificationProvider } from "./components/refine-ui/notification/use-notification-provider";
 import { ThemeProvider } from "./components/refine-ui/theme/theme-provider";
+import { TooltipProvider } from "./components/ui/tooltip";
 import {
   UserCreate,
   UserEdit,
@@ -36,6 +37,7 @@ function App() {
     <BrowserRouter>
       <RefineKbarProvider>
         <ThemeProvider>
+          <TooltipProvider>
         {/* <DevtoolsProvider> */}
           <Refine
               dataProvider={dataProvider}
@@ -126,6 +128,7 @@ function App() {
             </Refine>
             {/* <DevtoolsPanel /> */}
           {/* </DevtoolsProvider> */}
+          </TooltipProvider>
         </ThemeProvider>
       </RefineKbarProvider>
     </BrowserRouter>

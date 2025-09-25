@@ -20,9 +20,6 @@ export const accessControlProvider: AccessControlProvider = {
       // Decodificar el token JWT para obtener el rol
       const payload = JSON.parse(atob(token.split('.')[1]));
       const userRole = payload.role;
-
-      console.log("Access Control Check:", { resource, action, params, userRole });
-
       // Definir permisos por recurso y acción
       switch (resource) {
         case "users":

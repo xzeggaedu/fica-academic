@@ -1,5 +1,5 @@
 import React from "react";
-import { UserRoleEnum } from "../../types/auth";
+import { UserRoleEnum } from "../../../types/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -46,16 +46,6 @@ export function UserDetails({ data, isLoading, error }: UserDetailsProps) {
     }
   };
 
-  // Debug: Log para verificar el estado
-  console.log("=== UserDetails Debug ===");
-  console.log("UserDetails - isLoading:", isLoading);
-  console.log("UserDetails - error:", error);
-  console.log("UserDetails - data:", data);
-  console.log("UserDetails - data type:", typeof data);
-  console.log("UserDetails - record:", record);
-  console.log("UserDetails - record type:", typeof record);
-  console.log("UserDetails - record keys:", record ? Object.keys(record) : "no keys");
-  console.log("=== End Debug ===");
 
   if (isLoading) {
     return (
@@ -86,10 +76,10 @@ export function UserDetails({ data, isLoading, error }: UserDetailsProps) {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {/* Profile Card */}
       <Card>
-        <CardContent className="pt-0 pb-4">
+        <CardContent className="py-0">
           <div className="flex flex-col items-center text-center space-y-4">
             <Avatar className="h-20 w-20">
               <AvatarImage
@@ -114,15 +104,10 @@ export function UserDetails({ data, isLoading, error }: UserDetailsProps) {
       {/* Details */}
       <Card>
         <CardHeader>
-          <CardTitle>Información del Usuario</CardTitle>
+          <CardTitle className="flex flex-row justify-between"><span>Información del Usuario</span><span className="text-sm font-mono">ID: {record?.id}</span></CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6 py-2">
+        <CardContent className="space-y-6 py-0">
           <div className="grid grid-cols-1 gap-4">
-            <div className="space-y-2 flex flex-row">
-              <label className="text-sm font-medium text-muted-foreground mr-2">ID:</label>
-              <p className="text-sm font-mono">{record?.id}</p>
-            </div>
-
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">Nombre de Usuario</label>
               <p className="text-sm">{record?.username}</p>

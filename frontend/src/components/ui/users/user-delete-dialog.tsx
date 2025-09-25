@@ -9,8 +9,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/forms/input";
+import { Label } from "@/components/ui/forms/label";
 import { useGetIdentity } from "@refinedev/core";
 
 interface UserDeleteDialogProps {
@@ -47,7 +47,6 @@ export function UserDeleteDialog({ userId, userName, isOpen, onClose, onSuccess 
 
       const url = `http://localhost:8000/api/v1/user/id/${userId}`;
 
-      console.log("UserDeleteDialog - Deleting user ID:", userId);
 
       const response = await fetch(url, {
         method: "DELETE",
@@ -70,11 +69,9 @@ export function UserDeleteDialog({ userId, userName, isOpen, onClose, onSuccess 
         throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log("UserDeleteDialog - Delete successful");
 
       onClose();
       if (onSuccess) {
-        console.log("UserDeleteDialog - Calling onSuccess");
         onSuccess();
       }
     } catch (err) {

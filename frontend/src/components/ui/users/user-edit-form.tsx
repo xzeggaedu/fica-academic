@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { UserRoleEnum } from "../../types/auth";
+import { UserRoleEnum } from "../../../types/auth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/forms/input";
+import { Label } from "@/components/ui/forms/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGetIdentity } from "@refinedev/core";
 
 interface UserEditFormProps {
@@ -154,7 +155,6 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
         role: formData.role || UserRoleEnum.UNAUTHORIZED
       };
 
-      console.log("UserEditForm - Updating user:", dataToSend);
 
       const response = await fetch(url, {
         method: "PATCH",
@@ -178,7 +178,6 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
         throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log("UserEditForm - Update successful");
 
       if (onSuccess) {
         onSuccess();
@@ -246,7 +245,6 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
       const token = localStorage.getItem("fica-access-token");
       const url = `http://localhost:8000/api/v1/user/id/${data.id}/password`;
 
-      console.log("UserEditForm - Updating password for user:", data.id);
 
       const response = await fetch(url, {
         method: "PATCH",
@@ -266,7 +264,6 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
         throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log("UserEditForm - Password update successful");
 
       // Reset password form
       setPasswordData({
@@ -409,26 +406,38 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
                   </div>
 
                   <div className="space-y-3">
-                    <Label htmlFor="role" className="text-sm font-medium">
-                      Rol * {isCurrentUser && <span className="text-orange-600">(No puedes cambiar tu propio rol)</span>}
+                    <Label htmlFor="role" className={`text-sm font-medium ${isCurrentUser ? "text-gray-600" : ""}`}>
+                      Rol
                     </Label>
-                    <Select
-                      key={formData.role || 'default'}
-                      value={formData.role}
-                      onValueChange={(value) => handleInputChange("role", value)}
-                      disabled={isCurrentUser}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Seleccione un rol" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roleOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="relative">
+                          <Select
+                            key={formData.role || 'default'}
+                            value={formData.role}
+                            onValueChange={(value) => handleInputChange("role", value)}
+                            disabled={isCurrentUser}
+
+                          >
+                            <SelectTrigger size="lg">
+                              <SelectValue placeholder="Seleccione un rol" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {roleOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TooltipTrigger>
+                      {isCurrentUser && (
+                        <TooltipContent>
+                          <p>No puedes cambiar tu propio rol</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
                     {errors.role && (
                       <p className="text-sm text-red-600 mt-1">{errors.role}</p>
                     )}

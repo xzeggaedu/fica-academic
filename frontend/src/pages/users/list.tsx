@@ -9,13 +9,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../components/ui/table";
+} from "../../components/ui/data/table";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { TableFilters } from "../../components/ui/table-filters";
-import { UserActions } from "../../components/ui/user-actions";
-import { UserCreateButton } from "../../components/ui/user-create-button";
+import { TableFilters } from "../../components/ui/data/table-filters";
+import { UserActions } from "../../components/ui/users/user-actions";
+import { UserCreateButton } from "../../components/ui/users/user-create-button";
 
 export const UserList = () => {
   const { query, result } = useList({
@@ -25,7 +25,6 @@ export const UserList = () => {
 
   // Función para refrescar datos directamente
   const refreshData = async () => {
-    console.log("UserList - refreshData called");
     // Refetch todas las queries que contengan "users"
     await queryClient.refetchQueries({
       predicate: (query) => {
@@ -35,7 +34,6 @@ export const UserList = () => {
         );
       }
     });
-    console.log("UserList - Data refreshed successfully");
   };
 
   // Estados para filtros y columnas
@@ -45,15 +43,9 @@ export const UserList = () => {
   ]);
 
   // Debug: Log para verificar los datos
-  console.log("UserList - useList query:", query);
-  console.log("UserList - useList result:", result);
-  console.log("UserList - isLoading:", query.isLoading);
-  console.log("UserList - error:", query.error);
 
   // Debug: Log para verificar el formato de fecha
   if (result.data && result.data.length > 0) {
-    console.log("UserList - first user created_at:", result.data[0].created_at);
-    console.log("UserList - first user created_at type:", typeof result.data[0].created_at);
   }
 
   // Configuración de columnas disponibles
@@ -143,13 +135,10 @@ export const UserList = () => {
 
   // Función para manejar éxito de operaciones
   const handleSuccess = async () => {
-    console.log("UserList - handleSuccess called");
-    console.log("UserList - Current data before refresh:", result.data);
 
     // Refrescar datos directamente
     await refreshData();
 
-    console.log("UserList - Success handled successfully");
   };
 
   return (

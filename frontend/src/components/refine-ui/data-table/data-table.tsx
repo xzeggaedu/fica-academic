@@ -15,7 +15,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/components/ui/data/table";
 import { cn } from "@/lib/utils";
 
 type DataTableProps<TData extends BaseRecord> = {

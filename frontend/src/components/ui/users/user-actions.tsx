@@ -37,7 +37,6 @@ export function UserActions({ userId, userName, onSuccess }: UserActionsProps) {
   };
 
   const handleSuccess = () => {
-    console.log("UserActions - handleSuccess called");
     if (onSuccess) {
       onSuccess();
     }

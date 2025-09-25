@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
+import { SidebarTrigger, useSidebar } from "@/components/ui/layout/sidebar";
 import { cn } from "@/lib/utils";
 import {
   useActiveAuthProvider,
@@ -16,7 +16,7 @@ import {
 } from "@refinedev/core";
 import { LogOutIcon, UserIcon } from "lucide-react";
 import { useState } from "react";
-import { UserViewSheet } from "@/components/ui/user-view-sheet";
+import { UserViewSheet } from "@/components/ui/users/user-view-sheet";
 
 export const Header = () => {
   const { isMobile } = useSidebar();

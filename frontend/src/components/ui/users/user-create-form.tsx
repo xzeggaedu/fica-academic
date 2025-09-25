@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { UserRoleEnum } from "../../types/auth";
+import { UserRoleEnum } from "../../../types/auth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/forms/input";
+import { Label } from "@/components/ui/forms/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
@@ -138,7 +138,6 @@ export function UserCreateForm({ onSuccess }: UserCreateFormProps) {
         role: formData.role,
       };
 
-      console.log("UserCreateForm - Creating user:", dataToSend);
 
       const response = await fetch(url, {
         method: "POST",
@@ -162,7 +161,6 @@ export function UserCreateForm({ onSuccess }: UserCreateFormProps) {
         throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log("UserCreateForm - Create successful");
 
       if (onSuccess) {
         onSuccess();
