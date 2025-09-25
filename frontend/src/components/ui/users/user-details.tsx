@@ -47,15 +47,6 @@ export function UserDetails({ data, isLoading, error }: UserDetailsProps) {
   };
 
   // Debug: Log para verificar el estado
-  console.log("=== UserDetails Debug ===");
-  console.log("UserDetails - isLoading:", isLoading);
-  console.log("UserDetails - error:", error);
-  console.log("UserDetails - data:", data);
-  console.log("UserDetails - data type:", typeof data);
-  console.log("UserDetails - record:", record);
-  console.log("UserDetails - record type:", typeof record);
-  console.log("UserDetails - record keys:", record ? Object.keys(record) : "no keys");
-  console.log("=== End Debug ===");
 
   if (isLoading) {
     return (

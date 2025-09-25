@@ -138,7 +138,6 @@ export function UserCreateForm({ onSuccess }: UserCreateFormProps) {
         role: formData.role,
       };
 
-      console.log("UserCreateForm - Creating user:", dataToSend);
 
       const response = await fetch(url, {
         method: "POST",
@@ -162,7 +161,6 @@ export function UserCreateForm({ onSuccess }: UserCreateFormProps) {
         throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log("UserCreateForm - Create successful");
 
       if (onSuccess) {
         onSuccess();

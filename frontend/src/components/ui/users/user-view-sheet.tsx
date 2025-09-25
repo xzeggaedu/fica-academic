@@ -19,7 +19,6 @@ interface UserViewSheetProps {
 }
 
 export function UserViewSheet({ userId, userName, isOpen, onClose }: UserViewSheetProps) {
-  console.log("UserViewSheet - Props:", { userId, userName, isOpen });
 
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,15 +26,12 @@ export function UserViewSheet({ userId, userName, isOpen, onClose }: UserViewShe
 
   useEffect(() => {
     if (isOpen && userId) {
-      console.log("UserViewSheet - Fetching user data for ID:", userId);
       setIsLoading(true);
       setError(null);
 
       const token = localStorage.getItem("fica-access-token");
       const url = `http://localhost:8000/api/v1/user/id/${userId}`;
 
-      console.log("UserViewSheet - Fetch URL:", url);
-      console.log("UserViewSheet - Token:", token ? "Present" : "Missing");
 
       fetch(url, {
         method: "GET",
@@ -46,14 +42,12 @@ export function UserViewSheet({ userId, userName, isOpen, onClose }: UserViewShe
         credentials: "include",
       })
       .then(response => {
-        console.log("UserViewSheet - Response status:", response.status);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         return response.json();
       })
       .then(userData => {
-        console.log("UserViewSheet - Fetched data:", userData);
         setData(userData);
         setIsLoading(false);
       })
@@ -65,7 +59,6 @@ export function UserViewSheet({ userId, userName, isOpen, onClose }: UserViewShe
     }
   }, [isOpen, userId]);
 
-  console.log("UserViewSheet - State:", { data, isLoading, error });
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>

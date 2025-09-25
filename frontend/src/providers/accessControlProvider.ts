@@ -21,7 +21,6 @@ export const accessControlProvider: AccessControlProvider = {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const userRole = payload.role;
 
-      console.log("Access Control Check:", { resource, action, params, userRole });
 
       // Definir permisos por recurso y acción
       switch (resource) {

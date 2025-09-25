@@ -154,7 +154,6 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
         role: formData.role || UserRoleEnum.UNAUTHORIZED
       };
 
-      console.log("UserEditForm - Updating user:", dataToSend);
 
       const response = await fetch(url, {
         method: "PATCH",
@@ -178,7 +177,6 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
         throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log("UserEditForm - Update successful");
 
       if (onSuccess) {
         onSuccess();
@@ -246,7 +244,6 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
       const token = localStorage.getItem("fica-access-token");
       const url = `http://localhost:8000/api/v1/user/id/${data.id}/password`;
 
-      console.log("UserEditForm - Updating password for user:", data.id);
 
       const response = await fetch(url, {
         method: "PATCH",
@@ -266,7 +263,6 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
         throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log("UserEditForm - Password update successful");
 
       // Reset password form
       setPasswordData({

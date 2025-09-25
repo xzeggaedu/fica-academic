@@ -55,14 +55,12 @@ const apiRequest = async <T>(
   };
 
   if (DEBUG_MODE) {
-    console.log(`API Request: ${options.method || 'GET'} ${url}`, config);
   }
 
   try {
     const response = await fetch(url, config);
 
     if (DEBUG_MODE) {
-      console.log(`API Response: ${response.status} ${response.statusText}`, response);
     }
 
     if (!response.ok) {
@@ -88,7 +86,6 @@ const apiRequest = async <T>(
 export const dataProvider: DataProvider = {
   getList: async ({ resource, pagination, filters, sorters, meta }) => {
     if (DEBUG_MODE) {
-      console.log("getList called:", { resource, pagination, filters, sorters, meta });
     }
 
     switch (resource) {
@@ -100,7 +97,6 @@ export const dataProvider: DataProvider = {
           `${ENDPOINTS.USERS}?page=${current}&items_per_page=${pageSize}`
         );
 
-        console.log("DataProvider - users response:", response); // Debug log
 
         return {
           data: response.data as any[],
@@ -125,14 +121,11 @@ export const dataProvider: DataProvider = {
 
   getOne: async ({ resource, id, meta }) => {
     if (DEBUG_MODE) {
-      console.log("getOne called:", { resource, id, meta });
     }
 
     switch (resource) {
       case "users": {
         const response = await apiRequest<User>(`${ENDPOINTS.USER}/${id}`);
-        console.log("DataProvider getOne - response:", response);
-        console.log("DataProvider getOne - returning:", { data: response });
         return { data: response as any };
       }
 
@@ -148,7 +141,6 @@ export const dataProvider: DataProvider = {
 
   create: async ({ resource, variables, meta }) => {
     if (DEBUG_MODE) {
-      console.log("create called:", { resource, variables, meta });
     }
 
     switch (resource) {
@@ -181,7 +173,6 @@ export const dataProvider: DataProvider = {
 
   update: async ({ resource, id, variables, meta }) => {
     if (DEBUG_MODE) {
-      console.log("update called:", { resource, id, variables, meta });
     }
 
     switch (resource) {
@@ -206,7 +197,6 @@ export const dataProvider: DataProvider = {
 
   deleteOne: async ({ resource, id, meta }) => {
     if (DEBUG_MODE) {
-      console.log("deleteOne called:", { resource, id, meta });
     }
 
     switch (resource) {
@@ -227,7 +217,6 @@ export const dataProvider: DataProvider = {
 
   getMany: async ({ resource, ids, meta }) => {
     if (DEBUG_MODE) {
-      console.log("getMany called:", { resource, ids, meta });
     }
 
     // For now, we'll fetch users individually
@@ -242,7 +231,6 @@ export const dataProvider: DataProvider = {
 
   createMany: async ({ resource, variables, meta }) => {
     if (DEBUG_MODE) {
-      console.log("createMany called:", { resource, variables, meta });
     }
 
     // For now, we'll create users individually
@@ -263,7 +251,6 @@ export const dataProvider: DataProvider = {
 
   updateMany: async ({ resource, ids, variables, meta }) => {
     if (DEBUG_MODE) {
-      console.log("updateMany called:", { resource, ids, variables, meta });
     }
 
     // For now, we'll update users individually
@@ -283,7 +270,6 @@ export const dataProvider: DataProvider = {
 
   deleteMany: async ({ resource, ids, meta }) => {
     if (DEBUG_MODE) {
-      console.log("deleteMany called:", { resource, ids, meta });
     }
 
     // For now, we'll delete users individually
@@ -306,7 +292,6 @@ export const dataProvider: DataProvider = {
 
   custom: async ({ url, method, filters, sorters, payload, query, headers, meta }) => {
     if (DEBUG_MODE) {
-      console.log("custom called:", { url, method, filters, sorters, payload, query, headers, meta });
     }
 
     let requestUrl = `${API_BASE_URL}${url}`;
