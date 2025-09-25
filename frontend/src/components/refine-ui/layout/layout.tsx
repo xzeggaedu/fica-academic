@@ -4,10 +4,14 @@ import { Header } from "@/components/refine-ui/layout/header";
 import { ThemeProvider } from "@/components/refine-ui/theme/theme-provider";
 import { SidebarInset, SidebarProvider } from "@/components/ui/layout/sidebar";
 import { cn } from "@/lib/utils";
+import { useSessionMonitor } from "@/hooks/use-session-monitor";
 import type { PropsWithChildren } from "react";
 import { Sidebar } from "./sidebar";
 
 export function Layout({ children }: PropsWithChildren) {
+  // Monitorear la sesión en todas las páginas autenticadas
+  useSessionMonitor();
+
   return (
     <ThemeProvider>
       <SidebarProvider>

@@ -7,6 +7,17 @@ import type {
   PaginatedResponse
 } from "../types/api";
 
+// Custom error class to include status code
+class ApiError extends Error {
+  public status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 // Environment Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || "/api/v1";
@@ -59,7 +70,7 @@ const apiRequest = async <T>(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+      throw new ApiError(errorData.detail || `HTTP ${response.status}: ${response.statusText}`, response.status);
     }
 
     // Handle empty responses (like 204 No Content)
