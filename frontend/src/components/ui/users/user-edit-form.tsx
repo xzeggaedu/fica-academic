@@ -18,12 +18,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGetIdentity } from "@refinedev/core";
+import { toast } from "sonner";
 
 interface UserEditFormProps {
   data: any;
   isLoading: boolean;
   error: any;
   onSuccess?: () => void;
+  onClose?: () => void;
 }
 
 interface FormErrors {
@@ -42,7 +44,7 @@ interface PasswordErrors {
   submit?: string;
 }
 
-export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditFormProps) {
+export function UserEditForm({ data, isLoading, error, onSuccess, onClose }: UserEditFormProps) {
   const [formData, setFormData] = useState({
     name: "",
     username: "",
@@ -178,6 +180,11 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
         throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
 
+      // Mostrar toast de éxito
+      toast.success('Usuario actualizado exitosamente', {
+        description: `Los datos del usuario han sido actualizados correctamente.`,
+        richColors: true,
+      });
 
       if (onSuccess) {
         onSuccess();
@@ -185,6 +192,13 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
     } catch (err) {
       console.error("UserEditForm - Update error:", err);
       const errorMessage = (err as Error).message;
+
+      // Mostrar toast de error
+      toast.error('Error al actualizar usuario', {
+        description: errorMessage,
+        richColors: true,
+      });
+
       setErrors({ submit: errorMessage });
 
       // Si es error de autenticación, redirigir al login
@@ -264,6 +278,11 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
         throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
 
+      // Mostrar toast de éxito
+      toast.success('Contraseña actualizada exitosamente', {
+        description: 'La contraseña del usuario ha sido cambiada correctamente.',
+        richColors: true,
+      });
 
       // Reset password form
       setPasswordData({
@@ -278,6 +297,12 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
       }
     } catch (err) {
       console.error("UserEditForm - Password update error:", err);
+
+      // Mostrar toast de error
+      toast.error('Error al actualizar contraseña', {
+        description: (err as Error).message,
+        richColors: true,
+      });
       setPasswordErrors({ submit: (err as Error).message || "Error al actualizar la contraseña" });
     } finally {
       setIsPasswordSubmitting(false);
@@ -326,218 +351,194 @@ export function UserEditForm({ data, isLoading, error, onSuccess }: UserEditForm
 
   return (
     <>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <form id="user-edit-form" onSubmit={handleSubmit} className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="profile">Perfil</TabsTrigger>
           <TabsTrigger value="password">Contraseña</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="mt-6">
-          <Card className="border-0 shadow-none">
-            <CardHeader className="px-4 pb-4">
-              <CardTitle className="text-lg font-semibold">Editar Perfil</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Editar Perfil</h3>
+              <p className="text-sm text-muted-foreground mb-6">
                 Actualiza la información del usuario.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0 px-4 pb-2">
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <Label htmlFor="name" className="text-sm font-medium">Nombre Completo *</Label>
-                    <Input
-                      id="name"
-                      type="text"
-                      placeholder="Ingrese el nombre completo"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
-                      className="h-11"
-                    />
-                    {errors.name && (
-                      <p className="text-sm text-red-600 mt-1">{errors.name}</p>
-                    )}
-                  </div>
+              </p>
+            </div>
 
-                  <div className="space-y-3">
-                    <Label htmlFor="username" className="text-sm font-medium">Nombre de Usuario *</Label>
-                    <Input
-                      id="username"
-                      type="text"
-                      placeholder="Ingrese el nombre de usuario"
-                      value={formData.username}
-                      onChange={(e) => handleInputChange("username", e.target.value)}
-                      className="h-11"
-                    />
-                    {errors.username && (
-                      <p className="text-sm text-red-600 mt-1">{errors.username}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <Label htmlFor="email" className="text-sm font-medium">Correo Electrónico *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Ingrese el correo electrónico"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    className="h-11"
-                  />
-                  {errors.email && (
-                    <p className="text-sm text-red-600 mt-1">{errors.email}</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <Label htmlFor="profile_image_url" className="text-sm font-medium">URL de Imagen de Perfil</Label>
-                    <Input
-                      id="profile_image_url"
-                      type="url"
-                      placeholder="Ingrese la URL de la imagen de perfil"
-                      value={formData.profile_image_url}
-                      onChange={(e) => handleInputChange("profile_image_url", e.target.value)}
-                      className="h-11"
-                    />
-                    {errors.profile_image_url && (
-                      <p className="text-sm text-red-600 mt-1">{errors.profile_image_url}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label htmlFor="role" className={`text-sm font-medium ${isCurrentUser ? "text-gray-600" : ""}`}>
-                      Rol
-                    </Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="relative">
-                          <Select
-                            key={formData.role || 'default'}
-                            value={formData.role}
-                            onValueChange={(value) => handleInputChange("role", value)}
-                            disabled={isCurrentUser}
-
-                          >
-                            <SelectTrigger size="lg">
-                              <SelectValue placeholder="Seleccione un rol" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {roleOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TooltipTrigger>
-                      {isCurrentUser && (
-                        <TooltipContent>
-                          <p>No puedes cambiar tu propio rol</p>
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                    {errors.role && (
-                      <p className="text-sm text-red-600 mt-1">{errors.role}</p>
-                    )}
-                  </div>
-                </div>
-
-                {errors.submit && (
-                  <div className="text-sm text-red-600 text-center py-2">{errors.submit}</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <Label htmlFor="name" className="text-sm font-medium">Nombre Completo *</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Ingrese el nombre completo"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  className="h-11 mt-3"
+                />
+                {errors.name && (
+                  <p className="text-sm text-red-600 mt-1">{errors.name}</p>
                 )}
+              </div>
 
-                <div className="flex justify-end space-x-4 pt-6">
-                  <Button
-                    type="submit"
-                    className="w-full h-11"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Actualizando..." : "Actualizar Usuario"}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+              <div className="space-y-3">
+                <Label htmlFor="username" className="text-sm font-medium">Nombre de Usuario *</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Ingrese el nombre de usuario"
+                  value={formData.username}
+                  onChange={(e) => handleInputChange("username", e.target.value)}
+                  className="h-11 mt-3"
+                />
+                {errors.username && (
+                  <p className="text-sm text-red-600 mt-1">{errors.username}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label htmlFor="email" className="text-sm font-medium">Correo Electrónico *</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Ingrese el correo electrónico"
+                value={formData.email}
+                onChange={(e) => handleInputChange("email", e.target.value)}
+                className="h-11 mt-3"
+              />
+              {errors.email && (
+                <p className="text-sm text-red-600 mt-1">{errors.email}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <Label htmlFor="profile_image_url" className="text-sm font-medium">URL de Imagen de Perfil</Label>
+                <Input
+                  id="profile_image_url"
+                  type="url"
+                  placeholder="Ingrese la URL de la imagen de perfil"
+                  value={formData.profile_image_url}
+                  onChange={(e) => handleInputChange("profile_image_url", e.target.value)}
+                  className="h-11 mt-3"
+                />
+                {errors.profile_image_url && (
+                  <p className="text-sm text-red-600 mt-1">{errors.profile_image_url}</p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="role" className={`text-sm font-medium ${isCurrentUser ? "text-gray-600" : ""}`}>
+                  Rol
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative">
+                      <Select
+                        key={formData.role || 'default'}
+                        value={formData.role}
+                        onValueChange={(value) => handleInputChange("role", value)}
+                        disabled={isCurrentUser}
+
+                      >
+                        <SelectTrigger className="h-11 mt-3">
+                          <SelectValue placeholder="Seleccione un rol" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roleOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TooltipTrigger>
+                  {isCurrentUser && (
+                    <TooltipContent>
+                      <p>No puedes cambiar tu propio rol</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+                {errors.role && (
+                  <p className="text-sm text-red-600 mt-1">{errors.role}</p>
+                )}
+              </div>
+            </div>
+
+            {errors.submit && (
+              <div className="text-sm text-red-600 text-center py-2">{errors.submit}</div>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="password" className="mt-6">
-          <Card className="border-0 shadow-none">
-            <CardHeader className="px-4 pb-4">
-              <CardTitle className="text-lg font-semibold">Cambiar Contraseña</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Cambiar Contraseña</h3>
+              <p className="text-sm text-muted-foreground mb-6">
                 Actualiza la contraseña del usuario. Se requiere la contraseña actual para verificar la identidad.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-4 pb-2">
-              <form onSubmit={handlePasswordSubmit} className="space-y-6">
-                <div className="space-y-3">
-                  <Label htmlFor="current_password" className="text-sm font-medium">Contraseña Actual *</Label>
-                  <Input
-                    id="current_password"
-                    type="password"
-                    placeholder="Ingrese la contraseña actual"
-                    value={passwordData.current_password}
-                    onChange={(e) => handlePasswordInputChange("current_password", e.target.value)}
-                    className="h-11"
-                  />
-                  {passwordErrors.current_password && (
-                    <p className="text-sm text-red-600 mt-1">{passwordErrors.current_password}</p>
-                  )}
-                </div>
+              </p>
+            </div>
 
-                <div className="space-y-3">
-                  <Label htmlFor="new_password" className="text-sm font-medium">Nueva Contraseña *</Label>
-                  <Input
-                    id="new_password"
-                    type="password"
-                    placeholder="Ingrese la nueva contraseña"
-                    value={passwordData.new_password}
-                    onChange={(e) => handlePasswordInputChange("new_password", e.target.value)}
-                    className="h-11"
-                  />
-                  {passwordErrors.new_password && (
-                    <p className="text-sm text-red-600 mt-1">{passwordErrors.new_password}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                    Mínimo 8 caracteres con al menos una letra minúscula, una mayúscula, un número y un carácter especial
-                  </p>
-                </div>
+            <div className="space-y-3">
+              <Label htmlFor="current_password" className="text-sm font-medium">Contraseña Actual *</Label>
+              <Input
+                id="current_password"
+                type="password"
+                placeholder="Ingrese la contraseña actual"
+                value={passwordData.current_password}
+                onChange={(e) => handlePasswordInputChange("current_password", e.target.value)}
+                className="h-11 mt-3"
+              />
+              {passwordErrors.current_password && (
+                <p className="text-sm text-red-600 mt-1">{passwordErrors.current_password}</p>
+              )}
+            </div>
 
-                <div className="space-y-3">
-                  <Label htmlFor="confirm_password" className="text-sm font-medium">Confirmar Nueva Contraseña *</Label>
-                  <Input
-                    id="confirm_password"
-                    type="password"
-                    placeholder="Confirme la nueva contraseña"
-                    value={passwordData.confirm_password}
-                    onChange={(e) => handlePasswordInputChange("confirm_password", e.target.value)}
-                    className="h-11"
-                  />
-                  {passwordErrors.confirm_password && (
-                    <p className="text-sm text-red-600 mt-1">{passwordErrors.confirm_password}</p>
-                  )}
-                </div>
+            <div className="space-y-3">
+              <Label htmlFor="new_password" className="text-sm font-medium">Nueva Contraseña *</Label>
+              <Input
+                id="new_password"
+                type="password"
+                placeholder="Ingrese la nueva contraseña"
+                value={passwordData.new_password}
+                onChange={(e) => handlePasswordInputChange("new_password", e.target.value)}
+                className="h-11 mt-3"
+              />
+              {passwordErrors.new_password && (
+                <p className="text-sm text-red-600 mt-1">{passwordErrors.new_password}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                Mínimo 8 caracteres con al menos una letra minúscula, una mayúscula, un número y un carácter especial
+              </p>
+            </div>
 
-                {passwordErrors.submit && (
-                  <div className="text-sm text-red-600 text-center py-2">{passwordErrors.submit}</div>
-                )}
+            <div className="space-y-3">
+              <Label htmlFor="confirm_password" className="text-sm font-medium">Confirmar Nueva Contraseña *</Label>
+              <Input
+                id="confirm_password"
+                type="password"
+                placeholder="Confirme la nueva contraseña"
+                value={passwordData.confirm_password}
+                onChange={(e) => handlePasswordInputChange("confirm_password", e.target.value)}
+                className="h-11 mt-3"
+              />
+              {passwordErrors.confirm_password && (
+                <p className="text-sm text-red-600 mt-1">{passwordErrors.confirm_password}</p>
+              )}
+            </div>
 
-                <div className="flex justify-end space-x-4 pt-6">
-                  <Button
-                    type="submit"
-                    className="w-full h-11"
-                    disabled={isPasswordSubmitting}
-                  >
-                    {isPasswordSubmitting ? "Actualizando..." : "Actualizar Contraseña"}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+            {passwordErrors.submit && (
+              <div className="text-sm text-red-600 text-center py-2">{passwordErrors.submit}</div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
+      </form>
 
       {/* Confirmation Dialog for Profile Update */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>

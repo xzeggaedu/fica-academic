@@ -17,9 +17,10 @@ interface UserActionsProps {
   userId: number;
   userName: string;
   onSuccess?: () => void;
+  isCurrentUser?: boolean;
 }
 
-export function UserActions({ userId, userName, onSuccess }: UserActionsProps) {
+export function UserActions({ userId, userName, onSuccess, isCurrentUser = false }: UserActionsProps) {
   const [isViewSheetOpen, setIsViewSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -33,6 +34,9 @@ export function UserActions({ userId, userName, onSuccess }: UserActionsProps) {
   };
 
   const handleDelete = () => {
+    if (isCurrentUser) {
+      return; // No permitir eliminar el usuario actual
+    }
     setIsDeleteDialogOpen(true);
   };
 
@@ -63,9 +67,13 @@ export function UserActions({ userId, userName, onSuccess }: UserActionsProps) {
             Editar
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleDelete} className="text-red-600">
+          <DropdownMenuItem
+            onClick={handleDelete}
+            className="text-red-600"
+            disabled={isCurrentUser}
+          >
             <Trash2 className="mr-2 h-4 w-4" />
-            Eliminar
+            {isCurrentUser ? 'Eliminar (No puedes eliminarte a ti mismo)' : 'Eliminar'}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

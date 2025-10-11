@@ -18,6 +18,7 @@ import { useNotificationProvider } from "./components/refine-ui/notification/use
 import { ThemeProvider } from "./components/refine-ui/theme/theme-provider";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { SessionExpiredProvider } from "./contexts/session-expired-context";
+import { useTokenRefresh } from "./hooks/use-token-refresh";
 import {
   UserCreate,
   UserEdit,
@@ -29,11 +30,17 @@ import {
   TaskList,
   TaskShow,
 } from "./pages/tasks";
+import {
+  FacultyList,
+} from "./pages/faculties";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
 
 function App() {
+  // Inicializar renovación automática de tokens
+  useTokenRefresh();
+
   return (
     <BrowserRouter>
       <RefineKbarProvider>
@@ -55,7 +62,23 @@ function App() {
                   edit: "/users/edit/:id",
                   show: "/users/show/:id",
                   meta: {
+                    label: "Usuarios",
                     canDelete: true,
+                  },
+                },
+                {
+                  name: "faculty",
+                  list: "/faculties",
+                  meta: {
+                    label: "Facultades y Escuelas",
+                    canDelete: true,
+                  },
+                },
+                {
+                  name: "separator",
+                  meta: {
+                    group: true,
+                    label: "separator",
                   },
                 },
                 {
@@ -64,6 +87,7 @@ function App() {
                   create: "/tasks/create",
                   show: "/tasks/show/:id",
                   meta: {
+                    label: "Tareas",
                     canDelete: true,
                   },
                 },
@@ -99,6 +123,9 @@ function App() {
                     <Route path="create" element={<UserCreate />} />
                     <Route path="edit/:id" element={<UserEdit />} />
                     <Route path="show/:id" element={<UserShow />} />
+                  </Route>
+                  <Route path="/faculties">
+                    <Route index element={<FacultyList />} />
                   </Route>
                   <Route path="/tasks">
                     <Route index element={<TaskList />} />

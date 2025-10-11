@@ -13,7 +13,11 @@ from ...core.exceptions.http_exceptions import (
     UnauthorizedException,
 )
 from ...core.security import blacklist_token, get_password_hash, oauth2_scheme, verify_password
+from ...crud.crud_faculties import get_faculty_by_uuid
+from ...crud.crud_schools import get_school_by_uuid
+from ...crud.crud_user_scope import create_faculty_scope, create_school_scope, delete_user_scopes, get_user_scopes
 from ...crud.crud_users import crud_users
+from ...models.role import UserRoleEnum
 from ...schemas.user import (
     UserCreate,
     UserCreateAdmin,
@@ -23,6 +27,7 @@ from ...schemas.user import (
     UserUpdate,
     UserUpdateAdmin,
 )
+from ...schemas.user_scope import UserScopeAssignment, UserScopeRead
 
 router = APIRouter(tags=["users"])
 
@@ -296,3 +301,159 @@ async def erase_db_user(
     await crud_users.db_delete(db=db, username=username)
     await blacklist_token(token=token, db=db)
     return {"message": "User deleted from the database"}
+
+
+@router.put("/user/{user_id}/scope", response_model=list[UserScopeRead])
+async def assign_user_scope(
+    request: Request,
+    user_id: int,
+    assignment: UserScopeAssignment,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+) -> list[UserScopeRead]:
+    """Assign hierarchical scope to a user based on their role - Admin only.
+
+    This endpoint manages scope assignments for DIRECTOR and DECANO roles:
+    - DECANO: Assign to ONE faculty (faculty_id must be provided)
+    - DIRECTOR: Assign to MULTIPLE schools (school_ids must be provided)
+
+    The endpoint will:
+    1. Validate user exists and get their role
+    2. Delete all existing scope assignments for the user
+    3. Create new assignments based on role:
+       - DECANO: Single faculty assignment
+       - DIRECTOR: Multiple school assignments
+
+    Args:
+    ----
+        request: FastAPI request object
+        user_id: ID of the user to assign scope to
+        assignment: Scope assignment data (faculty_id OR school_ids)
+        db: Database session
+        current_user: Current authenticated admin user
+
+    Returns:
+    -------
+        List of created UserScope assignments
+
+    Raises:
+    ------
+        NotFoundException: If user, faculty, or schools not found
+        ForbiddenException: If user role doesn't support scope assignment
+    """
+    # 1. Get user and validate existence
+    db_user = await crud_users.get(db=db, id=user_id)
+    if db_user is None:
+        raise NotFoundException(f"User with id {user_id} not found")
+
+    # Get user role
+    if isinstance(db_user, dict):
+        user_role = db_user.get("role")
+    else:
+        user_role = db_user.role
+
+    # Convert to UserRoleEnum if it's a string
+    if isinstance(user_role, str):
+        user_role = UserRoleEnum(user_role)
+
+    # 2. Validate role supports scope assignment
+    if user_role not in [UserRoleEnum.DECANO, UserRoleEnum.DIRECTOR]:
+        raise ForbiddenException(
+            f"User role '{user_role.value}' does not support scope assignment. "
+            "Only DECANO and DIRECTOR roles can have scope assignments."
+        )
+
+    # 3. Delete existing scope assignments
+    await delete_user_scopes(db=db, user_id=user_id)
+
+    created_scopes = []
+
+    # 4. Create new assignments based on role
+    if user_role == UserRoleEnum.DECANO:
+        # DECANO: Must assign to ONE faculty
+        if assignment.faculty_id is None:
+            raise ForbiddenException("DECANO role requires a faculty_id assignment")
+        if assignment.school_ids is not None:
+            raise ForbiddenException("DECANO role cannot be assigned to schools")
+
+        # Validate faculty exists
+        faculty = await get_faculty_by_uuid(db=db, faculty_id=assignment.faculty_id)
+        if faculty is None:
+            raise NotFoundException(f"Faculty with id '{assignment.faculty_id}' not found")
+
+        # Create faculty scope
+        scope = await create_faculty_scope(db=db, user_id=user_id, faculty_id=assignment.faculty_id)
+        created_scopes.append(scope)
+
+    elif user_role == UserRoleEnum.DIRECTOR:
+        # DIRECTOR: Must assign to MULTIPLE schools
+        if assignment.school_ids is None or len(assignment.school_ids) == 0:
+            raise ForbiddenException("DIRECTOR role requires at least one school_id assignment")
+        if assignment.faculty_id is not None:
+            raise ForbiddenException("DIRECTOR role cannot be assigned to a faculty")
+
+        # Validate all schools exist and create assignments
+        for school_id in assignment.school_ids:
+            school = await get_school_by_uuid(db=db, school_id=school_id)
+            if school is None:
+                raise NotFoundException(f"School with id '{school_id}' not found")
+
+            # Create school scope
+            scope = await create_school_scope(db=db, user_id=user_id, school_id=school_id)
+            created_scopes.append(scope)
+
+    # 5. Return created scopes
+    return [
+        UserScopeRead(
+            id=scope.id,
+            fk_user=scope.fk_user,
+            fk_school=scope.fk_school,
+            fk_faculty=scope.fk_faculty,
+            assigned_at=scope.assigned_at,
+        )
+        for scope in created_scopes
+    ]
+
+
+@router.get("/user/{user_id}/scope", response_model=list[UserScopeRead])
+async def get_user_scope_assignments(
+    request: Request,
+    user_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+) -> list[UserScopeRead]:
+    """Get all scope assignments for a user - Admin only.
+
+    Args:
+    ----
+        request: FastAPI request object
+        user_id: ID of the user
+        db: Database session
+        current_user: Current authenticated admin user
+
+    Returns:
+    -------
+        List of UserScope assignments
+
+    Raises:
+    ------
+        NotFoundException: If user not found
+    """
+    # Validate user exists
+    db_user = await crud_users.get(db=db, id=user_id)
+    if db_user is None:
+        raise NotFoundException(f"User with id {user_id} not found")
+
+    # Get scopes
+    scopes = await get_user_scopes(db=db, user_id=user_id)
+
+    return [
+        UserScopeRead(
+            id=scope.id,
+            fk_user=scope.fk_user,
+            fk_school=scope.fk_school,
+            fk_faculty=scope.fk_faculty,
+            assigned_at=scope.assigned_at,
+        )
+        for scope in scopes
+    ]

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useList, CanAccess } from "@refinedev/core";
+import { useList, CanAccess, useGetIdentity } from "@refinedev/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { UserRoleEnum } from "../../types/auth";
 import {
@@ -16,12 +16,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { TableFilters } from "../../components/ui/data/table-filters";
 import { UserActions } from "../../components/ui/users/user-actions";
 import { UserCreateButton } from "../../components/ui/users/user-create-button";
+import { UserViewSheet } from "../../components/ui/users/user-view-sheet";
+import { getTableColumnClass } from "../../components/refine-ui/theme/theme-table";
 
 export const UserList = () => {
   const { query, result } = useList({
     resource: "users",
   });
   const queryClient = useQueryClient();
+  const { data: identity } = useGetIdentity<{ id: number; username: string }>();
 
   // Función para refrescar datos directamente
   const refreshData = async () => {
@@ -41,6 +44,11 @@ export const UserList = () => {
   const [visibleColumns, setVisibleColumns] = useState([
     "id", "avatar", "name", "username", "email", "role", "created_at", "actions"
   ]);
+
+  // Estado para el sheet de visualización desde la fila
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserName, setSelectedUserName] = useState<string>("");
+  const [isViewSheetOpen, setIsViewSheetOpen] = useState(false);
 
   // Debug: Log para verificar los datos
 
@@ -135,10 +143,21 @@ export const UserList = () => {
 
   // Función para manejar éxito de operaciones
   const handleSuccess = async () => {
-
     // Refrescar datos directamente
     await refreshData();
+  };
 
+  // Función para manejar click en la fila
+  const handleRowClick = (user: any, event: React.MouseEvent) => {
+    // Evitar abrir si se hizo click en la celda de acciones
+    const target = event.target as HTMLElement;
+    if (target.closest('[data-actions-cell]')) {
+      return;
+    }
+
+    setSelectedUserId(user.id);
+    setSelectedUserName(user.name);
+    setIsViewSheetOpen(true);
   };
 
   return (
@@ -185,14 +204,14 @@ export const UserList = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {visibleColumns.includes("id") && <TableHead>ID</TableHead>}
-                    {visibleColumns.includes("avatar") && <TableHead>Avatar</TableHead>}
-                    {visibleColumns.includes("name") && <TableHead>Nombre</TableHead>}
-                    {visibleColumns.includes("username") && <TableHead>Usuario</TableHead>}
-                    {visibleColumns.includes("email") && <TableHead>Correo</TableHead>}
-                    {visibleColumns.includes("role") && <TableHead>Rol</TableHead>}
-                    {visibleColumns.includes("created_at") && <TableHead>Fecha de Creación</TableHead>}
-                    {visibleColumns.includes("actions") && <TableHead className="w-[70px]"></TableHead>}
+                    {visibleColumns.includes("id") && <TableHead className={getTableColumnClass("id")}>ID</TableHead>}
+                    {visibleColumns.includes("avatar") && <TableHead className={getTableColumnClass("avatar")}>Avatar</TableHead>}
+                    {visibleColumns.includes("name") && <TableHead className={getTableColumnClass("name")}>Nombre</TableHead>}
+                    {visibleColumns.includes("username") && <TableHead className={getTableColumnClass("username")}>Usuario</TableHead>}
+                    {visibleColumns.includes("email") && <TableHead className={getTableColumnClass("email")}>Correo</TableHead>}
+                    {visibleColumns.includes("role") && <TableHead className={getTableColumnClass("role")}>Rol</TableHead>}
+                    {visibleColumns.includes("created_at") && <TableHead className={getTableColumnClass("date")}>Fecha de Creación</TableHead>}
+                    {visibleColumns.includes("actions") && <TableHead className={getTableColumnClass("actions")}></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -216,12 +235,16 @@ export const UserList = () => {
                     </TableRow>
                   ) : (
                     filteredData.map((user: any) => (
-                      <TableRow key={user.id}>
+                      <TableRow
+                        key={user.id}
+                        className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={(e) => handleRowClick(user, e)}
+                      >
                         {visibleColumns.includes("id") && (
-                          <TableCell className="font-medium">{user.id}</TableCell>
+                          <TableCell className={getTableColumnClass("id", "font-medium")}>{user.id}</TableCell>
                         )}
                         {visibleColumns.includes("avatar") && (
-                          <TableCell>
+                          <TableCell className={getTableColumnClass("avatar")}>
                             <Avatar className="h-8 w-8">
                               <AvatarImage src={user.profile_image_url} alt={user.name} />
                               <AvatarFallback>
@@ -231,32 +254,33 @@ export const UserList = () => {
                           </TableCell>
                         )}
                         {visibleColumns.includes("name") && (
-                          <TableCell>{user.name}</TableCell>
+                          <TableCell className={getTableColumnClass("name")}>{user.name}</TableCell>
                         )}
                         {visibleColumns.includes("username") && (
-                          <TableCell>{user.username}</TableCell>
+                          <TableCell className={getTableColumnClass("username")}>{user.username}</TableCell>
                         )}
                         {visibleColumns.includes("email") && (
-                          <TableCell>{user.email}</TableCell>
+                          <TableCell className={getTableColumnClass("email")}>{user.email}</TableCell>
                         )}
                         {visibleColumns.includes("role") && (
-                          <TableCell>
+                          <TableCell className={getTableColumnClass("role")}>
                             <Badge variant={getRoleVariant(user.role)}>
                               {getRoleLabel(user.role)}
                             </Badge>
                           </TableCell>
                         )}
                         {visibleColumns.includes("created_at") && (
-                          <TableCell>
+                          <TableCell className={getTableColumnClass("date")}>
                             {formatDate(user.created_at)}
                           </TableCell>
                         )}
                         {visibleColumns.includes("actions") && (
-                          <TableCell>
+                          <TableCell className={getTableColumnClass("actions")} data-actions-cell onClick={(e) => e.stopPropagation()}>
                             <UserActions
                               userId={user.id}
                               userName={user.name}
                               onSuccess={handleSuccess}
+                              isCurrentUser={identity?.id === user.id}
                             />
                           </TableCell>
                         )}
@@ -279,6 +303,20 @@ export const UserList = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sheet para ver detalles desde la fila */}
+      {selectedUserId && (
+        <UserViewSheet
+          userId={selectedUserId}
+          userName={selectedUserName}
+          isOpen={isViewSheetOpen}
+          onClose={() => {
+            setIsViewSheetOpen(false);
+            setSelectedUserId(null);
+            setSelectedUserName("");
+          }}
+        />
+      )}
     </CanAccess>
   );
 };

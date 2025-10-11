@@ -1,4 +1,5 @@
 import type { AuthProvider } from "@refinedev/core";
+import { apiRequest } from "../utils/token-interceptor";
 
 // Environment Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -21,6 +22,7 @@ const ENDPOINTS = {
 interface LoginParams {
   username: string;
   password: string;
+  remember_me?: boolean;
 }
 
 interface RegisterParams {
@@ -55,11 +57,12 @@ interface UserInfoResponse {
 }
 
 export const authProvider: AuthProvider = {
-  login: async ({ username, password }: LoginParams) => {
+  login: async ({ username, password, remember_me = false }: LoginParams) => {
     try {
       const formData = new FormData();
       formData.append("username", username);
       formData.append("password", password);
+      formData.append("remember_me", remember_me.toString());
 
       const response = await fetch(`${API_BASE_URL}${ENDPOINTS.LOGIN}`, {
         method: "POST",
@@ -177,11 +180,8 @@ export const authProvider: AuthProvider = {
     }
 
     try {
-      // Verificar si el token es válido haciendo una petición a /me
-      const response = await fetch(`${API_BASE_URL}${ENDPOINTS.ME}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      // Usar el interceptor de tokens que maneja automáticamente la renovación
+      const response = await apiRequest(`${API_BASE_URL}${ENDPOINTS.ME}`, {
         signal: AbortSignal.timeout(API_TIMEOUT),
       });
 
@@ -190,29 +190,13 @@ export const authProvider: AuthProvider = {
           authenticated: true,
         };
       } else {
-        // Token inválido, intentar refresh
-        const refreshResponse = await fetch(`${API_BASE_URL}${ENDPOINTS.REFRESH}`, {
-          method: "POST",
-          credentials: "include",
-          signal: AbortSignal.timeout(API_TIMEOUT),
-        });
-
-        if (refreshResponse.ok) {
-          const refreshData: LoginResponse = await refreshResponse.json();
-          localStorage.setItem(TOKEN_KEY, refreshData.access_token);
-
-          return {
-            authenticated: true,
-          };
-        } else {
-          // Refresh falló, limpiar token y disparar evento
-          localStorage.removeItem(TOKEN_KEY);
-          window.dispatchEvent(new CustomEvent('session-expired'));
-          return {
-            authenticated: false,
-            redirectTo: "/login",
-          };
-        }
+        // Si aún falla después del interceptor, la sesión ha expirado
+        localStorage.removeItem(TOKEN_KEY);
+        window.dispatchEvent(new CustomEvent('session-expired'));
+        return {
+          authenticated: false,
+          redirectTo: "/login",
+        };
       }
     } catch (error) {
       console.error("Auth check error:", error);
@@ -233,10 +217,7 @@ export const authProvider: AuthProvider = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}${ENDPOINTS.ME}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await apiRequest(`${API_BASE_URL}${ENDPOINTS.ME}`, {
         signal: AbortSignal.timeout(API_TIMEOUT),
       });
 
@@ -259,10 +240,7 @@ export const authProvider: AuthProvider = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}${ENDPOINTS.ME}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await apiRequest(`${API_BASE_URL}${ENDPOINTS.ME}`, {
         signal: AbortSignal.timeout(API_TIMEOUT),
       });
 

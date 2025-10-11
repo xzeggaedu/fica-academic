@@ -94,9 +94,11 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Environments (trackeamos solo .env.example)
 .env
+.env.development
 .env.production
+.env.local
 .venv
 env/
 venv/
