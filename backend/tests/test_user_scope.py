@@ -1,4 +1,8 @@
-"""Tests for User Scope assignment endpoints."""
+"""Tests for User Scope assignment endpoints.
+
+NOTA: Estas son pruebas de integración que requieren conexión a PostgreSQL.
+Para ejecutar solo pruebas unitarias, usar: pytest -m "not integration"
+"""
 
 import pytest
 from fastapi.testclient import TestClient
@@ -7,8 +11,15 @@ from src.app.api.dependencies import get_current_superuser
 from src.app.models.role import UserRoleEnum
 
 
+@pytest.mark.integration
 class TestUserScopeEndpoints:
-    """Test suite for User Scope assignment endpoints."""
+    """Test suite for User Scope assignment endpoints.
+
+    Estas son pruebas de integración que requieren:
+    - Conexión a PostgreSQL
+    - Conexión a Redis
+    - TestClient de FastAPI con lifespan completo
+    """
 
     @pytest.fixture
     def admin_user(self):
