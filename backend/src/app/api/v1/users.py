@@ -315,20 +315,20 @@ async def assign_user_scope(
 
     This endpoint manages scope assignments for DIRECTOR and DECANO roles:
     - DECANO: Assign to ONE faculty (faculty_id must be provided)
-    - DIRECTOR: Assign to MULTIPLE schools (school_ids must be provided)
+    - DIRECTOR: Assign to ONE school (school_id must be provided)
 
     The endpoint will:
     1. Validate user exists and get their role
     2. Delete all existing scope assignments for the user
     3. Create new assignments based on role:
        - DECANO: Single faculty assignment
-       - DIRECTOR: Multiple school assignments
+       - DIRECTOR: Single school assignment
 
     Args:
     ----
         request: FastAPI request object
         user_id: ID of the user to assign scope to
-        assignment: Scope assignment data (faculty_id OR school_ids)
+        assignment: Scope assignment data (faculty_id OR school_id)
         db: Database session
         current_user: Current authenticated admin user
 
@@ -338,7 +338,7 @@ async def assign_user_scope(
 
     Raises:
     ------
-        NotFoundException: If user, faculty, or schools not found
+        NotFoundException: If user, faculty, or school not found
         ForbiddenException: If user role doesn't support scope assignment
     """
     # 1. Get user and validate existence
@@ -386,21 +386,20 @@ async def assign_user_scope(
         created_scopes.append(scope)
 
     elif user_role == UserRoleEnum.DIRECTOR:
-        # DIRECTOR: Must assign to MULTIPLE schools
-        if assignment.school_ids is None or len(assignment.school_ids) == 0:
-            raise ForbiddenException("DIRECTOR role requires at least one school_id assignment")
+        # DIRECTOR: Must assign to ONE school
+        if assignment.school_id is None:
+            raise ForbiddenException("DIRECTOR role requires a school_id assignment")
         if assignment.faculty_id is not None:
             raise ForbiddenException("DIRECTOR role cannot be assigned to a faculty")
 
-        # Validate all schools exist and create assignments
-        for school_id in assignment.school_ids:
-            school = await get_school_by_uuid(db=db, school_id=school_id)
-            if school is None:
-                raise NotFoundException(f"School with id '{school_id}' not found")
+        # Validate school exists
+        school = await get_school_by_uuid(db=db, school_id=assignment.school_id)
+        if school is None:
+            raise NotFoundException(f"School with id '{assignment.school_id}' not found")
 
-            # Create school scope
-            scope = await create_school_scope(db=db, user_id=user_id, school_id=school_id)
-            created_scopes.append(scope)
+        # Create school scope
+        scope = await create_school_scope(db=db, user_id=user_id, school_id=assignment.school_id)
+        created_scopes.append(scope)
 
     # 5. Return created scopes
     return [

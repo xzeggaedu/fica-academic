@@ -74,17 +74,13 @@ class TestUserScopeEndpoints:
         return response.json()["id_faculty"]
 
     @pytest.fixture
-    def school_ids(self, client: TestClient, admin_user, faculty_id, override_dependency):
-        """Create multiple schools and return their UUIDs."""
+    def school_id(self, client: TestClient, admin_user, faculty_id, override_dependency):
+        """Create a school and return its UUID."""
         override_dependency(get_current_superuser, admin_user)
 
-        school1_data = {"name": "School 1", "fk_faculty": faculty_id, "is_active": True}
-        school2_data = {"name": "School 2", "fk_faculty": faculty_id, "is_active": True}
-
-        response1 = client.post("/v1/school", json=school1_data)
-        response2 = client.post("/v1/school", json=school2_data)
-
-        return [response1.json()["id_school"], response2.json()["id_school"]]
+        school_data = {"name": "Test School", "fk_faculty": faculty_id, "is_active": True}
+        response = client.post("/v1/school", json=school_data)
+        return response.json()["id_school"]
 
     def test_assign_faculty_scope_to_decano(
         self, client: TestClient, admin_user, decano_user, faculty_id, override_dependency
@@ -93,7 +89,7 @@ class TestUserScopeEndpoints:
         override_dependency(get_current_superuser, admin_user)
 
         user_id = decano_user["id"]
-        assignment_data = {"faculty_id": faculty_id, "school_ids": None}
+        assignment_data = {"faculty_id": faculty_id}
 
         response = client.put(f"/v1/user/{user_id}/scope", json=assignment_data)
 
@@ -103,33 +99,31 @@ class TestUserScopeEndpoints:
         assert data[0]["fk_faculty"] == faculty_id
         assert data[0]["fk_school"] is None
 
-    def test_assign_school_scopes_to_director(
-        self, client: TestClient, admin_user, director_user, school_ids, override_dependency
+    def test_assign_school_scope_to_director(
+        self, client: TestClient, admin_user, director_user, school_id, override_dependency
     ):
-        """Test assigning multiple school scopes to DIRECTOR user."""
+        """Test assigning school scope to DIRECTOR user."""
         override_dependency(get_current_superuser, admin_user)
 
         user_id = director_user["id"]
-        assignment_data = {"faculty_id": None, "school_ids": school_ids}
+        assignment_data = {"school_id": school_id}
 
         response = client.put(f"/v1/user/{user_id}/scope", json=assignment_data)
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == len(school_ids)
-
-        assigned_school_ids = [scope["fk_school"] for scope in data]
-        for school_id in school_ids:
-            assert school_id in assigned_school_ids
+        assert len(data) == 1
+        assert data[0]["fk_school"] == school_id
+        assert data[0]["fk_faculty"] is None
 
     def test_decano_cannot_have_school_scope(
-        self, client: TestClient, admin_user, decano_user, school_ids, override_dependency
+        self, client: TestClient, admin_user, decano_user, school_id, override_dependency
     ):
-        """Test that DECANO cannot be assigned school scopes."""
+        """Test that DECANO cannot be assigned school scope."""
         override_dependency(get_current_superuser, admin_user)
 
         user_id = decano_user["id"]
-        assignment_data = {"faculty_id": None, "school_ids": school_ids}
+        assignment_data = {"school_id": school_id}
 
         response = client.put(f"/v1/user/{user_id}/scope", json=assignment_data)
 
@@ -142,7 +136,7 @@ class TestUserScopeEndpoints:
         override_dependency(get_current_superuser, admin_user)
 
         user_id = director_user["id"]
-        assignment_data = {"faculty_id": faculty_id, "school_ids": None}
+        assignment_data = {"faculty_id": faculty_id}
 
         response = client.put(f"/v1/user/{user_id}/scope", json=assignment_data)
 
@@ -163,11 +157,11 @@ class TestUserScopeEndpoints:
         create_response = client.post("/v1/user", json=user_data)
         user_id = create_response.json()["id"]
 
-        # Try to assign scope
-        assignment_data = {"faculty_id": None, "school_ids": []}
+        # Try to assign scope (should fail - no faculty_id or school_id provided)
+        assignment_data = {}
         response = client.put(f"/v1/user/{user_id}/scope", json=assignment_data)
 
-        assert response.status_code == 403  # Forbidden
+        assert response.status_code in [403, 422]  # Forbidden or Validation Error
 
     def test_get_user_scope_assignments(
         self, client: TestClient, admin_user, decano_user, faculty_id, override_dependency
@@ -178,7 +172,7 @@ class TestUserScopeEndpoints:
         user_id = decano_user["id"]
 
         # Assign scope
-        assignment_data = {"faculty_id": faculty_id, "school_ids": None}
+        assignment_data = {"faculty_id": faculty_id}
         client.put(f"/v1/user/{user_id}/scope", json=assignment_data)
 
         # Get scope
@@ -190,30 +184,40 @@ class TestUserScopeEndpoints:
         assert data[0]["fk_faculty"] == faculty_id
 
     def test_reassigning_scope_replaces_previous(
-        self, client: TestClient, admin_user, director_user, school_ids, override_dependency
+        self, client: TestClient, admin_user, director_user, faculty_id, override_dependency
     ):
         """Test that reassigning scope replaces previous assignments."""
         override_dependency(get_current_superuser, admin_user)
 
         user_id = director_user["id"]
 
-        # First assignment: all schools
-        assignment_data1 = {"faculty_id": None, "school_ids": school_ids}
+        # Create two schools
+        school1_data = {"name": "School 1", "fk_faculty": faculty_id, "is_active": True}
+        school2_data = {"name": "School 2", "fk_faculty": faculty_id, "is_active": True}
+        
+        response1 = client.post("/v1/school", json=school1_data)
+        response2 = client.post("/v1/school", json=school2_data)
+        
+        school_id_1 = response1.json()["id_school"]
+        school_id_2 = response2.json()["id_school"]
+
+        # First assignment: school 1
+        assignment_data1 = {"school_id": school_id_1}
         client.put(f"/v1/user/{user_id}/scope", json=assignment_data1)
 
-        # Second assignment: only first school
-        assignment_data2 = {"faculty_id": None, "school_ids": [school_ids[0]]}
+        # Second assignment: school 2
+        assignment_data2 = {"school_id": school_id_2}
         response = client.put(f"/v1/user/{user_id}/scope", json=assignment_data2)
 
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1  # Only one school now
-        assert data[0]["fk_school"] == school_ids[0]
+        assert data[0]["fk_school"] == school_id_2
 
     def test_scope_endpoints_require_admin(self, client: TestClient):
         """Test that scope endpoints require admin privileges."""
         # Try to assign scope without auth
-        response = client.put("/v1/user/1/scope", json={"faculty_id": None, "school_ids": []})
+        response = client.put("/v1/user/1/scope", json={})
         assert response.status_code == 401  # Unauthorized
 
         # Try to get scope without auth

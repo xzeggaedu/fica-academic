@@ -279,6 +279,7 @@ export const UserList = () => {
                             <UserActions
                               userId={user.id}
                               userName={user.name}
+                              userRole={user.role}
                               onSuccess={handleSuccess}
                               isCurrentUser={identity?.id === user.id}
                             />
