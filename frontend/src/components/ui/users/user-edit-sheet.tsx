@@ -67,8 +67,8 @@ export function UserEditSheet({ userId, userName, isOpen, onClose, onSuccess }: 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent side="right" className="w-[500px] sm:max-w-[90vw] flex flex-col">
-        <SheetHeader className="flex-shrink-0 pb-0">
-          <SheetTitle className="text-xl font-semibold">{userName}</SheetTitle>
+        <SheetHeader className="flex-shrink-0 px-6">
+          <SheetTitle className="text-xl font-bold flex items-center gap-2 max-w-[80%]">{userName}</SheetTitle>
         </SheetHeader>
 
         <div className="flex-1 relative overflow-hidden">
@@ -76,9 +76,9 @@ export function UserEditSheet({ userId, userName, isOpen, onClose, onSuccess }: 
           <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none"></div>
 
           {/* Scrollable content */}
-          <div className="h-full overflow-y-auto py-0 px-4">
+          <div className="h-full overflow-y-auto py-0 px-6">
             <div className="py-2">
-              <UserEditForm data={data} isLoading={isLoading} error={error} onSuccess={handleSuccess} />
+              <UserEditForm data={data} isLoading={isLoading} error={error} onSuccess={handleSuccess} onClose={onClose} />
             </div>
           </div>
 
@@ -86,10 +86,13 @@ export function UserEditSheet({ userId, userName, isOpen, onClose, onSuccess }: 
           <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none"></div>
         </div>
 
-        <SheetFooter className="flex-shrink-0">
+        <SheetFooter className="flex-shrink-0 flex flex-row justify-end gap-3">
           <SheetClose asChild>
             <Button variant="outline">Cancelar</Button>
           </SheetClose>
+          <Button form="user-edit-form" type="submit">
+            Actualizar Usuario
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

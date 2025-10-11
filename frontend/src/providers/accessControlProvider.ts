@@ -65,6 +65,26 @@ export const accessControlProvider: AccessControlProvider = {
               return { can: false, reason: "Acción no permitida" };
           }
 
+        case "faculty":
+          switch (action) {
+            case "list":
+            case "show":
+            case "create":
+            case "edit":
+            case "delete":
+              // Solo administradores pueden gestionar facultades
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "Solo los administradores pueden gestionar facultades",
+              };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
         default:
           // Para otros recursos, permitir acceso básico a usuarios autenticados
           if (action === "list" || action === "show") {

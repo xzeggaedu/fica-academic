@@ -24,6 +24,8 @@ _.ntvs_
 _.njsproj
 _.sln
 \*.sw?
+# Environment files (trackeamos solo .env.example)
 .env
 .env.development
-.end.production
+.env.production
+.env.local

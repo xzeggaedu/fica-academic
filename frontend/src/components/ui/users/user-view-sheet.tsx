@@ -63,8 +63,8 @@ export function UserViewSheet({ userId, userName, isOpen, onClose }: UserViewShe
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent side="right" className="w-[500px] sm:max-w-[90vw] flex flex-col">
-        <SheetHeader className="flex-shrink-0">
-          <SheetTitle>Detalles del Usuario</SheetTitle>
+        <SheetHeader className="flex-shrink-0 px-6">
+          <SheetTitle className="text-xl font-bold flex items-center gap-2 max-w-[80%]">Detalles del Usuario</SheetTitle>
           <SheetDescription>
             Información completa de {userName}
           </SheetDescription>
@@ -75,7 +75,7 @@ export function UserViewSheet({ userId, userName, isOpen, onClose }: UserViewShe
           <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none"></div>
 
           {/* Scrollable content */}
-          <div className="h-full overflow-y-auto py-0 px-4">
+          <div className="h-full overflow-y-auto py-0 px-6">
             <div className="py-2">
               <UserDetails data={data} isLoading={isLoading} error={error} />
             </div>
@@ -85,11 +85,6 @@ export function UserViewSheet({ userId, userName, isOpen, onClose }: UserViewShe
           <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none"></div>
         </div>
 
-        <SheetFooter className="flex-shrink-0">
-          <SheetClose asChild>
-            <Button variant="outline">Cerrar</Button>
-          </SheetClose>
-        </SheetFooter>
       </SheetContent>
     </Sheet>
   );

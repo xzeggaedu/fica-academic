@@ -11,13 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..crud.crud_users import crud_users
 from .config import settings
-from .db.crud_token_blacklist import crud_token_blacklist
-from .schemas import TokenBlacklistCreate, TokenData
+from .schemas import TokenData
+from .utils.redis_blacklist import add_token_to_blacklist, is_token_blacklisted
 
 SECRET_KEY: SecretStr = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 REFRESH_TOKEN_EXPIRE_DAYS = settings.REFRESH_TOKEN_EXPIRE_DAYS
+ACCESS_TOKEN_EXPIRE_MINUTES_REMEMBER = settings.ACCESS_TOKEN_EXPIRE_MINUTES_REMEMBER
+REFRESH_TOKEN_EXPIRE_DAYS_REMEMBER = settings.REFRESH_TOKEN_EXPIRE_DAYS_REMEMBER
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/login")
 
@@ -171,8 +173,9 @@ async def verify_token_with_rbac(token: str, expected_token_type: TokenType, db:
     dict[str, Any] | None
         Dictionary containing RBAC claims if the token is valid, None otherwise.
     """
-    is_blacklisted = await crud_token_blacklist.exists(db, token=token)
-    if is_blacklisted:
+    # Verificar blacklist en Redis en lugar de PostgreSQL
+    blacklisted = await is_token_blacklisted(token)
+    if blacklisted:
         return None
 
     try:
@@ -217,8 +220,9 @@ async def verify_token(token: str, expected_token_type: TokenType, db: AsyncSess
     TokenData | None
         TokenData instance if the token is valid, None otherwise.
     """
-    is_blacklisted = await crud_token_blacklist.exists(db, token=token)
-    if is_blacklisted:
+    # Verificar blacklist en Redis en lugar de PostgreSQL
+    blacklisted = await is_token_blacklisted(token)
+    if blacklisted:
         return None
 
     try:
@@ -236,7 +240,7 @@ async def verify_token(token: str, expected_token_type: TokenType, db: AsyncSess
 
 
 async def blacklist_tokens(access_token: str, refresh_token: str, db: AsyncSession) -> None:
-    """Blacklist both access and refresh tokens.
+    """Blacklist both access and refresh tokens using Redis.
 
     Parameters
     ----------
@@ -245,19 +249,40 @@ async def blacklist_tokens(access_token: str, refresh_token: str, db: AsyncSessi
     refresh_token: str
         The refresh token to blacklist
     db: AsyncSession
-        Database session for performing database operations.
+        Database session for performing database operations (no longer usado, mantenido para compatibilidad).
     """
     for token in [access_token, refresh_token]:
         payload = jwt.decode(token, SECRET_KEY.get_secret_value(), algorithms=[ALGORITHM])
         exp_timestamp = payload.get("exp")
         if exp_timestamp is not None:
+            # Calcular tiempo restante hasta expiración
             expires_at = datetime.fromtimestamp(exp_timestamp)
-            await crud_token_blacklist.create(db, object=TokenBlacklistCreate(token=token, expires_at=expires_at))
+            now = datetime.now(UTC).replace(tzinfo=None)
+            seconds_until_expiry = int((expires_at - now).total_seconds())
+
+            # Solo agregar a blacklist si el token aún no ha expirado
+            if seconds_until_expiry > 0:
+                await add_token_to_blacklist(token, seconds_until_expiry)
 
 
 async def blacklist_token(token: str, db: AsyncSession) -> None:
+    """Blacklist a single token using Redis.
+
+    Parameters
+    ----------
+    token: str
+        The token to blacklist
+    db: AsyncSession
+        Database session for performing database operations (no longer usado, mantenido para compatibilidad).
+    """
     payload = jwt.decode(token, SECRET_KEY.get_secret_value(), algorithms=[ALGORITHM])
     exp_timestamp = payload.get("exp")
     if exp_timestamp is not None:
+        # Calcular tiempo restante hasta expiración
         expires_at = datetime.fromtimestamp(exp_timestamp)
-        await crud_token_blacklist.create(db, object=TokenBlacklistCreate(token=token, expires_at=expires_at))
+        now = datetime.now(UTC).replace(tzinfo=None)
+        seconds_until_expiry = int((expires_at - now).total_seconds())
+
+        # Solo agregar a blacklist si el token aún no ha expirado
+        if seconds_until_expiry > 0:
+            await add_token_to_blacklist(token, seconds_until_expiry)
