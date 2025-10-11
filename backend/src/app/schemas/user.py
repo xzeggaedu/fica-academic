@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from ..core.schemas import PersistentDeletion, TimestampSchema, UUIDSchema
+from ..core.schemas import PersistentDeletion, TimestampSchema
 from ..models.role import UserRoleEnum
 
 
@@ -16,7 +16,7 @@ class UserBase(BaseModel):
     email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
 
 
-class User(TimestampSchema, UserBase, UUIDSchema, PersistentDeletion):
+class User(TimestampSchema, UserBase, PersistentDeletion):
     profile_image_url: Annotated[str, Field(default="https://www.profileimageurl.com")]
     hashed_password: str
     role: UserRoleEnum = UserRoleEnum.UNAUTHORIZED

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
+import { MoreHorizontal, Eye, Edit, Trash2, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,18 +12,27 @@ import {
 import { UserViewSheet } from "./user-view-sheet";
 import { UserEditSheet } from "./user-edit-sheet";
 import { UserDeleteDialog } from "./user-delete-dialog";
+import { UserPermissionsSheet } from "./user-permissions-sheet";
+import { UserRoleEnum } from "@/types/auth";
 
 interface UserActionsProps {
   userId: number;
   userName: string;
+  userRole: string;
   onSuccess?: () => void;
   isCurrentUser?: boolean;
 }
 
-export function UserActions({ userId, userName, onSuccess, isCurrentUser = false }: UserActionsProps) {
+export function UserActions({ userId, userName, userRole, onSuccess, isCurrentUser = false }: UserActionsProps) {
   const [isViewSheetOpen, setIsViewSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isPermissionsSheetOpen, setIsPermissionsSheetOpen] = useState(false);
+
+  // Check if user role should have permissions option
+  const canManagePermissions = userRole !== UserRoleEnum.ADMIN && 
+                                userRole !== UserRoleEnum.UNAUTHORIZED &&
+                                userRole !== UserRoleEnum.USER;
 
   const handleView = () => {
     setIsViewSheetOpen(true);
@@ -38,6 +47,10 @@ export function UserActions({ userId, userName, onSuccess, isCurrentUser = false
       return; // No permitir eliminar el usuario actual
     }
     setIsDeleteDialogOpen(true);
+  };
+
+  const handlePermissions = () => {
+    setIsPermissionsSheetOpen(true);
   };
 
   const handleSuccess = () => {
@@ -66,6 +79,12 @@ export function UserActions({ userId, userName, onSuccess, isCurrentUser = false
             <Edit className="mr-2 h-4 w-4" />
             Editar
           </DropdownMenuItem>
+          {canManagePermissions && (
+            <DropdownMenuItem onClick={handlePermissions}>
+              <Shield className="mr-2 h-4 w-4" />
+              Permisos
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={handleDelete}
@@ -103,6 +122,18 @@ export function UserActions({ userId, userName, onSuccess, isCurrentUser = false
         onClose={() => setIsDeleteDialogOpen(false)}
         onSuccess={handleSuccess}
       />
+
+      {/* Sheet para gestionar permisos */}
+      {canManagePermissions && (
+        <UserPermissionsSheet
+          userId={userId}
+          userName={userName}
+          userRole={userRole}
+          isOpen={isPermissionsSheetOpen}
+          onClose={() => setIsPermissionsSheetOpen(false)}
+          onSuccess={handleSuccess}
+        />
+      )}
     </>
   );
 }
