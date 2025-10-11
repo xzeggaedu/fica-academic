@@ -1,4 +1,8 @@
-"""Tests for Faculty endpoints."""
+"""Tests for Faculty endpoints.
+
+NOTA: Estas son pruebas de integración que requieren conexión a PostgreSQL.
+Para ejecutar solo pruebas unitarias, usar: pytest -m "not integration"
+"""
 
 
 import pytest
@@ -8,8 +12,15 @@ from src.app.api.dependencies import get_current_superuser
 from src.app.models.role import UserRoleEnum
 
 
+@pytest.mark.integration
 class TestFacultyEndpoints:
-    """Test suite for Faculty CRUD endpoints."""
+    """Test suite for Faculty CRUD endpoints.
+
+    Estas son pruebas de integración que requieren:
+    - Conexión a PostgreSQL
+    - Conexión a Redis
+    - TestClient de FastAPI con lifespan completo
+    """
 
     @pytest.fixture
     def admin_user(self):
