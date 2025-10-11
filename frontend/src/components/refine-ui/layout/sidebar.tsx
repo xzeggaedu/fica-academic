@@ -15,6 +15,7 @@ import {
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent as ShadcnSidebarContent,
+  SidebarFooter as ShadcnSidebarFooter,
   SidebarHeader as ShadcnSidebarHeader,
   SidebarRail as ShadcnSidebarRail,
   SidebarTrigger as ShadcnSidebarTrigger,
@@ -23,11 +24,12 @@ import {
 import { cn } from "@/lib/utils";
 import {
   useLink,
+  useLogout,
   useMenu,
   useRefineOptions,
   type TreeMenuItem,
 } from "@refinedev/core";
-import { ChevronRight, ListIcon } from "lucide-react";
+import { ChevronRight, ListIcon, LogOut } from "lucide-react";
 import React from "react";
 
 export function Sidebar() {
@@ -49,6 +51,7 @@ export function Sidebar() {
           "pb-2",
           "border-r",
           "border-border",
+          "flex-1",
           {
             "px-3": open,
             "px-1": !open,
@@ -63,6 +66,7 @@ export function Sidebar() {
           />
         ))}
       </ShadcnSidebarContent>
+      <SidebarFooter />
     </ShadcnSidebar>
   );
 }
@@ -92,6 +96,13 @@ function SidebarItem({ item, selectedKey }: MenuItemProps) {
 function SidebarItemGroup({ item, selectedKey }: MenuItemProps) {
   const { children } = item;
   const { open } = useShadcnSidebar();
+
+  // Si es un separador, solo mostrar la línea divisoria
+  if (item.meta?.label === "separator") {
+    return (
+      <div className={cn("border-t", "border-sidebar-border", "my-2")} />
+    );
+  }
 
   return (
     <div className={cn("border-t", "border-sidebar-border", "pt-4")}>
@@ -360,6 +371,59 @@ function SidebarButton({
         buttonContent
       )}
     </Button>
+  );
+}
+
+function SidebarFooter() {
+  const { open } = useShadcnSidebar();
+  const { mutate: logout } = useLogout();
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  return (
+    <ShadcnSidebarFooter
+      className={cn(
+        "border-t",
+        "border-sidebar-border",
+        "p-2",
+        "transition-all",
+        "duration-200"
+      )}
+    >
+      <Button
+        variant="ghost"
+        size="lg"
+        onClick={handleLogout}
+        className={cn(
+          "flex w-full items-center justify-start gap-2 py-2 text-sm",
+          "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+          {
+            "px-3": open,
+            "px-1": !open,
+          }
+        )}
+      >
+        <LogOut className="h-4 w-4 shrink-0" />
+        <span
+          className={cn(
+            "tracking-[-0.00875rem]",
+            "line-clamp-1",
+            "truncate",
+            "font-normal",
+            "transition-opacity",
+            "duration-200",
+            {
+              "opacity-0": !open,
+              "opacity-100": open,
+            }
+          )}
+        >
+          Cerrar Sesión
+        </span>
+      </Button>
+    </ShadcnSidebarFooter>
   );
 }
 

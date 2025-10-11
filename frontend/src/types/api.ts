@@ -48,6 +48,51 @@ export enum UserRoleEnum {
   UNAUTHORIZED = "unauthorized",
 }
 
+export interface Faculty {
+  id: number;
+  name: string;
+  acronym: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface FacultyCreate {
+  name: string;
+  acronym: string;
+  is_active?: boolean;
+}
+
+export interface FacultyUpdate {
+  name?: string;
+  acronym?: string;
+  is_active?: boolean;
+}
+
+export interface School {
+  id: number;
+  name: string;
+  acronym: string;
+  fk_faculty: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface SchoolCreate {
+  name: string;
+  acronym: string;
+  fk_faculty: number;
+  is_active?: boolean;
+}
+
+export interface SchoolUpdate {
+  name?: string;
+  acronym?: string;
+  fk_faculty?: number;
+  is_active?: boolean;
+}
+
 export interface Task {
   id: string;
   message: string;
@@ -114,5 +159,9 @@ export const API_ENDPOINTS = {
   ME: "/api/v1/me",
   USERS: "/api/v1/users",
   USER: "/api/v1/user",
+  FACULTIES: "/api/v1/faculties",
+  FACULTY: "/api/v1/faculty",
+  SCHOOLS: "/api/v1/schools",
+  SCHOOL: "/api/v1/school",
   TASKS: "/api/v1/tasks/task",
 } as const;

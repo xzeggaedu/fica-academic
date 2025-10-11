@@ -1,6 +1,6 @@
 from collections.abc import Callable, Generator
 from typing import Any
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from faker import Faker
@@ -26,9 +26,46 @@ fake = Faker()
 
 
 @pytest.fixture(scope="session")
-def client() -> Generator[TestClient, Any, None]:
-    with TestClient(app) as _client:
-        yield _client
+def mock_redis_pools():
+    """Mock Redis pools to avoid connection issues during tests."""
+    # Mock Redis cache client
+    mock_cache_client = AsyncMock()
+    mock_cache_client.ping = AsyncMock(return_value=True)
+    mock_cache_client.get = AsyncMock(return_value=None)
+    mock_cache_client.set = AsyncMock(return_value=True)
+    mock_cache_client.delete = AsyncMock(return_value=True)
+    mock_cache_client.exists = AsyncMock(return_value=False)
+    mock_cache_client.setex = AsyncMock(return_value=True)
+    mock_cache_client.aclose = AsyncMock()
+
+    # Mock Redis queue pool
+    mock_queue_pool = AsyncMock()
+    mock_queue_pool.ping = AsyncMock(return_value=True)
+    mock_queue_pool.enqueue_job = AsyncMock()
+    mock_queue_pool.get_job_result = AsyncMock()
+    mock_queue_pool.aclose = AsyncMock()
+
+    # Mock Redis connection pool
+    mock_cache_pool = Mock()
+    mock_cache_pool.aclose = AsyncMock()
+
+    return {"cache_client": mock_cache_client, "cache_pool": mock_cache_pool, "queue_pool": mock_queue_pool}
+
+
+@pytest.fixture(scope="session")
+def client(mock_redis_pools) -> Generator[TestClient, Any, None]:
+    """Create test client with mocked Redis dependencies."""
+    # Mock Redis cache setup
+    with patch("src.app.core.utils.cache.client", mock_redis_pools["cache_client"]), patch(
+        "src.app.core.utils.cache.pool", mock_redis_pools["cache_pool"]
+    ), patch("src.app.core.utils.queue.pool", mock_redis_pools["queue_pool"]), patch(
+        "src.app.core.setup.create_redis_cache_pool"
+    ), patch("src.app.core.setup.create_redis_queue_pool"), patch("src.app.core.setup.close_redis_cache_pool"), patch(
+        "src.app.core.setup.close_redis_queue_pool"
+    ):
+        with TestClient(app) as _client:
+            yield _client
+
     app.dependency_overrides = {}
     sync_engine.dispose()
 

@@ -15,9 +15,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface UserCreateFormProps {
   onSuccess?: () => void;
+  onClose?: () => void;
 }
 
 interface FormErrors {
@@ -31,7 +33,7 @@ interface FormErrors {
   submit?: string;
 }
 
-export function UserCreateForm({ onSuccess }: UserCreateFormProps) {
+export function UserCreateForm({ onSuccess, onClose }: UserCreateFormProps) {
   const [formData, setFormData] = useState({
     name: "",
     username: "",
@@ -161,6 +163,11 @@ export function UserCreateForm({ onSuccess }: UserCreateFormProps) {
         throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
 
+      // Mostrar toast de éxito
+      toast.success('Usuario creado exitosamente', {
+        description: `El usuario "${formData.username}" ha sido creado correctamente.`,
+        richColors: true,
+      });
 
       if (onSuccess) {
         onSuccess();
@@ -168,6 +175,13 @@ export function UserCreateForm({ onSuccess }: UserCreateFormProps) {
     } catch (err) {
       console.error("UserCreateForm - Create error:", err);
       const errorMessage = (err as Error).message;
+
+      // Mostrar toast de error
+      toast.error('Error al crear usuario', {
+        description: errorMessage,
+        richColors: true,
+      });
+
       setErrors({ submit: errorMessage });
 
       // Si es error de autenticación, redirigir al login
@@ -190,152 +204,135 @@ export function UserCreateForm({ onSuccess }: UserCreateFormProps) {
 
   return (
     <>
-      <Card className="border-0 shadow-none">
-        <CardHeader className="px-4 pb-4">
-          <CardTitle className="text-lg font-semibold">Crear Usuario</CardTitle>
-          <CardDescription className="text-sm text-muted-foreground">
-            Completa todos los campos obligatorios para crear un nuevo usuario.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-0 px-4 pb-2">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <Label htmlFor="name" className="text-sm font-medium">Nombre Completo *</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Ingrese el nombre completo"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  className="h-11"
-                />
-                {errors.name && (
-                  <p className="text-sm text-red-600 mt-1">{errors.name}</p>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="username" className="text-sm font-medium">Nombre de Usuario *</Label>
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="Ingrese el nombre de usuario"
-                  value={formData.username}
-                  onChange={(e) => handleInputChange("username", e.target.value)}
-                  className="h-11"
-                />
-                {errors.username && (
-                  <p className="text-sm text-red-600 mt-1">{errors.username}</p>
-                )}
-              </div>
-            </div>
-
+      <form id="user-create-form" onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-3">
-              <Label htmlFor="email" className="text-sm font-medium">Correo Electrónico *</Label>
+              <Label htmlFor="name" className="text-sm font-medium">Nombre Completo *</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="Ingrese el correo electrónico"
-                value={formData.email}
-                onChange={(e) => handleInputChange("email", e.target.value)}
-                className="h-11"
+                id="name"
+                type="text"
+                placeholder="Ingrese el nombre completo"
+                value={formData.name}
+                onChange={(e) => handleInputChange("name", e.target.value)}
+                className="h-11 mt-3"
               />
-              {errors.email && (
-                <p className="text-sm text-red-600 mt-1">{errors.email}</p>
+              {errors.name && (
+                <p className="text-sm text-red-600 mt-1">{errors.name}</p>
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <Label htmlFor="password" className="text-sm font-medium">Contraseña *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Ingrese la contraseña"
-                  value={formData.password}
-                  onChange={(e) => handleInputChange("password", e.target.value)}
-                  className="h-11"
-                />
-                {errors.password && (
-                  <p className="text-sm text-red-600 mt-1">{errors.password}</p>
-                )}
-                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                  Mínimo 8 caracteres con al menos una letra minúscula, una mayúscula, un número y un carácter especial
-                </p>
-              </div>
+            <div className="space-y-3">
+              <Label htmlFor="username" className="text-sm font-medium">Usuario *</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="Ingrese el nombre de usuario"
+                value={formData.username}
+                onChange={(e) => handleInputChange("username", e.target.value)}
+                className="h-11 mt-3"
+              />
+              {errors.username && (
+                <p className="text-sm text-red-600 mt-1">{errors.username}</p>
+              )}
+            </div>
+          </div>
 
-              <div className="space-y-3">
-                <Label htmlFor="confirm_password" className="text-sm font-medium">Confirmar Contraseña *</Label>
-                <Input
-                  id="confirm_password"
-                  type="password"
-                  placeholder="Confirme la contraseña"
-                  value={formData.confirm_password}
-                  onChange={(e) => handleInputChange("confirm_password", e.target.value)}
-                  className="h-11"
-                />
-                {errors.confirm_password && (
-                  <p className="text-sm text-red-600 mt-1">{errors.confirm_password}</p>
-                )}
-              </div>
+          <div className="space-y-3">
+            <Label htmlFor="email" className="text-sm font-medium">Correo Electrónico *</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="Ingrese el correo electrónico"
+              value={formData.email}
+              onChange={(e) => handleInputChange("email", e.target.value)}
+              className="h-11 mt-3"
+            />
+            {errors.email && (
+              <p className="text-sm text-red-600 mt-1">{errors.email}</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <Label htmlFor="password" className="text-sm font-medium">Contraseña *</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Ingrese la contraseña"
+                value={formData.password}
+                onChange={(e) => handleInputChange("password", e.target.value)}
+                className="h-11 mt-3"
+              />
+              {errors.password && (
+                <p className="text-sm text-red-600 mt-1">{errors.password}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                Mínimo 8 caracteres con al menos una letra minúscula, una mayúscula, un número y un carácter especial
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <Label htmlFor="profile_image_url" className="text-sm font-medium">URL de Imagen de Perfil</Label>
-                <Input
-                  id="profile_image_url"
-                  type="url"
-                  placeholder="Ingrese la URL de la imagen de perfil"
-                  value={formData.profile_image_url}
-                  onChange={(e) => handleInputChange("profile_image_url", e.target.value)}
-                  className="h-11"
-                />
-                {errors.profile_image_url && (
-                  <p className="text-sm text-red-600 mt-1">{errors.profile_image_url}</p>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="role" className="text-sm font-medium">Rol *</Label>
-                <Select
-                  value={formData.role}
-                  onValueChange={(value) => handleInputChange("role", value)}
-                >
-                  <SelectTrigger size="lg">
-                    <SelectValue placeholder="Seleccione un rol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roleOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.role && (
-                  <p className="text-sm text-red-600 mt-1">{errors.role}</p>
-                )}
-              </div>
+            <div className="space-y-3">
+              <Label htmlFor="confirm_password" className="text-sm font-medium">Confirmar Contraseña *</Label>
+              <Input
+                id="confirm_password"
+                type="password"
+                placeholder="Confirme la contraseña"
+                value={formData.confirm_password}
+                onChange={(e) => handleInputChange("confirm_password", e.target.value)}
+                className="h-11 mt-3"
+              />
+              {errors.confirm_password && (
+                <p className="text-sm text-red-600 mt-1">{errors.confirm_password}</p>
+              )}
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <Label htmlFor="profile_image_url" className="text-sm font-medium">URL de Imagen de Perfil</Label>
+              <Input
+                id="profile_image_url"
+                type="url"
+                placeholder="Ingrese la URL de la imagen de perfil"
+                value={formData.profile_image_url}
+                onChange={(e) => handleInputChange("profile_image_url", e.target.value)}
+                className="h-11 mt-3"
+              />
+              {errors.profile_image_url && (
+                <p className="text-sm text-red-600 mt-1">{errors.profile_image_url}</p>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <Label htmlFor="role" className="text-sm font-medium">Rol *</Label>
+              <Select
+                value={formData.role}
+                onValueChange={(value) => handleInputChange("role", value)}
+              >
+                <SelectTrigger className="h-11 mt-3">
+                  <SelectValue placeholder="Seleccione un rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roleOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.role && (
+                <p className="text-sm text-red-600 mt-1">{errors.role}</p>
+              )}
+            </div>
+          </div>
+        </div>
 
             {errors.submit && (
               <div className="text-sm text-red-600 text-center py-2">{errors.submit}</div>
             )}
 
-            <div className="flex justify-end space-x-4 pt-6">
-              <Button
-                type="submit"
-                className="w-full h-11"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Creando..." : "Crear Usuario"}
-              </Button>
-            </div>
           </form>
-        </CardContent>
-      </Card>
 
       {/* Confirmation Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>

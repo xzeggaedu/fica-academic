@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
 import { useGetIdentity } from "@refinedev/core";
+import { toast } from "sonner";
 
 interface UserDeleteDialogProps {
   userId: number;
@@ -69,6 +70,11 @@ export function UserDeleteDialog({ userId, userName, isOpen, onClose, onSuccess 
         throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
 
+      // Mostrar toast de éxito
+      toast.success('Usuario eliminado exitosamente', {
+        description: `El usuario "${userName}" ha sido eliminado correctamente.`,
+        richColors: true,
+      });
 
       onClose();
       if (onSuccess) {
@@ -77,9 +83,12 @@ export function UserDeleteDialog({ userId, userName, isOpen, onClose, onSuccess 
     } catch (err) {
       console.error("UserDeleteDialog - Delete error:", err);
 
-      // Mostrar error al usuario
+      // Mostrar toast de error
       const errorMessage = (err as Error).message;
-      alert(`Error al eliminar usuario: ${errorMessage}`);
+      toast.error('Error al eliminar usuario', {
+        description: errorMessage,
+        richColors: true,
+      });
 
       // Si es error de autenticación, redirigir al login
       if (errorMessage.includes("Sesión expirada")) {
