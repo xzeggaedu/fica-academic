@@ -1,11 +1,8 @@
-import uuid as uuid_pkg
 from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, String
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
-from uuid6 import uuid7
 
 from ..core.db.database import Base
 from .role import UserRoleEnum
@@ -43,8 +40,6 @@ class User(Base):
     # =============================================================================
 
     profile_image_url: Mapped[str] = mapped_column(String, default="https://profileimageurl.com")
-
-    uuid: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), default_factory=uuid7, unique=True)
 
     # =============================================================================
     # Campos de Auditoría
