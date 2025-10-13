@@ -40,7 +40,7 @@ async def create_faculty_scope(db: AsyncSession, user_uuid: uuid_pkg.UUID, facul
     -------
         Instancia UserScope creada
     """
-    user_scope = UserScope(fk_user=user_uuid, fk_faculty=faculty_id, fk_school=None)
+    user_scope = UserScope(id=None, fk_user=user_uuid, fk_faculty=faculty_id, fk_school=None)
     db.add(user_scope)
     await db.commit()
     await db.refresh(user_scope)
@@ -60,7 +60,7 @@ async def create_school_scope(db: AsyncSession, user_uuid: uuid_pkg.UUID, school
     -------
         Instancia UserScope creada
     """
-    user_scope = UserScope(fk_user=user_uuid, fk_school=school_id, fk_faculty=None)
+    user_scope = UserScope(id=None, fk_user=user_uuid, fk_school=school_id, fk_faculty=None)
     db.add(user_scope)
     await db.commit()
     await db.refresh(user_scope)

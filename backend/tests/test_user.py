@@ -4,7 +4,14 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from src.app.api.v1.users import erase_user, patch_user, read_user, read_users, write_user
+from src.app.api.v1.users import (
+    erase_user,
+    get_current_user_profile,
+    patch_user,
+    read_user,
+    read_users,
+    write_user,
+)
 from src.app.core.exceptions.http_exceptions import DuplicateValueException, ForbiddenException, NotFoundException
 from src.app.schemas.user import UserCreate, UserRead, UserUpdate
 
@@ -195,3 +202,42 @@ class TestEraseUser:
 
             with pytest.raises(ForbiddenException):
                 await erase_user(Mock(), username, current_user_dict, mock_db, token)
+
+
+class TestGetCurrentUserProfile:
+    """Test get current user profile endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_profile_success(self, mock_db, current_user_dict, sample_user_read):
+        """Test successful retrieval of current user profile from database."""
+        with patch("src.app.api.v1.users.crud_users") as mock_crud:
+            mock_crud.get = AsyncMock(return_value=sample_user_read)
+
+            result = await get_current_user_profile(current_user_dict, mock_db)
+
+            assert result == sample_user_read
+            mock_crud.get.assert_called_once_with(
+                db=mock_db,
+                uuid=current_user_dict["user_uuid"],
+                is_deleted=False,
+                schema_to_select=UserRead,
+            )
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_profile_not_found(self, mock_db, current_user_dict):
+        """Test get current user profile when user doesn't exist in database."""
+        with patch("src.app.api.v1.users.crud_users") as mock_crud:
+            mock_crud.get = AsyncMock(return_value=None)
+
+            with pytest.raises(NotFoundException, match="User not found"):
+                await get_current_user_profile(current_user_dict, mock_db)
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_profile_no_uuid(self, mock_db):
+        """Test get current user profile when user_uuid is missing from token."""
+        from src.app.core.exceptions.http_exceptions import UnauthorizedException
+
+        current_user_without_uuid = {"username": "test_user", "role": "user"}
+
+        with pytest.raises(UnauthorizedException, match="Invalid authentication token"):
+            await get_current_user_profile(current_user_without_uuid, mock_db)

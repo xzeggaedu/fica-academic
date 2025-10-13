@@ -23,7 +23,7 @@ from ...schemas.user import (
     UserCreate,
     UserCreateAdmin,
     UserCreateInternal,
-    UserPasswordUpdate,
+    UserPasswordUpdateAdmin,
     UserRead,
     UserUpdate,
     UserUpdateAdmin,
@@ -35,7 +35,7 @@ router = APIRouter(tags=["users"])
 
 @router.get("/me", response_model=dict[str, Any])
 async def get_current_user_info(current_user: Annotated[dict, Depends(get_current_user)]) -> dict[str, Any]:
-    """Get current user information with RBAC claims.
+    """Get current user information with RBAC claims from JWT token.
 
     Returns
     -------
@@ -43,6 +43,30 @@ async def get_current_user_info(current_user: Annotated[dict, Depends(get_curren
         Dictionary containing current user information with RBAC claims.
     """
     return current_user
+
+
+@router.get("/me/profile", response_model=UserRead)
+async def get_current_user_profile(
+    current_user: Annotated[dict, Depends(get_current_user)], db: Annotated[AsyncSession, Depends(async_get_db)]
+) -> UserRead:
+    """Get current user profile with fresh data from database.
+
+    Returns
+    -------
+    UserRead
+        Current user profile with latest data from database.
+    """
+    user_uuid = current_user.get("user_uuid")
+
+    if not user_uuid:
+        raise UnauthorizedException("Invalid authentication token")
+
+    db_user = await crud_users.get(db=db, uuid=user_uuid, is_deleted=False, schema_to_select=UserRead)
+
+    if db_user is None:
+        raise NotFoundException("User not found")
+
+    return cast(UserRead, db_user)
 
 
 @router.post("/user", response_model=UserRead, status_code=201)
@@ -142,14 +166,31 @@ async def read_user_by_uuid(
     request: Request,
     user_uuid: uuid_pkg.UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # ✅ Requiere admin
+    current_user: Annotated[
+        dict, Depends(get_current_user)
+    ],  # ✅ Usar get_current_user en lugar de get_current_superuser
 ) -> UserRead:
-    """Get user by UUID - Admin only"""
-    db_user = await crud_users.get(db=db, uuid=user_uuid, is_deleted=False, schema_to_select=UserRead)
-    if db_user is None:
-        raise NotFoundException("User not found")
+    """Get user by UUID - Admin can see all users, regular users can only see their own profile"""
+    # Verificar si el usuario es admin o está viendo su propio perfil
+    current_user_role = current_user.get("role")
+    current_user_uuid = current_user.get("user_uuid")
 
-    return cast(UserRead, db_user)
+    # Si es admin, puede ver cualquier perfil
+    if current_user_role == UserRoleEnum.ADMIN:
+        db_user = await crud_users.get(db=db, uuid=user_uuid, is_deleted=False, schema_to_select=UserRead)
+        if db_user is None:
+            raise NotFoundException("User not found")
+        return cast(UserRead, db_user)
+
+    # Si no es admin, solo puede ver su propio perfil
+    if current_user_uuid and str(current_user_uuid) == str(user_uuid):
+        db_user = await crud_users.get(db=db, uuid=user_uuid, is_deleted=False, schema_to_select=UserRead)
+        if db_user is None:
+            raise NotFoundException("User not found")
+        return cast(UserRead, db_user)
+
+    # Si no es admin y no es su propio perfil, denegar acceso
+    raise ForbiddenException("You can only view your own profile")
 
 
 @router.patch("/user/{username}")
@@ -191,10 +232,23 @@ async def patch_user_by_uuid(
     request: Request,
     values: UserUpdateAdmin,
     user_uuid: uuid_pkg.UUID,
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # ✅ Requiere admin
+    current_user: Annotated[dict, Depends(get_current_user)],  # ✅ Usar get_current_user
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, str]:
-    """Update user by UUID including role - Admin only"""
+    """Update user by UUID - Admin can update all users, regular users can only update their own profile"""
+    # Verificar permisos
+    current_user_role = current_user.get("role")
+    current_user_uuid = current_user.get("user_uuid")
+
+    # Si no es admin, solo puede editar su propio perfil
+    if current_user_role != UserRoleEnum.ADMIN:
+        if not current_user_uuid or str(current_user_uuid) != str(user_uuid):
+            raise ForbiddenException("You can only edit your own profile")
+
+        # Los usuarios no admin no pueden cambiar su rol
+        if values.role is not None:
+            raise ForbiddenException("You cannot change your own role")
+
     db_user = await crud_users.get(db=db, uuid=user_uuid)
     if db_user is None:
         raise NotFoundException("User not found")
@@ -214,38 +268,74 @@ async def patch_user_by_uuid(
         if await crud_users.exists(db=db, username=values.username):
             raise DuplicateValueException("Username not available")
 
-    await crud_users.update(db=db, object=values, uuid=user_uuid)
+    # Verificar que el usuario existe
+    db_user = await crud_users.get(db=db, uuid=user_uuid)
+    if db_user is None:
+        raise NotFoundException("User not found")
+
+    if isinstance(db_user, dict):
+        db_username = db_user["username"]
+        db_email = db_user["email"]
+    else:
+        db_username = db_user.username
+        db_email = db_user.email
+
+    if values.email is not None and values.email != db_email:
+        if await crud_users.exists(db=db, email=values.email):
+            raise DuplicateValueException("Email is already registered")
+
+    if values.username is not None and values.username != db_username:
+        if await crud_users.exists(db=db, username=values.username):
+            raise DuplicateValueException("Username not available")
+
+    # Filtrar campos None y realizar la actualización
+    update_data = values.model_dump(exclude_none=True)
+    await crud_users.update(db=db, object=update_data, uuid=user_uuid)
+    await db.commit()
+
     return {"message": "User updated"}
 
 
 @router.patch("/user/uuid/{user_uuid}/password")
 async def update_user_password(
     request: Request,
-    password_data: UserPasswordUpdate,
+    password_data: UserPasswordUpdateAdmin,
     user_uuid: uuid_pkg.UUID,
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # ✅ Requiere admin
+    current_user: Annotated[dict, Depends(get_current_user)],  # Cambiado a get_current_user para permitir ambos casos
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, str]:
-    """Update user password by UUID - Admin only"""
+    """Update user password by UUID - Admin can change any password, users can only change their own"""
     db_user = await crud_users.get(db=db, uuid=user_uuid)
     if db_user is None:
         raise NotFoundException("User not found")
 
-    # Handle both dict and object responses
-    if isinstance(db_user, dict):
-        hashed_password = db_user["hashed_password"]
-    else:
-        hashed_password = db_user.hashed_password
+    current_user_role = current_user.get("role")
+    current_user_uuid = current_user.get("user_uuid")
 
-    # Verify current password
-    if not await verify_password(password_data.current_password, hashed_password):
-        raise UnauthorizedException("Current password is incorrect")
+    # Verificar permisos: admin puede cambiar cualquier contraseña, usuario solo la suya
+    if current_user_role != UserRoleEnum.ADMIN:
+        if not current_user_uuid or str(current_user_uuid) != str(user_uuid):
+            raise ForbiddenException("You can only change your own password")
+
+    # Si se proporciona contraseña actual, verificar que sea correcta
+    if password_data.current_password:
+        # Handle both dict and object responses
+        if isinstance(db_user, dict):
+            hashed_password = db_user["hashed_password"]
+        else:
+            hashed_password = db_user.hashed_password
+
+        # Verify current password
+        if not await verify_password(password_data.current_password, hashed_password):
+            raise UnauthorizedException("Current password is incorrect")
 
     # Hash new password
     new_hashed_password = get_password_hash(password=password_data.new_password)
 
     # Update password
     await crud_users.update(db=db, object={"hashed_password": new_hashed_password}, uuid=user_uuid)
+    await db.commit()  # Asegurar que se persista
+
     return {"message": "Password updated successfully"}
 
 

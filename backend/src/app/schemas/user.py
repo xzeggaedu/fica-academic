@@ -144,5 +144,27 @@ class UserPasswordUpdate(BaseModel):
     ]
 
 
+class UserPasswordUpdateAdmin(BaseModel):
+    """Schema for admin password update without current password verification."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: Annotated[
+        str | None,
+        Field(
+            default=None,
+            min_length=1,
+            examples=["CurrentPassword123!"],
+        ),
+    ]
+    new_password: Annotated[
+        str,
+        Field(
+            pattern=r"^.{8,}|[0-9]+|[A-Z]+|[a-z]+|[^a-zA-Z0-9]+$",
+            examples=["NewPassword123!"],
+        ),
+    ]
+
+
 class UserRestoreDeleted(BaseModel):
     is_deleted: bool
