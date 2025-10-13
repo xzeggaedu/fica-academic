@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from .catalog_schedule_time import router as catalog_schedule_time_router
 from .faculties import router as faculties_router
 from .login import router as login_router
 from .logout import router as logout_router
@@ -14,3 +15,4 @@ router.include_router(users_router)
 router.include_router(tasks_router)
 router.include_router(faculties_router)
 router.include_router(schools_router)
+router.include_router(catalog_schedule_time_router)

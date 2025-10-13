@@ -47,13 +47,12 @@ interface LoginResponse {
 }
 
 interface UserInfoResponse {
-  user_id: number;
+  user_uuid: string;
   username: string;
   email: string;
   name: string;
   role: string;
   is_deleted: boolean;
-  uuid: string;
 }
 
 export const authProvider: AuthProvider = {
@@ -248,7 +247,7 @@ export const authProvider: AuthProvider = {
         const userData: UserInfoResponse = await response.json();
 
         return {
-          id: userData.user_id,
+          id: userData.user_uuid,
           name: userData.name,
           username: userData.username,
           email: userData.email,

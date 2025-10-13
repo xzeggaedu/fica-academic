@@ -1,5 +1,6 @@
 """Schemas de Alcance de Usuario para validación de API."""
 
+import uuid as uuid_pkg
 from datetime import datetime
 from typing import Annotated
 
@@ -9,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class UserScopeBase(BaseModel):
     """Schema base de Alcance de Usuario."""
 
-    fk_user: int
+    fk_user: uuid_pkg.UUID
     fk_school: int | None = None
     fk_faculty: int | None = None
 

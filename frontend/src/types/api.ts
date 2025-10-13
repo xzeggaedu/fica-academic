@@ -1,7 +1,7 @@
 // API Types for Fica Academic Backend
 
 export interface User {
-  id: number;
+  uuid: string;
   name: string;
   username: string;
   email: string;
@@ -124,13 +124,12 @@ export interface LoginResponse {
 }
 
 export interface UserInfoResponse {
-  user_id: number;
+  user_uuid: string;
   username: string;
   email: string;
   name: string;
   role: UserRoleEnum;
   is_deleted: boolean;
-  uuid: string;
 }
 
 export interface LogoutResponse {

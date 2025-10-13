@@ -61,7 +61,7 @@ describe('UserList - Vista Principal', () => {
     const { useList, useGetIdentity } = await import('@refinedev/core');
 
     (useGetIdentity as any).mockReturnValue({
-      data: { id: 1, username: 'admin' },
+      data: { id: '0199da5c-b456-711a-9d6a-36b616885e1e', username: 'admin' },
     });
 
     (useList as any).mockReturnValue({
@@ -69,7 +69,7 @@ describe('UserList - Vista Principal', () => {
       result: {
         data: [
           {
-            id: 1,
+            uuid: '0199da5c-b456-711a-9d6a-36b616885e1e',
             username: 'admin',
             name: 'Admin User',
             email: 'admin@test.com',
@@ -78,7 +78,7 @@ describe('UserList - Vista Principal', () => {
             created_at: '2024-01-01',
           },
           {
-            id: 2,
+            uuid: '0199da5c-b456-711a-9d6a-36b616885e1f',
             username: 'user2',
             name: 'User Two',
             email: 'user2@test.com',
@@ -105,7 +105,7 @@ describe('UserList - Vista Principal', () => {
       result: {
         data: [
           {
-            id: 1,
+            uuid: '0199da5c-b456-711a-9d6a-36b616885e1e',
             username: 'testuser',
             name: 'Test User',
             email: 'test@test.com',
@@ -135,7 +135,7 @@ describe('UserList - Vista Principal', () => {
       result: {
         data: [
           {
-            id: 1,
+            uuid: '0199da5c-b456-711a-9d6a-36b616885e1e',
             username: 'testuser',
             name: 'Test User',
             email: 'test@test.com',

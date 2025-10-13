@@ -1,9 +1,10 @@
+import uuid as uuid_pkg
 from datetime import datetime
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from ..core.schemas import PersistentDeletion, TimestampSchema
+from ..core.schemas import PersistentDeletion, TimestampSchema, UUIDSchema
 from ..models.role import UserRoleEnum
 
 
@@ -16,14 +17,14 @@ class UserBase(BaseModel):
     email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
 
 
-class User(TimestampSchema, UserBase, PersistentDeletion):
+class User(TimestampSchema, UserBase, UUIDSchema, PersistentDeletion):
     profile_image_url: Annotated[str, Field(default="https://www.profileimageurl.com")]
     hashed_password: str
     role: UserRoleEnum = UserRoleEnum.UNAUTHORIZED
 
 
 class UserRead(BaseModel):
-    id: int
+    uuid: uuid_pkg.UUID
 
     name: Annotated[str, Field(min_length=2, max_length=30, examples=["User Userson"])]
     username: Annotated[

@@ -16,7 +16,7 @@ import { UserPermissionsSheet } from "./user-permissions-sheet";
 import { UserRoleEnum } from "@/types/auth";
 
 interface UserActionsProps {
-  userId: number;
+  userId: string;
   userName: string;
   userRole: string;
   onSuccess?: () => void;

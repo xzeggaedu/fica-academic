@@ -132,6 +132,12 @@ export const UserList = () => {
     }
   };
 
+  // Helper function para truncar UUID
+  const truncateUuid = (uuid: string | undefined) => {
+    if (!uuid) return 'N/A';
+    return `${uuid.substring(0, 8)}...`;
+  };
+
   // Función para alternar visibilidad de columnas
   const handleColumnToggle = (columnKey: string) => {
     setVisibleColumns(prev =>
@@ -155,7 +161,7 @@ export const UserList = () => {
       return;
     }
 
-    setSelectedUserId(user.id);
+    setSelectedUserId(user.uuid);
     setSelectedUserName(user.name);
     setIsViewSheetOpen(true);
   };
@@ -236,12 +242,12 @@ export const UserList = () => {
                   ) : (
                     filteredData.map((user: any) => (
                       <TableRow
-                        key={user.id}
+                        key={user.uuid}
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
                         onClick={(e) => handleRowClick(user, e)}
                       >
                         {visibleColumns.includes("id") && (
-                          <TableCell className={getTableColumnClass("id", "font-medium")}>{user.id}</TableCell>
+                          <TableCell className={getTableColumnClass("id", "font-medium")}>{truncateUuid(user.uuid)}</TableCell>
                         )}
                         {visibleColumns.includes("avatar") && (
                           <TableCell className={getTableColumnClass("avatar")}>
@@ -277,11 +283,11 @@ export const UserList = () => {
                         {visibleColumns.includes("actions") && (
                           <TableCell className={getTableColumnClass("actions")} data-actions-cell onClick={(e) => e.stopPropagation()}>
                             <UserActions
-                              userId={user.id}
+                              userId={user.uuid}
                               userName={user.name}
                               userRole={user.role}
                               onSuccess={handleSuccess}
-                              isCurrentUser={identity?.id === user.id}
+                              isCurrentUser={identity?.id === user.uuid}
                             />
                           </TableCell>
                         )}

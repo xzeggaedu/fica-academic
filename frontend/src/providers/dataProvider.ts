@@ -34,7 +34,7 @@ const DEBUG_MODE = import.meta.env.VITE_DEBUG_MODE === "true";
 // API Endpoints
 const ENDPOINTS = {
   USERS: `${API_BASE_PATH}/users`,
-  USER: `${API_BASE_PATH}/user/id`,  // ✅ Correcto: /user/id/{user_id}
+  USER: `${API_BASE_PATH}/user/uuid`,  // ✅ Correcto: /user/uuid/{user_uuid}
   USER_ADMIN: `${API_BASE_PATH}/user/admin`,  // ✅ Endpoint para crear usuarios como admin
   ME: `${API_BASE_PATH}/me`,
   TASKS: `${API_BASE_PATH}/tasks/task`,
