@@ -33,6 +33,7 @@ import {
 import {
   FacultyList,
 } from "./pages/faculties";
+import { ScheduleTimesList } from "./pages/configuration/schedule-times";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -79,6 +80,22 @@ function App() {
                   meta: {
                     group: true,
                     label: "separator",
+                  },
+                },
+                {
+                  name: "configuration",
+                  meta: {
+                    label: "Configuración",
+                    group: true,
+                  },
+                },
+                {
+                  name: "schedule-times",
+                  list: "/configuration/schedule-times",
+                  meta: {
+                    label: "Horarios",
+                    parent: "configuration",
+                    icon: "Clock",
                   },
                 },
                 {
@@ -131,6 +148,9 @@ function App() {
                     <Route index element={<TaskList />} />
                     <Route path="create" element={<TaskCreate />} />
                     <Route path="show/:id" element={<TaskShow />} />
+                  </Route>
+                  <Route path="/configuration">
+                    <Route path="schedule-times" element={<ScheduleTimesList />} />
                   </Route>
                   <Route path="*" element={<ErrorComponent />} />
                 </Route>
