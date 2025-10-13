@@ -82,8 +82,8 @@ services:
       - ./backend/src/.env
     volumes:
       - postgres-data:/var/lib/postgresql/data
-    expose:
-      - "5432"
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U utec_fica -d fica_academic"]
       interval: 10s

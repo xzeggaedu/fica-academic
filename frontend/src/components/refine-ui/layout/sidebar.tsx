@@ -22,6 +22,7 @@ import {
   useSidebar as useShadcnSidebar,
 } from "@/components/ui/layout/sidebar";
 import { cn } from "@/lib/utils";
+import { getIcon } from "@/utils/iconMap";
 import {
   useLink,
   useLogout,
@@ -201,7 +202,7 @@ function SidebarItemDropdown({ item, selectedKey }: MenuItemProps) {
                 })}
               >
                 <ItemIcon
-                  icon={child.meta?.icon ?? child.icon}
+                  icon={React.createElement(getIcon(child.meta?.icon ?? child.icon))}
                   isSelected={isSelected}
                 />
                 <span>{getDisplayName(child)}</span>
@@ -326,7 +327,7 @@ function SidebarButton({
 
   const buttonContent = (
     <>
-      <ItemIcon icon={item.meta?.icon ?? item.icon} isSelected={isSelected} />
+      <ItemIcon icon={React.createElement(getIcon(item.meta?.icon ?? item.icon))} isSelected={isSelected} />
       <span
         className={cn("tracking-[-0.00875rem]", {
           "flex-1": rightIcon,

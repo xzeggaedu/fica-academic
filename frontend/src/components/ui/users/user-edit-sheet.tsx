@@ -30,7 +30,7 @@ export function UserEditSheet({ userId, userName, isOpen, onClose, onSuccess }: 
       setError(null);
 
       const token = localStorage.getItem("fica-access-token");
-      const url = `http://localhost:8000/api/v1/user/id/${userId}`;
+      const url = `http://localhost:8000/api/v1/user/uuid/${userId}`;
 
       fetch(url, {
         method: "GET",

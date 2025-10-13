@@ -1,8 +1,10 @@
 """Modelo de Alcance de Usuario para Control de Acceso Basado en Roles (RBAC) con filtrado jerárquico."""
 
+import uuid as uuid_pkg
 from datetime import UTC, datetime
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.db.database import Base
@@ -24,7 +26,7 @@ class UserScope(Base):
     id: Mapped[int] = mapped_column(autoincrement=True, primary_key=True)
 
     # Claves Foráneas
-    fk_user: Mapped[int] = mapped_column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True)
+    fk_user: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("user.uuid", ondelete="CASCADE"), nullable=False, index=True)
 
     fk_school: Mapped[int | None] = mapped_column(
         ForeignKey("school.id", ondelete="CASCADE"), nullable=True, index=True

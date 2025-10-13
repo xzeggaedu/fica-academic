@@ -107,12 +107,11 @@ async def create_access_token_with_rbac(user_data: dict[str, Any], expires_delta
     """
     to_encode = {
         "sub": user_data["username"],  # Subject (username)
-        "user_id": user_data["id"],  # User ID
+        "user_uuid": str(user_data["uuid"]),  # User UUID
         "email": user_data["email"],  # User email
         "name": user_data["name"],  # User full name
         "role": user_data["role"],  # User role for RBAC
         "is_deleted": user_data["is_deleted"],  # Account status
-        "uuid": str(user_data["uuid"]),  # User UUID
     }
 
     if expires_delta:
@@ -142,7 +141,7 @@ async def create_refresh_token_with_rbac(user_data: dict[str, Any], expires_delt
     """
     to_encode = {
         "sub": user_data["username"],  # Subject (username)
-        "user_id": user_data["id"],  # User ID
+        "user_uuid": str(user_data["uuid"]),  # User UUID
         "role": user_data["role"],  # User role for RBAC
     }
 
@@ -189,12 +188,11 @@ async def verify_token_with_rbac(token: str, expected_token_type: TokenType, db:
         # Extract RBAC claims
         rbac_claims = {
             "username_or_email": username_or_email,
-            "user_id": payload.get("user_id"),
+            "user_uuid": payload.get("user_uuid"),
             "email": payload.get("email"),
             "name": payload.get("name"),
             "role": payload.get("role"),
             "is_deleted": payload.get("is_deleted"),
-            "uuid": payload.get("uuid"),
         }
 
         return rbac_claims

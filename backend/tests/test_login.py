@@ -95,7 +95,7 @@ class TestRefreshAccessToken:
                 "sub": sample_user_read.username,
                 "role": sample_user_read.role,
                 "username": sample_user_read.username,
-                "id": sample_user_read.id,
+                "uuid": str(sample_user_read.uuid),
             }
 
             with patch("src.app.api.v1.login.create_access_token_with_rbac") as mock_create_token:

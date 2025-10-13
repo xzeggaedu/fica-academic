@@ -46,7 +46,7 @@ export function UserDeleteDialog({ userId, userName, isOpen, onClose, onSuccess 
         throw new Error("No hay token de autenticación disponible");
       }
 
-      const url = `http://localhost:8000/api/v1/user/id/${userId}`;
+      const url = `http://localhost:8000/api/v1/user/uuid/${userId}`;
 
 
       const response = await fetch(url, {

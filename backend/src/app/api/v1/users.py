@@ -1,3 +1,4 @@
+import uuid as uuid_pkg
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Request
@@ -66,7 +67,7 @@ async def write_user(
     user_internal = UserCreateInternal(**user_internal_dict)
     created_user = await crud_users.create(db=db, object=user_internal)
 
-    user_read = await crud_users.get(db=db, id=created_user.id, schema_to_select=UserRead)
+    user_read = await crud_users.get(db=db, uuid=created_user.uuid, schema_to_select=UserRead)
     if user_read is None:
         raise NotFoundException("Created user not found")
 
@@ -96,7 +97,7 @@ async def create_user_as_admin(
     user_internal = UserCreateInternal(**user_internal_dict)
     created_user = await crud_users.create(db=db, object=user_internal)
 
-    user_read = await crud_users.get(db=db, id=created_user.id, schema_to_select=UserRead)
+    user_read = await crud_users.get(db=db, uuid=created_user.uuid, schema_to_select=UserRead)
     if user_read is None:
         raise NotFoundException("Created user not found")
 
@@ -136,15 +137,15 @@ async def read_user(request: Request, username: str, db: Annotated[AsyncSession,
     return cast(UserRead, db_user)
 
 
-@router.get("/user/id/{user_id}", response_model=UserRead)
-async def read_user_by_id(
+@router.get("/user/uuid/{user_uuid}", response_model=UserRead)
+async def read_user_by_uuid(
     request: Request,
-    user_id: int,
+    user_uuid: uuid_pkg.UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_superuser)],  # ✅ Requiere admin
 ) -> UserRead:
-    """Get user by ID - Admin only"""
-    db_user = await crud_users.get(db=db, id=user_id, is_deleted=False, schema_to_select=UserRead)
+    """Get user by UUID - Admin only"""
+    db_user = await crud_users.get(db=db, uuid=user_uuid, is_deleted=False, schema_to_select=UserRead)
     if db_user is None:
         raise NotFoundException("User not found")
 
@@ -185,16 +186,16 @@ async def patch_user(
     return {"message": "User updated"}
 
 
-@router.patch("/user/id/{user_id}")
-async def patch_user_by_id(
+@router.patch("/user/uuid/{user_uuid}")
+async def patch_user_by_uuid(
     request: Request,
     values: UserUpdateAdmin,
-    user_id: int,
+    user_uuid: uuid_pkg.UUID,
     current_user: Annotated[dict, Depends(get_current_superuser)],  # ✅ Requiere admin
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, str]:
-    """Update user by ID including role - Admin only"""
-    db_user = await crud_users.get(db=db, id=user_id)
+    """Update user by UUID including role - Admin only"""
+    db_user = await crud_users.get(db=db, uuid=user_uuid)
     if db_user is None:
         raise NotFoundException("User not found")
 
@@ -213,20 +214,20 @@ async def patch_user_by_id(
         if await crud_users.exists(db=db, username=values.username):
             raise DuplicateValueException("Username not available")
 
-    await crud_users.update(db=db, object=values, id=user_id)
+    await crud_users.update(db=db, object=values, uuid=user_uuid)
     return {"message": "User updated"}
 
 
-@router.patch("/user/id/{user_id}/password")
+@router.patch("/user/uuid/{user_uuid}/password")
 async def update_user_password(
     request: Request,
     password_data: UserPasswordUpdate,
-    user_id: int,
+    user_uuid: uuid_pkg.UUID,
     current_user: Annotated[dict, Depends(get_current_superuser)],  # ✅ Requiere admin
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, str]:
-    """Update user password by ID - Admin only"""
-    db_user = await crud_users.get(db=db, id=user_id)
+    """Update user password by UUID - Admin only"""
+    db_user = await crud_users.get(db=db, uuid=user_uuid)
     if db_user is None:
         raise NotFoundException("User not found")
 
@@ -244,7 +245,7 @@ async def update_user_password(
     new_hashed_password = get_password_hash(password=password_data.new_password)
 
     # Update password
-    await crud_users.update(db=db, object={"hashed_password": new_hashed_password}, id=user_id)
+    await crud_users.update(db=db, object={"hashed_password": new_hashed_password}, uuid=user_uuid)
     return {"message": "Password updated successfully"}
 
 
@@ -268,20 +269,20 @@ async def erase_user(
     return {"message": "User deleted"}
 
 
-@router.delete("/user/id/{user_id}")
-async def erase_user_by_id(
+@router.delete("/user/uuid/{user_uuid}")
+async def erase_user_by_uuid(
     request: Request,
-    user_id: int,
+    user_uuid: uuid_pkg.UUID,
     current_user: Annotated[dict, Depends(get_current_superuser)],  # ✅ Requiere admin
     db: Annotated[AsyncSession, Depends(async_get_db)],
     token: str = Depends(oauth2_scheme),
 ) -> dict[str, str]:
-    """Delete user by ID - Admin only"""
-    db_user = await crud_users.get(db=db, id=user_id, schema_to_select=UserRead)
+    """Delete user by UUID - Admin only"""
+    db_user = await crud_users.get(db=db, uuid=user_uuid, schema_to_select=UserRead)
     if not db_user:
         raise NotFoundException("User not found")
 
-    await crud_users.delete(db=db, id=user_id)
+    await crud_users.delete(db=db, uuid=user_uuid)
     # ❌ Removido: await blacklist_token(token=token, db=db)
     # No debemos invalidar el token del admin que está eliminando
     return {"message": "User deleted"}
@@ -303,10 +304,10 @@ async def erase_db_user(
     return {"message": "User deleted from the database"}
 
 
-@router.put("/user/{user_id}/scope", response_model=list[UserScopeRead])
+@router.put("/user/{user_uuid}/scope", response_model=list[UserScopeRead])
 async def assign_user_scope(
     request: Request,
-    user_id: int,
+    user_uuid: uuid_pkg.UUID,
     assignment: UserScopeAssignment,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
@@ -327,7 +328,7 @@ async def assign_user_scope(
     Args:
     ----
         request: FastAPI request object
-        user_id: ID of the user to assign scope to
+        user_uuid: UUID of the user to assign scope to
         assignment: Scope assignment data (faculty_id OR school_id)
         db: Database session
         current_user: Current authenticated admin user
@@ -342,9 +343,9 @@ async def assign_user_scope(
         ForbiddenException: If user role doesn't support scope assignment
     """
     # 1. Get user and validate existence
-    db_user = await crud_users.get(db=db, id=user_id)
+    db_user = await crud_users.get(db=db, uuid=user_uuid)
     if db_user is None:
-        raise NotFoundException(f"User with id {user_id} not found")
+        raise NotFoundException(f"User with uuid {user_uuid} not found")
 
     # Get user role
     if isinstance(db_user, dict):
@@ -364,7 +365,7 @@ async def assign_user_scope(
         )
 
     # 3. Delete existing scope assignments
-    await delete_user_scopes(db=db, user_id=user_id)
+    await delete_user_scopes(db=db, user_uuid=user_uuid)
 
     created_scopes = []
 
@@ -373,7 +374,7 @@ async def assign_user_scope(
         # DECANO: Must assign to ONE faculty
         if assignment.faculty_id is None:
             raise ForbiddenException("DECANO role requires a faculty_id assignment")
-        if assignment.school_ids is not None:
+        if assignment.school_id is not None:
             raise ForbiddenException("DECANO role cannot be assigned to schools")
 
         # Validate faculty exists
@@ -382,7 +383,7 @@ async def assign_user_scope(
             raise NotFoundException(f"Faculty with id '{assignment.faculty_id}' not found")
 
         # Create faculty scope
-        scope = await create_faculty_scope(db=db, user_id=user_id, faculty_id=assignment.faculty_id)
+        scope = await create_faculty_scope(db=db, user_uuid=user_uuid, faculty_id=assignment.faculty_id)
         created_scopes.append(scope)
 
     elif user_role == UserRoleEnum.DIRECTOR:
@@ -398,7 +399,7 @@ async def assign_user_scope(
             raise NotFoundException(f"School with id '{assignment.school_id}' not found")
 
         # Create school scope
-        scope = await create_school_scope(db=db, user_id=user_id, school_id=assignment.school_id)
+        scope = await create_school_scope(db=db, user_uuid=user_uuid, school_id=assignment.school_id)
         created_scopes.append(scope)
 
     # 5. Return created scopes
@@ -414,10 +415,10 @@ async def assign_user_scope(
     ]
 
 
-@router.get("/user/{user_id}/scope", response_model=list[UserScopeRead])
+@router.get("/user/{user_uuid}/scope", response_model=list[UserScopeRead])
 async def get_user_scope_assignments(
     request: Request,
-    user_id: int,
+    user_uuid: uuid_pkg.UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
 ) -> list[UserScopeRead]:
@@ -426,7 +427,7 @@ async def get_user_scope_assignments(
     Args:
     ----
         request: FastAPI request object
-        user_id: ID of the user
+        user_uuid: UUID of the user
         db: Database session
         current_user: Current authenticated admin user
 
@@ -439,12 +440,12 @@ async def get_user_scope_assignments(
         NotFoundException: If user not found
     """
     # Validate user exists
-    db_user = await crud_users.get(db=db, id=user_id)
+    db_user = await crud_users.get(db=db, uuid=user_uuid)
     if db_user is None:
-        raise NotFoundException(f"User with id {user_id} not found")
+        raise NotFoundException(f"User with uuid {user_uuid} not found")
 
     # Get scopes
-    scopes = await get_user_scopes(db=db, user_id=user_id)
+    scopes = await get_user_scopes(db=db, user_uuid=user_uuid)
 
     return [
         UserScopeRead(

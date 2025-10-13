@@ -149,7 +149,7 @@ export function UserEditForm({ data, isLoading, error, onSuccess, onClose }: Use
         throw new Error("No hay token de autenticación disponible");
       }
 
-      const url = `http://localhost:8000/api/v1/user/id/${data.id}`;
+      const url = `http://localhost:8000/api/v1/user/uuid/${data.uuid}`;
 
       // Ensure role has a valid value before sending
       const dataToSend = {
@@ -257,7 +257,7 @@ export function UserEditForm({ data, isLoading, error, onSuccess, onClose }: Use
 
     try {
       const token = localStorage.getItem("fica-access-token");
-      const url = `http://localhost:8000/api/v1/user/id/${data.id}/password`;
+      const url = `http://localhost:8000/api/v1/user/uuid/${data.uuid}/password`;
 
 
       const response = await fetch(url, {

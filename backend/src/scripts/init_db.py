@@ -69,6 +69,42 @@ async def seed_faculties_schools():
         return False
 
 
+async def seed_schedule_times():
+    """Seed initial schedule times."""
+    logger.info("Seeding schedule times...")
+    try:
+        # Import and run the seeding
+        from src.app.core.db.database import local_session
+        from src.scripts.seed_schedule_times import seed_schedule_times
+
+        async with local_session() as session:
+            await seed_schedule_times(session)
+
+        logger.info("Schedule times seeding completed")
+        return True
+    except Exception as e:
+        logger.error(f"Schedule times seeding failed: {e}")
+        return False
+
+
+async def seed_courses():
+    """Seed courses catalog."""
+    logger.info("Seeding courses catalog...")
+    try:
+        # Import and run the seeding
+        from src.app.core.db.database import local_session
+        from src.scripts.seed_courses import seed_courses
+
+        async with local_session() as session:
+            await seed_courses(session)
+
+        logger.info("Courses seeding completed")
+        return True
+    except Exception as e:
+        logger.error(f"Courses seeding failed: {e}")
+        return False
+
+
 async def wait_for_db(max_retries=60, delay=2):
     """Wait for database to be ready."""
     logger.info("Waiting for database to be ready...")
@@ -116,6 +152,16 @@ async def main():
     # Seed faculties and schools
     if not await seed_faculties_schools():
         logger.error("Failed to seed faculties and schools")
+        sys.exit(1)
+
+    # Seed schedule times
+    if not await seed_schedule_times():
+        logger.error("Failed to seed schedule times")
+        sys.exit(1)
+
+    # Seed courses
+    if not await seed_courses():
+        logger.error("Failed to seed courses")
         sys.exit(1)
 
     logger.info("Database initialization completed successfully!")
