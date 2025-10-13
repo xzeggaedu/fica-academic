@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..core.db.database import Base
 
 if TYPE_CHECKING:
+    from .course_school import CourseSchool
     from .faculty import Faculty
 
 
@@ -43,6 +44,12 @@ class School(Base):
 
     # Relaciones
     faculty: Mapped[Faculty] = relationship("Faculty", back_populates="schools", lazy="selectin", init=False)
+    courses: Mapped[list["CourseSchool"]] = relationship(
+        "CourseSchool",
+        back_populates="school",
+        cascade="all, delete-orphan",
+        init=False
+    )
 
     def __repr__(self) -> str:
         return f"<School(id={self.id}, name={self.name}, acronym={self.acronym}, faculty_id={self.fk_faculty})>"
