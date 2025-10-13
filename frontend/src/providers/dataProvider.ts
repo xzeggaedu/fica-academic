@@ -10,6 +10,9 @@ import type {
   SchoolCreate,
   SchoolUpdate,
   Task,
+  Course,
+  CourseCreate,
+  CourseUpdate,
   PaginatedResponse
 } from "../types/api";
 
@@ -42,6 +45,10 @@ const ENDPOINTS = {
   FACULTY: `${API_BASE_PATH}/faculty`,
   SCHOOLS: `${API_BASE_PATH}/schools`,
   SCHOOL: `${API_BASE_PATH}/school`,
+  COURSES: `${API_BASE_PATH}/catalog/courses`,
+  COURSES_ACTIVE: `${API_BASE_PATH}/catalog/courses/active`,
+  SCHEDULE_TIMES: `${API_BASE_PATH}/catalog/schedule-times`,
+  SCHEDULE_TIMES_ACTIVE: `${API_BASE_PATH}/catalog/schedule-times/active`,
 };
 
 // Helper function to get auth headers
@@ -157,6 +164,123 @@ export const dataProvider: DataProvider = {
         };
       }
 
+      case "faculties": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 1000;
+
+        // Construir URL con parámetros
+        let url = `${ENDPOINTS.FACULTIES}?page=${current}&items_per_page=${pageSize}`;
+
+        // Agregar filtros si existen
+        if (filters && Array.isArray(filters)) {
+          const isActiveFilter = filters.find((f: any) => f.field === "is_active");
+          if (isActiveFilter && isActiveFilter.value !== undefined) {
+            url += `&is_active=${isActiveFilter.value}`;
+          }
+        }
+
+        if (DEBUG_MODE) {
+          console.log('Fetching faculties from:', url);
+        }
+
+        const response = await apiRequest<PaginatedResponse<Faculty>>(url);
+
+        if (DEBUG_MODE) {
+          console.log('Faculties response:', response);
+        }
+
+        return {
+          data: response.data as any[],
+          total: response.total_count,
+        };
+      }
+
+      case "schools": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 1000;
+
+        // Construir URL con parámetros
+        let url = `${ENDPOINTS.SCHOOLS}?page=${current}&items_per_page=${pageSize}`;
+
+        // Agregar filtros si existen
+        if (filters && Array.isArray(filters)) {
+          const isActiveFilter = filters.find((f: any) => f.field === "is_active");
+          if (isActiveFilter && isActiveFilter.value !== undefined) {
+            url += `&is_active=${isActiveFilter.value}`;
+          }
+        }
+
+        if (DEBUG_MODE) {
+          console.log('Fetching schools from:', url);
+        }
+
+        const response = await apiRequest<PaginatedResponse<School>>(url);
+
+        if (DEBUG_MODE) {
+          console.log('Schools response:', response);
+        }
+
+        return {
+          data: response.data as any[],
+          total: response.total_count,
+        };
+      }
+
+      case "faculties/active": {
+        const response = await apiRequest<PaginatedResponse<Faculty>>(
+          `${ENDPOINTS.FACULTIES}?is_active=true`
+        );
+        return {
+          data: response.data as any[],
+          total: response.total_count,
+        };
+      }
+
+      case "schools/active": {
+        const response = await apiRequest<PaginatedResponse<School>>(
+          `${ENDPOINTS.SCHOOLS}?is_active=true`
+        );
+        return {
+          data: response.data as any[],
+          total: response.total_count,
+        };
+      }
+
+      case "courses": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        // Construir URL con parámetros de búsqueda
+        const searchParams = new URLSearchParams();
+        searchParams.append("page", String(current));
+        searchParams.append("items_per_page", String(pageSize));
+
+        // Agregar filtro de búsqueda si existe
+        if (filters && Array.isArray(filters)) {
+          const searchFilter = filters.find((f: any) => f.field === "search");
+          if (searchFilter && searchFilter.value) {
+            searchParams.append("search", searchFilter.value);
+          }
+        }
+
+        const response = await apiRequest<PaginatedResponse<Course>>(
+          `${ENDPOINTS.COURSES}?${searchParams.toString()}`
+        );
+
+        return {
+          data: response.data as any[],
+          total: response.total_count,
+        };
+      }
+
+      case "catalog/schedule-times/active": {
+        const response = await apiRequest<any[]>(ENDPOINTS.SCHEDULE_TIMES_ACTIVE);
+        return {
+          data: response as any[],
+          total: response.length,
+        };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported`);
     }
@@ -241,6 +365,17 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "courses": {
+        const response = await apiRequest<Course>(
+          ENDPOINTS.COURSES,
+          {
+            method: "POST",
+            body: JSON.stringify(variables as CourseCreate),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported`);
     }
@@ -293,6 +428,17 @@ export const dataProvider: DataProvider = {
         return { data: updatedSchool as any };
       }
 
+      case "courses": {
+        const response = await apiRequest<Course>(
+          `${ENDPOINTS.COURSES}/${id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(variables as CourseUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported for update`);
     }
@@ -326,6 +472,16 @@ export const dataProvider: DataProvider = {
       case "school": {
         const response = await apiRequest<{ message: string }>(
           `${ENDPOINTS.SCHOOL}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "courses": {
+        const response = await apiRequest<{ message: string }>(
+          `${ENDPOINTS.COURSES}/${id}`,
           {
             method: "DELETE",
           }

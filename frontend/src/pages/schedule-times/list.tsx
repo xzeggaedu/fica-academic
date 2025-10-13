@@ -25,20 +25,20 @@ const WEEK_DAYS = [
 // Función para generar day_group_name basado en array de índices
 const generateDayGroupName = (selectedDayIndexes: number[]): string => {
   if (selectedDayIndexes.length === 0) return '';
-  
+
   // Mapear índices a abreviaciones
   const dayMap: Record<number, string> = {
     0: 'Lu', 1: 'Ma', 2: 'Mi', 3: 'Ju', 4: 'Vi', 5: 'Sá', 6: 'Do'
   };
-  
+
   // Ordenar los índices
   const sortedIndexes = [...selectedDayIndexes].sort((a, b) => a - b);
   const shortNames = sortedIndexes.map(index => dayMap[index]);
-  
+
   if (selectedDayIndexes.length === 1) {
     return shortNames[0];
   }
-  
+
   // Siempre usar formato separado por guiones (no rangos automáticos)
   // Lu-Vi significa lunes y viernes, no lunes a viernes
   return shortNames.join('-');
@@ -47,45 +47,45 @@ const generateDayGroupName = (selectedDayIndexes: number[]): string => {
 // Función para generar range_text basado en las horas
 const generateRangeText = (startTime: string, endTime: string): string => {
   if (!startTime || !endTime) return '';
-  
+
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':');
     const hour = parseInt(hours);
     const min = parseInt(minutes);
-    
+
     if (hour === 0 && min === 0) return '12:00 a.m.';
     if (hour < 12) return `${hour}:${min.toString().padStart(2, '0')} a.m.`;
     if (hour === 12) return `${hour}:${min.toString().padStart(2, '0')} p.m.`;
     return `${hour - 12}:${min.toString().padStart(2, '0')} p.m.`;
   };
-  
+
   return `${formatTime(startTime)} a ${formatTime(endTime)}`;
 };
 
 // Función para parsear day_group_name de vuelta a array de índices
 const parseDayGroupName = (dayGroupName: string): number[] => {
   if (!dayGroupName) return [];
-  
+
   const shortToIndex: Record<string, number> = {
     'Lu': 0, 'Ma': 1, 'Mi': 2, 'Ju': 3, 'Vi': 4, 'Sá': 5, 'Do': 6
   };
-  
+
   // Si es un solo día
   if (dayGroupName in shortToIndex) {
     return [shortToIndex[dayGroupName]];
   }
-  
+
   // Si es un rango (ej: Lu-Vi)
   if (dayGroupName.includes('-')) {
     const [start, end] = dayGroupName.split('-');
     const startIndex = shortToIndex[start];
     const endIndex = shortToIndex[end];
-    
+
     if (startIndex !== undefined && endIndex !== undefined && startIndex < endIndex) {
       return Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
     }
   }
-  
+
   // Si es múltiples días separados por guión (ej: Ma-Ju-Sá)
   const parts = dayGroupName.split('-');
   return parts.map(part => shortToIndex[part]).filter(index => index !== undefined);
@@ -149,7 +149,7 @@ export function ScheduleTimesList() {
   // Función para agrupar horarios por day_group_name
   const groupScheduleTimesByDayGroup = (scheduleTimes: ScheduleTime[]): Record<string, ScheduleTime[]> => {
     const grouped: Record<string, ScheduleTime[]> = {};
-    
+
     scheduleTimes.forEach(scheduleTime => {
       const dayGroup = scheduleTime.day_group_name;
       if (!grouped[dayGroup]) {
@@ -214,14 +214,14 @@ export function ScheduleTimesList() {
     setIsLoading(true);
     try {
       const token = localStorage.getItem("fica-access-token");
-      
+
       const payload = {
         days_array: selectedDays,
         start_time: newScheduleTime.start_time,
         end_time: newScheduleTime.end_time,
         is_active: newScheduleTime.is_active,
       };
-      
+
       const response = await fetch("http://localhost:8000/api/v1/catalog/schedule-times", {
         method: "POST",
         headers: {
@@ -239,7 +239,7 @@ export function ScheduleTimesList() {
 
       const createdScheduleTime = await response.json();
       setScheduleTimes(sortScheduleTimes([...scheduleTimes, createdScheduleTime]));
-      
+
       // Limpiar formulario
       setNewScheduleTime({
         start_time: "",
@@ -269,7 +269,7 @@ export function ScheduleTimesList() {
     setEditingId(id);
     setEditingField(field);
     setEditingValue(typeof value === 'string' ? value : '');
-    
+
     // Si estamos editando days_array, usar el array directamente
     if (field === 'days_array') {
       setEditingDays(Array.isArray(value) ? value : []);
@@ -281,13 +281,29 @@ export function ScheduleTimesList() {
       const token = localStorage.getItem("fica-access-token");
       const scheduleTime = scheduleTimes.find(st => st.id === id);
       if (!scheduleTime) return;
-      
+
       let updateData: any = {};
-      
+
       if (field === "days_array") {
         // Si estamos editando días, usar el array de índices
+        // Guardar solo si cambió
+        const currentSorted = [...scheduleTime.days_array].sort();
+        const nextSorted = [...editingDays].sort();
+        const same = currentSorted.length === nextSorted.length && currentSorted.every((v, i) => v === nextSorted[i]);
+        if (same) {
+          setEditingId(null);
+          setEditingField(null);
+          setEditingDays([]);
+          return;
+        }
         updateData.days_array = editingDays;
       } else {
+        if ((scheduleTime as any)[field] === value) {
+          setEditingId(null);
+          setEditingField(null);
+          setEditingValue("");
+          return;
+        }
         updateData[field] = value;
       }
 
@@ -401,7 +417,7 @@ export function ScheduleTimesList() {
               <Clock className="h-6 w-6" />
               <h1 className="text-2xl font-bold">Configuración de Horarios</h1>
             </div>
-            
+
             {/* Toggle de vista */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Vista:</span>
@@ -510,7 +526,7 @@ export function ScheduleTimesList() {
               </Button>
             </div>
           </div>
-          
+
           {/* Mostrar el rango de tiempo generado automáticamente */}
           {newScheduleTime.start_time && newScheduleTime.end_time && (
             <div className="mt-4 p-3 bg-muted rounded-lg">
@@ -582,8 +598,8 @@ export function ScheduleTimesList() {
                               ))}
                             </div>
                             <div className="flex gap-2 pt-2">
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 onClick={() => {
                                   handleSaveEdit(scheduleTime.id, "days_array", "");
                                   setIsEditingDayDropdownOpen(false);
@@ -592,8 +608,8 @@ export function ScheduleTimesList() {
                               >
                                 Guardar
                               </Button>
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 variant="outline"
                                 onClick={() => {
                                   setEditingId(null);
@@ -720,7 +736,7 @@ export function ScheduleTimesList() {
                   times.map((scheduleTime, index) => (
                     <TableRow key={scheduleTime.id}>
                       {index === 0 && (
-                        <TableCell 
+                        <TableCell
                           rowSpan={times.length}
                           className="font-medium bg-muted/50 align-top"
                         >
