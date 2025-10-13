@@ -53,8 +53,19 @@ def parse_days_array(days_array_str: str) -> list[int]:
     """
     # Remover corchetes y espacios
     days_array_str = days_array_str.strip('[]')
-    # Dividir por comas y convertir a enteros
-    days = [int(day.strip()) for day in days_array_str.split(',')]
+    
+    # Si el string está vacío después de remover corchetes, retornar lista vacía
+    if not days_array_str.strip():
+        return []
+    
+    # Dividir por comas y convertir a enteros, filtrando strings vacíos
+    days = [int(day.strip()) for day in days_array_str.split(',') if day.strip()]
+    
+    # Validar que todos los días estén en el rango válido (0-6)
+    for day in days:
+        if not 0 <= day <= 6:
+            raise ValueError(f"Día inválido: {day}. Debe estar entre 0 y 6.")
+    
     return sorted(days)
 
 
@@ -67,10 +78,21 @@ def generate_day_group_name(days_array: list[int]) -> str:
     
     Returns:
         Nombre del grupo de días
+        
+    Raises:
+        ValueError: Si el array está vacío o contiene días inválidos
     """
+    if not days_array:
+        raise ValueError("El array de días no puede estar vacío")
+    
     day_names = {
         0: 'Lu', 1: 'Ma', 2: 'Mi', 3: 'Ju', 4: 'Vi', 5: 'Sá', 6: 'Do'
     }
+    
+    # Validar que todos los días estén en el rango válido
+    for day in days_array:
+        if day not in day_names:
+            raise ValueError(f"Día inválido: {day}. Debe estar entre 0 y 6.")
     
     if len(days_array) == 1:
         return day_names[days_array[0]]
@@ -194,12 +216,12 @@ async def seed_schedule_times(session: AsyncSession) -> None:
                     logger.error(f"Error processing row {total_records}: {row} - {e}")
                     continue
             
-            await session.commit()
-            logger.info(f"Schedule times seeding completed. Total records: {total_records}, Created: {created_records}")
-            
+        session.commit()
+        logger.info(f"Schedule times seeding completed. Total records: {total_records}, Created: {created_records}")
+        
     except Exception as e:
         logger.error(f"Error reading CSV file: {e}")
-        await session.rollback()
+        session.rollback()
         raise
 
 
