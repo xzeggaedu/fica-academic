@@ -216,12 +216,12 @@ async def seed_schedule_times(session: AsyncSession) -> None:
                     logger.error(f"Error processing row {total_records}: {row} - {e}")
                     continue
             
-        session.commit()
+        await session.commit()
         logger.info(f"Schedule times seeding completed. Total records: {total_records}, Created: {created_records}")
         
     except Exception as e:
         logger.error(f"Error reading CSV file: {e}")
-        session.rollback()
+        await session.rollback()
         raise
 
 
