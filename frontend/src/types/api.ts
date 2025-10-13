@@ -150,6 +150,40 @@ export interface RefineUserIdentity {
   avatar?: string;
 }
 
+// Course types
+export interface CourseSchool {
+  id: number;
+  school_id: number;
+  created_at: string;
+}
+
+export interface Course {
+  id: number;
+  course_code: string;
+  course_name: string;
+  department_code: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  schools: CourseSchool[];
+}
+
+export interface CourseCreate {
+  course_code: string;
+  course_name: string;
+  department_code: string;
+  is_active?: boolean;
+  school_ids: number[];
+}
+
+export interface CourseUpdate {
+  course_code?: string;
+  course_name?: string;
+  department_code?: string;
+  is_active?: boolean;
+  school_ids?: number[];
+}
+
 // API Endpoints
 export const API_ENDPOINTS = {
   LOGIN: "/api/v1/login",
@@ -163,4 +197,5 @@ export const API_ENDPOINTS = {
   SCHOOLS: "/api/v1/schools",
   SCHOOL: "/api/v1/school",
   TASKS: "/api/v1/tasks/task",
+  COURSES: "/api/v1/catalog/courses",
 } as const;

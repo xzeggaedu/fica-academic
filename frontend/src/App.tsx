@@ -33,7 +33,8 @@ import {
 import {
   FacultyList,
 } from "./pages/faculties";
-import { ScheduleTimesList } from "./pages/configuration/schedule-times";
+import { CoursesList } from "./pages/courses";
+import { ScheduleTimesList } from "./pages/schedule-times";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -56,22 +57,14 @@ function App() {
               authProvider={authProvider}
               accessControlProvider={accessControlProvider}
               resources={[
+                // Top-level resources in order: Tasks, then Configuration
                 {
-                  name: "users",
-                  list: "/users",
-                  create: "/users/create",
-                  edit: "/users/edit/:id",
-                  show: "/users/show/:id",
+                  name: "tasks",
+                  list: "/tasks",
+                  create: "/tasks/create",
+                  show: "/tasks/show/:id",
                   meta: {
-                    label: "Usuarios",
-                    canDelete: true,
-                  },
-                },
-                {
-                  name: "faculty",
-                  list: "/faculties",
-                  meta: {
-                    label: "Facultades y Escuelas",
+                    label: "Tareas",
                     canDelete: true,
                   },
                 },
@@ -89,6 +82,39 @@ function App() {
                     group: true,
                   },
                 },
+                // Configuration children in required order
+                {
+                  name: "users",
+                  list: "/users",
+                  create: "/users/create",
+                  edit: "/users/edit/:id",
+                  show: "/users/show/:id",
+                  meta: {
+                    label: "Usuarios",
+                    canDelete: true,
+                    parent: "configuration",
+                    icon: "Users",
+                  },
+                },
+                {
+                  name: "faculty",
+                  list: "/faculties",
+                  meta: {
+                    label: "Facultades y Escuelas",
+                    canDelete: true,
+                    parent: "configuration",
+                    icon: "GraduationCap",
+                  },
+                },
+                {
+                  name: "courses",
+                  list: "/configuration/courses",
+                  meta: {
+                    label: "Asignaturas",
+                    parent: "configuration",
+                    icon: "BookOpen",
+                  },
+                },
                 {
                   name: "schedule-times",
                   list: "/configuration/schedule-times",
@@ -98,16 +124,7 @@ function App() {
                     icon: "Clock",
                   },
                 },
-                {
-                  name: "tasks",
-                  list: "/tasks",
-                  create: "/tasks/create",
-                  show: "/tasks/show/:id",
-                  meta: {
-                    label: "Tareas",
-                    canDelete: true,
-                  },
-                },
+
               ]}
               options={{
                 syncWithLocation: true,
@@ -151,6 +168,7 @@ function App() {
                   </Route>
                   <Route path="/configuration">
                     <Route path="schedule-times" element={<ScheduleTimesList />} />
+                    <Route path="courses" element={<CoursesList />} />
                   </Route>
                   <Route path="*" element={<ErrorComponent />} />
                 </Route>
