@@ -8,8 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/forms/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useNotification } from "@refinedev/core";
+import { useNotification, CanAccess, useCan } from "@refinedev/core";
 import { ScheduleDeleteDialog } from "@/components/ui/schedule-times/schedule-delete-dialog";
+import { Unauthorized } from "../unauthorized";
 
 // Constantes para los días de la semana (0=Lunes, 6=Domingo)
 const WEEK_DAYS = [
@@ -111,6 +112,12 @@ interface NewScheduleTime {
 }
 
 export function ScheduleTimesList() {
+  // Verificar permisos primero
+  const { data: canAccess } = useCan({
+    resource: "schedule-times",
+    action: "list",
+  });
+
   const [scheduleTimes, setScheduleTimes] = useState<ScheduleTime[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,12 +173,19 @@ export function ScheduleTimesList() {
     return grouped;
   };
 
-  // Cargar horarios al montar el componente
+  // Cargar horarios al montar el componente solo si tiene permisos
   useEffect(() => {
-    fetchScheduleTimes();
-  }, []);
+    if (canAccess?.can) {
+      fetchScheduleTimes();
+    }
+  }, [canAccess?.can]);
 
   const fetchScheduleTimes = async () => {
+    // No hacer fetch si no tiene permisos
+    if (!canAccess?.can) {
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -411,12 +425,17 @@ export function ScheduleTimesList() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="h-6 w-6" />
-              <h1 className="text-2xl font-bold">Configuración de Horarios</h1>
-            </div>
+    <CanAccess
+      resource="schedule-times"
+      action="list"
+      fallback={<Unauthorized resourceName="horarios" message="Solo los administradores pueden gestionar horarios." />}
+    >
+      <div className="container mx-auto py-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-6 w-6" />
+                <h1 className="text-2xl font-bold">Configuración de Horarios</h1>
+              </div>
 
             {/* Toggle de vista */}
             <div className="flex items-center gap-2">
@@ -789,6 +808,7 @@ export function ScheduleTimesList() {
           onSuccess={handleDeleteSuccess}
         />
       )}
-    </div>
+      </div>
+    </CanAccess>
   );
 }

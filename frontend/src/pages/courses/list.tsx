@@ -1,6 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useList, useCreate, useUpdate, useDelete, useInvalidate } from "@refinedev/core";
-import { useQueryClient } from "@tanstack/react-query";
+import React, { useState, useEffect } from "react";
+import { useList, useCreate, useUpdate, useDelete, CanAccess, useCan } from "@refinedev/core";
 import {
   Table,
   TableBody,
@@ -45,10 +44,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Unauthorized } from "../unauthorized";
 
 export const CoursesList = () => {
-  const queryClient = useQueryClient();
-  const invalidate = useInvalidate();
+  // Verificar permisos primero
+  const { data: canAccess } = useCan({
+    resource: "courses",
+    action: "list",
+  });
 
   // Estados para paginación y búsqueda
   const [currentPage, setCurrentPage] = useState(1);
@@ -71,7 +74,7 @@ export const CoursesList = () => {
     ? [{ field: "search", operator: "contains" as const, value: debouncedSearch }]
     : [];
 
-  const { query: coursesQuery, result: coursesResult } = useList({
+  const coursesResponse = useList({
     resource: "courses",
     pagination: {
       currentPage: currentPage,
@@ -79,31 +82,41 @@ export const CoursesList = () => {
       mode: "server",
     },
     filters: filters,
-    // disable default notifications
-    queryOptions: { meta: { notification: { success: false, error: false } } } as any,
+    queryOptions: {
+      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+      staleTime: 0,
+      gcTime: 0, // React Query v5: gcTime en lugar de cacheTime
+    },
   });
+
+  const coursesLoading = coursesResponse.query.isLoading;
+  const coursesError = coursesResponse.query.isError;
+  const coursesList = coursesResponse.result?.data || [];
+  const total = coursesResponse.result?.total || 0;
 
   // Facultades y Escuelas con hooks de Refine
   const { query: facultiesQuery, result: facultiesResult } = useList<Faculty>({
     resource: "faculties",
     pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
     filters: [{ field: "is_active", operator: "eq", value: true }],
+    queryOptions: {
+      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
+    },
   });
   const { query: schoolsQuery, result: schoolsResult } = useList<School>({
     resource: "schools",
     pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
     filters: [{ field: "is_active", operator: "eq", value: true }],
+    queryOptions: {
+      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
+    },
   });
 
-  // Hooks para operaciones CRUD
-  const { mutate: createCourse, mutation: createState } = useCreate({
-    successNotification: false,
-    errorNotification: false,
-  } as any);
-  const { mutate: updateCourse, mutation: updateState } = useUpdate({
-    successNotification: false,
-    errorNotification: false,
-  } as any);
+  // Hooks para operaciones CRUD con configuración correcta según documentación de Refine
+  const { mutate: createCourse, mutation: createState } = useCreate();
+  const { mutate: updateCourse, mutation: updateState } = useUpdate();
   const { mutate: deleteCourse, mutation: deleteState } = useDelete();
 
   const creating = createState.isPending;
@@ -132,48 +145,32 @@ export const CoursesList = () => {
   const [editingSchools, setEditingSchools] = useState<number[]>([]);
   const [openSchoolsPopoverId, setOpenSchoolsPopoverId] = useState<number | null>(null);
 
-  // Función para refrescar datos
-  const refreshData = async () => {
-    await queryClient.refetchQueries({
-      predicate: (query) => {
-        const queryKey = query.queryKey;
-        return queryKey[0] === "default" &&
-               (queryKey[1] as any)?.resource === "courses";
-      },
-    });
-  };
-
+  // Estado para tracking de switches siendo actualizados
+  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
 
   // Calcular loading y error states
   const faculties = facultiesResult?.data || [];
   const schools = schoolsResult?.data || [];
   const facultiesLoading = facultiesQuery.isLoading;
   const schoolsLoading = schoolsQuery.isLoading;
-  const loading = coursesQuery.isLoading || facultiesLoading || schoolsLoading;
-  const courses = coursesResult?.data || [];
-  const total = coursesResult?.total || 0;
-
-  // Debug: ver qué datos tenemos
-  useEffect(() => {
-    console.log('Faculties data:', faculties);
-    console.log('Schools data:', schools);
-    console.log('Faculties loading:', facultiesLoading);
-    console.log('Schools loading:', schoolsLoading);
-  }, [faculties, schools, facultiesLoading, schoolsLoading]);
+  const loading = coursesLoading || facultiesLoading || schoolsLoading;
 
   useEffect(() => {
-    if (coursesQuery.isError) {
+    if (coursesError) {
       setError("Error al cargar los cursos");
     } else {
       setError(null);
     }
-  }, [coursesQuery.isError]);
+  }, [coursesError]);
 
-  // Forzar refetch al cambiar paginación o búsqueda (seguridad ante caché)
+  // Debug: ver cuando cambian los is_active de los cursos
   useEffect(() => {
-    console.log("Refetching courses", {currentPage, pageSize, debouncedSearch});
-    coursesQuery.refetch();
-  }, [currentPage, pageSize, debouncedSearch]);
+    if (coursesList.length > 0) {
+      console.log('📋 Estado is_active de cursos:',
+        coursesList.map(c => ({ id: c.id, code: c.course_code, is_active: c.is_active }))
+      );
+    }
+  }, [coursesList]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,9 +216,7 @@ export const CoursesList = () => {
             school_ids: [],
           });
           setSelectedSchools([]);
-
-          // Recargar lista
-          refreshData();
+          // Refine automáticamente invalida y refresca la lista
         },
         onError: (error: any) => {
           console.error("Error creating course:", error);
@@ -246,106 +241,13 @@ export const CoursesList = () => {
     setEditingSchools(course.schools?.map(cs => cs.school_id) || []);
   };
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditingField(null);
-    setEditForm({});
-    setEditingSchools([]);
-  };
-
-  const handleSaveEdit = async (id: number) => {
-    const updateData: CourseUpdate = {
-      ...editForm,
-      school_ids: editingSchools.length > 0 ? editingSchools : undefined,
-    };
-
-    updateCourse(
-      {
-        resource: "courses",
-        id,
-        values: updateData,
-      },
-      {
-        onSuccess: () => {
-          toast.success("Éxito", {
-            description: "Curso actualizado exitosamente",
-            richColors: true,
-          });
-          setEditingId(null);
-          setEditForm({});
-          setEditingSchools([]);
-          refreshData();
-        },
-        onError: (error: any) => {
-          console.error("Error updating course:", error);
-          toast.error("Error", {
-            description: "Error al actualizar el curso",
-            richColors: true,
-          });
-        },
-      }
-    );
-  };
-
-  // Actualizar cache local de la lista de cursos para evitar refresco manual
-  const updateCourseInCache = (updated: Course) => {
-    const queries = queryClient.getQueryCache().findAll();
-    queries.forEach((q: any) => {
-      const key = q.queryKey as any[];
-      const resource = (key?.[1] as any)?.resource;
-      if (resource === "courses") {
-        queryClient.setQueryData(key, (old: any) => {
-          if (!old) return old;
-          const currentList = Array.isArray(old.data) ? old.data : [];
-          const nextList = currentList.map((c: Course) => (c.id === updated.id ? updated : c));
-          return { ...old, data: nextList };
-        });
-      }
-    });
-  };
-
-  // Fallback: invalidar y refetchear cualquier query relacionada a courses/list
-  const hardRefreshCourses = () => {
-    const predicate = (q: any) => {
-      const keyStr = JSON.stringify(q.queryKey);
-      return keyStr.includes('"action":"list"') && keyStr.includes('"resource":"courses"');
-    };
-    queryClient.invalidateQueries({ predicate });
-    queryClient.refetchQueries({ predicate });
-  };
-
-  // Optimistic update helpers
-  const optimisticUpdateCourse = (id: number, partial: Partial<Course>) => {
-    const snapshots: { key: unknown; prev: unknown }[] = [];
-    const queries = queryClient.getQueryCache().findAll();
-    queries.forEach((q: any) => {
-      const key = q.queryKey as any[];
-      const resource = (key?.[1] as any)?.resource;
-      if (resource === "courses") {
-        const prev = queryClient.getQueryData(key);
-        snapshots.push({ key, prev });
-        queryClient.setQueryData(key, (old: any) => {
-          if (!old) return old;
-          const list = Array.isArray(old.data) ? old.data : [];
-          const next = list.map((c: Course) => (c.id === id ? { ...c, ...partial } : c));
-          return { ...old, data: next };
-        });
-      }
-    });
-    return snapshots;
-  };
-
-  const rollbackOptimistic = (snapshots: { key: unknown; prev: unknown }[]) => {
-    snapshots.forEach(({ key, prev }) => queryClient.setQueryData(key, prev));
-  };
-
   const saveSingleField = (
     id: number,
     field: keyof CourseUpdate,
     value: string | boolean | undefined
   ) => {
     // Guardar solo si hay cambios reales
-    const current = courses.find((c) => c.id === id);
+    const current = coursesList.find((c) => c.id === id);
     if (current) {
       const currentValue = (current as any)[field];
       if (currentValue === value) {
@@ -356,7 +258,6 @@ export const CoursesList = () => {
       }
     }
     const payload: CourseUpdate = { [field]: value } as CourseUpdate;
-    const snapshots = optimisticUpdateCourse(id, { [field]: value } as Partial<Course>);
     updateCourse(
       {
         resource: "courses",
@@ -364,28 +265,27 @@ export const CoursesList = () => {
         values: payload,
       },
       {
-        onSuccess: (resp: any) => {
-          const updated = (resp as any)?.data || (resp as any);
-          if (updated?.id) updateCourseInCache(updated as Course);
-          toast.success("Éxito", { description: "Asignatura actualizada", richColors: true, });
+        onSuccess: () => {
+          toast.success("Éxito", { description: "Asignatura actualizada", richColors: true });
           setEditingId(null);
           setEditingField(null);
           setEditForm({});
-          refreshData();
-          coursesQuery.refetch();
-          invalidate({ resource: "courses", invalidates: ["list"] });
-          hardRefreshCourses();
+          // Refine automáticamente invalida y refresca la lista
         },
         onError: (error: any) => {
-          rollbackOptimistic(snapshots);
           console.error("Error updating field:", error);
-          toast.error("Error", { description: "No se pudo actualizar", richColors: true, });
+          toast.error("Error", { description: "No se pudo actualizar", richColors: true });
         },
       }
     );
   };
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
+    console.log('🔄 Toggling course status:', { id, currentStatus, newStatus: !currentStatus });
+
+    // Agregar ID al set de toggles en proceso
+    setTogglingIds(prev => new Set(prev).add(id));
+
     updateCourse(
       {
         resource: "courses",
@@ -393,18 +293,31 @@ export const CoursesList = () => {
         values: { is_active: !currentStatus },
       },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
+          console.log('✅ Toggle successful, response:', data);
           toast.success("Éxito", {
             description: `Curso ${!currentStatus ? "activado" : "desactivado"} exitosamente`,
             richColors: true,
           });
-          refreshData();
+          // Quitar ID del set
+          setTogglingIds(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+          // Refine automáticamente invalida y refresca la lista
         },
         onError: (error: any) => {
           console.error("Error toggling course status:", error);
           toast.error("Error", {
             description: "Error al cambiar el estado del curso",
             richColors: true,
+          });
+          // Quitar ID del set en caso de error también
+          setTogglingIds(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
           });
         },
       }
@@ -435,7 +348,7 @@ export const CoursesList = () => {
           });
           setDeleteDialogOpen(false);
           setCourseToDelete(null);
-          refreshData();
+          // Refine automáticamente invalida y refresca la lista
         },
         onError: (error: any) => {
           console.error("Error deleting course:", error);
@@ -459,7 +372,6 @@ export const CoursesList = () => {
       }
       grouped[facultyKey].push(school);
     });
-    console.log('Schools grouped by faculty:', grouped);
     return grouped;
   };
 
@@ -499,9 +411,14 @@ export const CoursesList = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Formulario de creación */}
-      <Card>
+    <CanAccess
+      resource="courses"
+      action="list"
+      fallback={<Unauthorized resourceName="asignaturas" message="Solo los administradores pueden gestionar asignaturas." />}
+    >
+      <div className="space-y-6 p-6">
+        {/* Formulario de creación */}
+        <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5" />
@@ -675,14 +592,14 @@ export const CoursesList = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {courses.length === 0 ? (
+                {coursesList.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-gray-500 py-8">
                       {debouncedSearch ? "No se encontraron cursos" : "No hay cursos registrados"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  courses.map((course: Course) => (
+                  coursesList.map((course: Course) => (
                     <TableRow key={course.id}>
                       {/* ID */}
                       {visibleColumns.includes("id") && (
@@ -824,8 +741,7 @@ export const CoursesList = () => {
                                                 const nextSorted = [...next].sort();
                                                 const same = currentIds.length === nextSorted.length && currentIds.every((v, i) => v === nextSorted[i]);
                                                 if (same) return;
-                                                // Optimistic update for schools
-                                                const snapshots = optimisticUpdateCourse(course.id, { schools: next.map((sid) => ({ id: sid, school_id: sid })) as any });
+                                                // Actualizar escuelas
                                                 updateCourse(
                                                   {
                                                     resource: "courses",
@@ -833,26 +749,21 @@ export const CoursesList = () => {
                                                     values: { school_ids: next },
                                                   },
                                                   {
-                                                    onSuccess: (resp: any) => {
-                                                      const updated = (resp as any)?.data || (resp as any);
-                                                      if (updated?.id) updateCourseInCache(updated as Course);
+                                                    onSuccess: () => {
                                                       toast.success("Éxito", {
                                                         description: "Escuelas actualizadas",
                                                         richColors: true,
                                                       });
-                                                      // Mantener popover abierto para más selecciones
-                                                      refreshData();
-                                                      coursesQuery.refetch();
-                                                      invalidate({ resource: "courses", invalidates: ["list"] });
-                                                      hardRefreshCourses();
+                                                      // Refine automáticamente invalida y refresca la lista
                                                     },
                                                     onError: (error: any) => {
-                                                      rollbackOptimistic(snapshots as any);
                                                       console.error("Error updating course schools:", error);
                                                       toast.error("Error", {
                                                         description: "No se pudieron actualizar las escuelas",
                                                         richColors: true,
                                                       });
+                                                      // Revertir cambio en UI
+                                                      setEditingSchools(course.schools?.map((cs) => cs.school_id) || []);
                                                     },
                                                   }
                                                 );
@@ -905,7 +816,7 @@ export const CoursesList = () => {
                           <Switch
                             checked={course.is_active}
                             onCheckedChange={() => handleToggleActive(course.id, course.is_active)}
-                            disabled={editingId === course.id}
+                            disabled={editingId === course.id || togglingIds.has(course.id) || updating}
                           />
                         </TableCell>
                       )}
@@ -1041,6 +952,7 @@ export const CoursesList = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </CanAccess>
   );
 };

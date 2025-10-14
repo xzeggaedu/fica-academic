@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   Sheet,
-  SheetClose,
   SheetContent,
   SheetDescription,
   SheetFooter,
@@ -14,6 +13,7 @@ import { Label } from "@/components/ui/forms/label";
 import { Badge } from "@/components/ui/badge";
 import { UserRoleEnum } from "@/types/auth";
 import { Loader2, Check } from "lucide-react";
+import { useList, useUpdate, useOne } from "@refinedev/core";
 
 interface Faculty {
   id: number;
@@ -36,7 +36,7 @@ interface UserScope {
 }
 
 interface UserPermissionsSheetProps {
-  userId: number;
+  userId: string;  // Cambiado de number a string para UUID
   userName: string;
   userRole: string;
   isOpen: boolean;
@@ -52,94 +52,67 @@ export function UserPermissionsSheet({
   onClose,
   onSuccess,
 }: UserPermissionsSheetProps) {
-  const [faculties, setFaculties] = useState<Faculty[]>([]);
-  const [schools, setSchools] = useState<School[]>([]);
-  const [currentScopes, setCurrentScopes] = useState<UserScope[]>([]);
-  
   const [selectedFacultyId, setSelectedFacultyId] = useState<string>("");
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>("");
-  
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch faculties, schools, and current scopes
+  // Refine hooks
+  const { result: facultiesResult, query: facultiesQuery } = useList<Faculty>({
+    resource: "faculties",
+    queryOptions: {
+      enabled: isOpen,
+    },
+  });
+
+  const { result: schoolsResult, query: schoolsQuery } = useList<School>({
+    resource: "schools",
+    queryOptions: {
+      enabled: isOpen,
+    },
+  });
+
+  const { result: scopesResult, query: scopesQuery } = useOne({
+    resource: "users",
+    id: `${userId}/scope`,
+    queryOptions: {
+      enabled: isOpen && !!userId,
+    },
+  });
+
+  const { mutate: updateScopes, mutation: updateMutation } = useUpdate();
+  const isSaving = updateMutation.isPending;
+
+  const faculties = facultiesResult?.data || [];
+  const schools = schoolsResult?.data || [];
+
+  // El backend retorna un array, pero useOne espera un objeto
+  // Necesitamos extraer el array del resultado
+  const currentScopes = (Array.isArray(scopesResult) ? scopesResult : []) as UserScope[];
+
+  const isLoading = facultiesQuery.isLoading || schoolsQuery.isLoading || scopesQuery.isLoading;
+
+  // Set initial selections based on current scopes when they load
   useEffect(() => {
     if (isOpen && userId) {
-      // Clear previous selections when opening the sheet
+      // Clear selections first
       setSelectedFacultyId("");
       setSelectedSchoolId("");
       setError(null);
-      fetchData();
-    }
-  }, [isOpen, userId]);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    setError(null);
+      // Then load current scopes if available
+      if (currentScopes && currentScopes.length > 0) {
+        const scope = currentScopes[0];
 
-    try {
-      const token = localStorage.getItem("fica-access-token");
-      
-      // Fetch faculties
-      const facultiesRes = await fetch("http://localhost:8000/api/v1/faculties", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-      
-      if (!facultiesRes.ok) throw new Error("Error al cargar facultades");
-      const facultiesData = await facultiesRes.json();
-      setFaculties(facultiesData.data || []);
+        if (scope.fk_faculty) {
+          setSelectedFacultyId(scope.fk_faculty.toString());
+        }
 
-      // Fetch schools
-      const schoolsRes = await fetch("http://localhost:8000/api/v1/schools", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-      
-      if (!schoolsRes.ok) throw new Error("Error al cargar escuelas");
-      const schoolsData = await schoolsRes.json();
-      setSchools(schoolsData.data || []);
-
-      // Fetch current scopes for the user
-      const scopesRes = await fetch(`http://localhost:8000/api/v1/user/${userId}/scope`, {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-      
-      if (scopesRes.ok) {
-        const scopesData = await scopesRes.json();
-        setCurrentScopes(scopesData || []);
-        
-        // Set initial selections based on current scopes
-        if (scopesData && scopesData.length > 0) {
-          const scope = scopesData[0];
-          if (scope.fk_faculty) {
-            setSelectedFacultyId(scope.fk_faculty.toString());
-          } else if (scope.fk_school) {
-            const school = (schoolsData.data || []).find((s: School) => s.id === scope.fk_school);
-            if (school) {
-              setSelectedFacultyId(school.fk_faculty.toString());
-              setSelectedSchoolId(scope.fk_school.toString());
-            }
-          }
+        if (scope.fk_school) {
+          setSelectedSchoolId(scope.fk_school.toString());
         }
       }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, [isOpen, userId, currentScopes]);
 
   const handleClose = () => {
     // Clear all form data when closing
@@ -157,51 +130,43 @@ export function UserPermissionsSheet({
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
     setError(null);
 
-    try {
-      const token = localStorage.getItem("fica-access-token");
-      let payload: any = {};
+    let payload: any = {};
 
-      // Build payload based on role
-      if (userRole === UserRoleEnum.DECANO) {
-        if (!selectedFacultyId) {
-          setError("Debe seleccionar una facultad");
-          setIsSaving(false);
-          return;
-        }
-        payload = { faculty_id: parseInt(selectedFacultyId) };
-      } else if (userRole === UserRoleEnum.DIRECTOR) {
-        if (!selectedSchoolId) {
-          setError("Debe seleccionar una escuela");
-          setIsSaving(false);
-          return;
-        }
-        payload = { school_id: parseInt(selectedSchoolId) };
+    // Build payload based on role
+    if (userRole === UserRoleEnum.DECANO) {
+      if (!selectedFacultyId) {
+        setError("Debe seleccionar una facultad");
+        return;
       }
-
-      const response = await fetch(`http://localhost:8000/api/v1/user/${userId}/scope`, {
-        method: "PUT",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Error al guardar permisos");
+      payload = { faculty_id: parseInt(selectedFacultyId) };
+    } else if (userRole === UserRoleEnum.DIRECTOR) {
+      if (!selectedSchoolId || !selectedFacultyId) {
+        setError("Debe seleccionar una facultad y una escuela");
+        return;
       }
-
-      handleSuccess();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsSaving(false);
+      payload = {
+        school_id: parseInt(selectedSchoolId),
+        faculty_id: parseInt(selectedFacultyId)
+      };
     }
+
+    updateScopes({
+      resource: "users",
+      id: `${userId}/scope`,
+      values: payload,
+      meta: {
+        method: "put"
+      }
+    }, {
+      onSuccess: () => {
+        handleSuccess();
+      },
+      onError: (error: any) => {
+        setError(error.message || "Error al guardar permisos");
+      }
+    });
   };
 
   // Get schools for selected faculty
@@ -246,7 +211,7 @@ export function UserPermissionsSheet({
               El Vicerrector tiene acceso total a todas las facultades y escuelas del sistema.
             </p>
           </div>
-          
+
           <div className="space-y-4">
             <h3 className="font-semibold text-sm">Facultades y Escuelas:</h3>
             {faculties.map(faculty => (
@@ -286,14 +251,18 @@ export function UserPermissionsSheet({
             <Label className="text-base font-semibold">Seleccionar Facultad</Label>
             <RadioGroup value={selectedFacultyId} onValueChange={handleFacultyChange}>
               {faculties.map(faculty => (
-                <div key={faculty.id} className="flex items-center space-x-3 p-3 border rounded-md hover:bg-muted/50 transition-colors">
+                <div key={faculty.id} className="space-x-3 p-3 border rounded-md hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-2">
                   <RadioGroupItem value={faculty.id.toString()} id={`faculty-${faculty.id}`} />
-                  <Label htmlFor={`faculty-${faculty.id}`} className="flex-1 cursor-pointer font-normal">
-                    <div className="flex items-center gap-2">
-                      <span>{faculty.name}</span>
-                      <Badge variant="outline">{faculty.acronym}</Badge>
-                    </div>
-                    {selectedFacultyId === faculty.id.toString() && (
+                  <Label htmlFor={`faculty-${faculty.id}`} className="flex flex-1 cursor-pointer font-normal">
+                      <div>
+                        <span>{faculty.name}</span>
+                        <Badge variant="outline" className="text-xs ml-3">{faculty.acronym}</Badge>
+                      </div>
+                  </Label>
+                  </div>
+
+                  {selectedFacultyId === faculty.id.toString() && (
                       <div className="mt-2 ml-4 space-y-1 text-sm text-muted-foreground">
                         {getSchoolsForFaculty(faculty.id.toString()).map(school => (
                           <div key={school.id} className="flex items-center gap-2">
@@ -303,7 +272,6 @@ export function UserPermissionsSheet({
                         ))}
                       </div>
                     )}
-                  </Label>
                 </div>
               ))}
             </RadioGroup>
@@ -326,44 +294,53 @@ export function UserPermissionsSheet({
           <div className="space-y-3">
             <Label className="text-base font-semibold">1. Seleccionar Facultad</Label>
             <RadioGroup value={selectedFacultyId} onValueChange={handleFacultyChange}>
-              {faculties.map(faculty => {
-                const facultySchools = getSchoolsForFaculty(faculty.id.toString());
-                const isSelected = selectedFacultyId === faculty.id.toString();
-                
-                return (
-                  <div key={faculty.id} className="border rounded-md">
-                    <div className="flex items-center space-x-3 p-3 hover:bg-muted/50 transition-colors">
-                      <RadioGroupItem value={faculty.id.toString()} id={`faculty-${faculty.id}`} />
-                      <Label htmlFor={`faculty-${faculty.id}`} className="flex-1 cursor-pointer font-normal">
-                        <div className="flex items-center gap-2">
-                          <span>{faculty.name}</span>
-                          <Badge variant="outline">{faculty.acronym}</Badge>
-                        </div>
-                      </Label>
-                    </div>
-                    
-                    {/* Schools for this faculty */}
-                    {isSelected && facultySchools.length > 0 && (
-                      <div className="px-3 pb-3 ml-6 space-y-2 border-t pt-3 mt-2">
-                        <Label className="text-sm font-semibold">2. Seleccionar Escuela</Label>
-                        <RadioGroup value={selectedSchoolId} onValueChange={setSelectedSchoolId}>
-                          {facultySchools.map(school => (
-                            <div key={school.id} className="flex items-center space-x-3 p-2 rounded hover:bg-muted/50 transition-colors">
-                              <RadioGroupItem value={school.id.toString()} id={`school-${school.id}`} />
-                              <Label htmlFor={`school-${school.id}`} className="flex-1 cursor-pointer font-normal">
-                                <div className="flex items-center gap-2">
-                                  <span>{school.name}</span>
-                                  <Badge variant="secondary" className="text-xs">{school.acronym}</Badge>
-                                </div>
-                              </Label>
-                            </div>
-                          ))}
-                        </RadioGroup>
+              {faculties
+                .filter(faculty => {
+                  // Para Director, solo mostrar facultades que tienen escuelas
+                  if (userRole === UserRoleEnum.DIRECTOR) {
+                    const facultySchools = getSchoolsForFaculty(faculty.id.toString());
+                    return facultySchools.length > 0;
+                  }
+                  return true;
+                })
+                .map(faculty => {
+                  const facultySchools = getSchoolsForFaculty(faculty.id.toString());
+                  const isSelected = selectedFacultyId === faculty.id.toString();
+
+                  return (
+                    <div key={faculty.id} className="border rounded-md">
+                      <div className="flex items-center space-x-3 p-3 hover:bg-muted/50 transition-colors">
+                        <RadioGroupItem value={faculty.id.toString()} id={`faculty-${faculty.id}`} />
+                        <Label htmlFor={`faculty-${faculty.id}`} className="flex-1 cursor-pointer font-normal">
+                          <div className="flex items-center gap-2">
+                            <span>{faculty.name}</span>
+                            <Badge variant="outline">{faculty.acronym}</Badge>
+                          </div>
+                        </Label>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+
+                      {/* Schools for this faculty */}
+                      {isSelected && facultySchools.length > 0 && (
+                        <div className="px-3 pb-3 ml-6 space-y-2 border-t pt-3 mt-2">
+                          <Label className="text-sm font-semibold">2. Seleccionar Escuela</Label>
+                          <RadioGroup value={selectedSchoolId} onValueChange={setSelectedSchoolId}>
+                            {facultySchools.map(school => (
+                              <div key={school.id} className="flex items-center space-x-3 p-2 rounded hover:bg-muted/50 transition-colors">
+                                <RadioGroupItem value={school.id.toString()} id={`school-${school.id}`} />
+                                <Label htmlFor={`school-${school.id}`} className="flex-1 cursor-pointer font-normal">
+                                  <div className="flex items-center gap-2">
+                                    <span>{school.name}</span>
+                                    <Badge variant="secondary" className="text-xs">{school.acronym}</Badge>
+                                  </div>
+                                </Label>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </RadioGroup>
           </div>
         </div>
@@ -416,7 +393,7 @@ export function UserPermissionsSheet({
             </Button>
           </SheetFooter>
         )}
-        
+
         {/* Footer for Vicerrector - just close button */}
         {userRole === UserRoleEnum.VICERRECTOR && (
           <SheetFooter className="flex-shrink-0 flex flex-row justify-end gap-3 px-6">
@@ -429,4 +406,3 @@ export function UserPermissionsSheet({
     </Sheet>
   );
 }
-

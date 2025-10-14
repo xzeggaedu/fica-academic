@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useList, CanAccess } from "@refinedev/core";
+import { useList, CanAccess, useCan } from "@refinedev/core";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Table,
@@ -16,10 +16,20 @@ import { FacultyActions } from "../../components/ui/faculties/faculty-actions";
 import { FacultyCreateButton } from "../../components/ui/faculties/faculty-create-button";
 import { FacultySchoolsSheet } from "../../components/ui/faculties/faculty-schools-sheet";
 import { getTableColumnClass } from "../../components/refine-ui/theme/theme-table";
+import { Unauthorized } from "../unauthorized";
 
 export const FacultyList = () => {
+  // Verificar permisos primero
+  const { data: canAccess } = useCan({
+    resource: "faculty",
+    action: "list",
+  });
+
   const { query, result } = useList({
     resource: "faculty",
+    queryOptions: {
+      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
+    },
   });
   const queryClient = useQueryClient();
 
@@ -119,17 +129,7 @@ export const FacultyList = () => {
     <CanAccess
       resource="faculty"
       action="list"
-      fallback={
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-800 p-4">
-          <h1 className="text-4xl font-bold mb-4">Acceso Denegado</h1>
-          <p className="text-lg text-center mb-8">
-            No tienes los permisos necesarios para ver esta página.
-          </p>
-          <p className="text-md text-center text-gray-600">
-            Solo los administradores pueden gestionar facultades.
-          </p>
-        </div>
-      }
+      fallback={<Unauthorized resourceName="facultades y escuelas" message="Solo los administradores pueden gestionar facultades y escuelas." />}
     >
       <div className="max-w-7xl mx-auto p-6">
         <Card>

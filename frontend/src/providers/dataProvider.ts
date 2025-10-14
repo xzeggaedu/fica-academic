@@ -292,6 +292,20 @@ export const dataProvider: DataProvider = {
 
     switch (resource) {
       case "users": {
+        // Handle user scopes endpoint
+        if (id && id.toString().includes('/scope')) {
+          const userId = id.toString().replace('/scope', '');
+          const response = await apiRequest<any[]>(`${API_BASE_PATH}/user/${userId}/scope`);
+          // Return the array directly since the endpoint returns an array, not an object with data property
+          return { data: response as any };
+        }
+
+        // Soporte para endpoint me/profile
+        if (id === "me/profile") {
+          const response = await apiRequest<User>(`${API_BASE_PATH}/me/profile`);
+          return { data: response as any };
+        }
+
         const response = await apiRequest<User>(`${ENDPOINTS.USER}/${id}`);
         return { data: response as any };
       }
@@ -387,6 +401,32 @@ export const dataProvider: DataProvider = {
 
     switch (resource) {
       case "users": {
+        // Handle user scopes endpoint
+        if (id && id.toString().includes('/scope')) {
+          const userId = id.toString().replace('/scope', '');
+          const response = await apiRequest<{ message: string }>(
+            `${API_BASE_PATH}/user/${userId}/scope`,
+            {
+              method: meta?.method || "PUT",
+              body: JSON.stringify(variables),
+            }
+          );
+          return { data: response as any };
+        }
+
+        // Handle user password endpoint
+        if (id && id.toString().includes('/password')) {
+          const userId = id.toString().replace('/password', '');
+          const response = await apiRequest<{ message: string }>(
+            `${API_BASE_PATH}/user/uuid/${userId}/password`,
+            {
+              method: meta?.method || "PATCH",
+              body: JSON.stringify(variables),
+            }
+          );
+          return { data: response as any };
+        }
+
         const response = await apiRequest<{ message: string }>(
           `${ENDPOINTS.USER}/${id}`,
           {

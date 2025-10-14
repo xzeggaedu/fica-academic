@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useCreate } from "@refinedev/core";
 import { UserRoleEnum } from "../../../types/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
@@ -44,8 +45,11 @@ export function UserCreateForm({ onSuccess, onClose }: UserCreateFormProps) {
     role: UserRoleEnum.UNAUTHORIZED,
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  // Refine hook para crear usuario
+  const { mutate: createUser, mutation } = useCreate();
+  const isSubmitting = mutation.isPending;
 
   const roleOptions = [
     { value: UserRoleEnum.UNAUTHORIZED, label: "No Autorizado" },
@@ -118,81 +122,66 @@ export function UserCreateForm({ onSuccess, onClose }: UserCreateFormProps) {
     setShowConfirmDialog(true);
   };
 
-  const handleConfirmCreate = async () => {
-    setIsSubmitting(true);
+  const handleConfirmCreate = () => {
     setShowConfirmDialog(false);
 
-    try {
-      const token = localStorage.getItem("fica-access-token");
+    const dataToSend = {
+      name: formData.name,
+      username: formData.username,
+      email: formData.email,
+      password: formData.password,
+      profile_image_url: formData.profile_image_url || "https://www.profileimageurl.com",
+      role: formData.role,
+    };
 
-      if (!token) {
-        throw new Error("No hay token de autenticación disponible");
-      }
+    createUser({
+      resource: "users",
+      values: dataToSend,
+    }, {
+      onSuccess: (data) => {
+        toast.success('Usuario creado exitosamente', {
+          description: `El usuario "${formData.username}" ha sido creado correctamente.`,
+          richColors: true,
+        });
 
-      const url = `http://localhost:8000/api/v1/user/admin`;
+        // Limpiar formulario
+        setFormData({
+          name: "",
+          username: "",
+          email: "",
+          password: "",
+          confirm_password: "",
+          profile_image_url: "",
+          role: UserRoleEnum.UNAUTHORIZED,
+        });
+        setErrors({});
 
-      const dataToSend = {
-        name: formData.name,
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-        profile_image_url: formData.profile_image_url || "https://www.profileimageurl.com",
-        role: formData.role,
-      };
+        // Llamar callback de éxito
+        onSuccess?.();
 
+        // Cerrar el modal/formulario si se proporciona callback
+        onClose?.();
+      },
+      onError: (error) => {
+        console.error("UserCreateForm - Create error:", error);
+        const errorMessage = error?.message || "Error desconocido al crear usuario";
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(dataToSend),
-      });
+        // Mostrar toast de error
+        toast.error('Error al crear usuario', {
+          description: errorMessage,
+          richColors: true,
+        });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Token expirado o inválido
-          localStorage.removeItem("fica-access-token");
-          localStorage.removeItem("fica-refresh-token");
-          throw new Error("Sesión expirada. Por favor, inicia sesión nuevamente.");
+        setErrors({ submit: errorMessage });
+
+        // Si es error de autenticación, redirigir al login
+        if (errorMessage.includes("Sesión expirada")) {
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 2000);
         }
-
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
-
-      // Mostrar toast de éxito
-      toast.success('Usuario creado exitosamente', {
-        description: `El usuario "${formData.username}" ha sido creado correctamente.`,
-        richColors: true,
-      });
-
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (err) {
-      console.error("UserCreateForm - Create error:", err);
-      const errorMessage = (err as Error).message;
-
-      // Mostrar toast de error
-      toast.error('Error al crear usuario', {
-        description: errorMessage,
-        richColors: true,
-      });
-
-      setErrors({ submit: errorMessage });
-
-      // Si es error de autenticación, redirigir al login
-      if (errorMessage.includes("Sesión expirada")) {
-        setTimeout(() => {
-          window.location.href = "/login";
-        }, 2000);
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   const handleInputChange = (field: keyof FormErrors, value: string) => {

@@ -20,12 +20,12 @@ export const accessControlProvider: AccessControlProvider = {
       // Decodificar el token JWT para obtener el rol
       const payload = JSON.parse(atob(token.split('.')[1]));
       const userRole = payload.role;
+
       // Definir permisos por recurso y acción
       switch (resource) {
         case "users":
           switch (action) {
             case "list":
-            case "show":
             case "create":
             case "edit":
             case "delete":
@@ -36,6 +36,35 @@ export const accessControlProvider: AccessControlProvider = {
               return {
                 can: false,
                 reason: "Solo los administradores pueden gestionar usuarios",
+              };
+
+            case "show":
+              // Permitir que los usuarios vean su propio perfil
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+
+              // Si no es admin, verificar si está viendo su propio perfil
+              const currentUserId = payload.user_id || payload.sub;
+              const requestedUserId = params?.id;
+
+              // Debug temporal
+              console.log("🔍 AccessControl Debug:", {
+                resource,
+                action,
+                currentUserId,
+                requestedUserId,
+                params,
+                payload
+              });
+
+              if (currentUserId && requestedUserId && currentUserId.toString() === requestedUserId.toString()) {
+                return { can: true };
+              }
+
+              return {
+                can: false,
+                reason: "Solo puedes ver tu propio perfil",
               };
 
             default:
@@ -79,6 +108,46 @@ export const accessControlProvider: AccessControlProvider = {
               return {
                 can: false,
                 reason: "Solo los administradores pueden gestionar facultades",
+              };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
+        case "courses":
+          switch (action) {
+            case "list":
+            case "show":
+            case "create":
+            case "edit":
+            case "delete":
+              // Solo administradores pueden gestionar asignaturas
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "Solo los administradores pueden gestionar asignaturas",
+              };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
+        case "schedule-times":
+          switch (action) {
+            case "list":
+            case "show":
+            case "create":
+            case "edit":
+            case "delete":
+              // Solo administradores pueden gestionar horarios
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "Solo los administradores pueden gestionar horarios",
               };
 
             default:

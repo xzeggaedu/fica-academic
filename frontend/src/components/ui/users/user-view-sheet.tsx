@@ -1,64 +1,33 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
   Sheet,
-  SheetClose,
   SheetContent,
   SheetDescription,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
 import { UserDetails } from "@/components/ui/users/user-details";
+import { useOne } from "@refinedev/core";
 
 interface UserViewSheetProps {
-  userId: number;
+  userId: string;  // Cambiado de number a string para UUID
   userName: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
 export function UserViewSheet({ userId, userName, isOpen, onClose }: UserViewSheetProps) {
+  // Refine hook para obtener datos del usuario
+  const { result: userData, query: userQuery } = useOne({
+    resource: "users",
+    id: userId,
+    queryOptions: {
+      enabled: isOpen && !!userId,
+    },
+  });
 
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (isOpen && userId) {
-      setIsLoading(true);
-      setError(null);
-
-      const token = localStorage.getItem("fica-access-token");
-      const url = `http://localhost:8000/api/v1/user/uuid/${userId}`;
-
-
-      fetch(url, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        return response.json();
-      })
-      .then(userData => {
-        setData(userData);
-        setIsLoading(false);
-      })
-      .catch(err => {
-        console.error("UserViewSheet - Fetch error:", err);
-        setError(err.message);
-        setIsLoading(false);
-      });
-    }
-  }, [isOpen, userId]);
-
+  const isLoading = userQuery.isLoading;
+  const error = userQuery.error?.message || null;
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -77,7 +46,7 @@ export function UserViewSheet({ userId, userName, isOpen, onClose }: UserViewShe
           {/* Scrollable content */}
           <div className="h-full overflow-y-auto py-0 px-6">
             <div className="py-2">
-              <UserDetails data={data} isLoading={isLoading} error={error} />
+              <UserDetails data={userData} isLoading={isLoading} error={error} />
             </div>
           </div>
 

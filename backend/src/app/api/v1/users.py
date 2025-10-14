@@ -477,19 +477,26 @@ async def assign_user_scope(
         created_scopes.append(scope)
 
     elif user_role == UserRoleEnum.DIRECTOR:
-        # DIRECTOR: Must assign to ONE school
-        if assignment.school_id is None:
-            raise ForbiddenException("DIRECTOR role requires a school_id assignment")
-        if assignment.faculty_id is not None:
-            raise ForbiddenException("DIRECTOR role cannot be assigned to a faculty")
+        # DIRECTOR: Must have both school_id AND faculty_id
+        if assignment.school_id is None or assignment.faculty_id is None:
+            raise ForbiddenException("DIRECTOR role requires both school_id and faculty_id")
 
-        # Validate school exists
+        # Validate school exists and belongs to the specified faculty
         school = await get_school_by_uuid(db=db, school_id=assignment.school_id)
         if school is None:
             raise NotFoundException(f"School with id '{assignment.school_id}' not found")
 
-        # Create school scope
-        scope = await create_school_scope(db=db, user_uuid=user_uuid, school_id=assignment.school_id)
+        # Validate that school belongs to the specified faculty
+        school_faculty_id = school.get("fk_faculty") if isinstance(school, dict) else school.fk_faculty
+        if school_faculty_id != assignment.faculty_id:
+            raise ForbiddenException(
+                f"School '{assignment.school_id}' does not belong to faculty '{assignment.faculty_id}'"
+            )
+
+        # Create school scope with both school_id and faculty_id
+        scope = await create_school_scope(
+            db=db, user_uuid=user_uuid, school_id=assignment.school_id, faculty_id=assignment.faculty_id
+        )
         created_scopes.append(scope)
 
     # 5. Return created scopes
@@ -505,13 +512,13 @@ async def assign_user_scope(
     ]
 
 
-@router.get("/user/{user_uuid}/scope", response_model=list[UserScopeRead])
+@router.get("/user/{user_uuid}/scope", response_model=list[dict])
 async def get_user_scope_assignments(
     request: Request,
     user_uuid: uuid_pkg.UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
-) -> list[UserScopeRead]:
+) -> list[dict]:
     """Get all scope assignments for a user - Admin only.
 
     Args:
@@ -537,13 +544,17 @@ async def get_user_scope_assignments(
     # Get scopes
     scopes = await get_user_scopes(db=db, user_uuid=user_uuid)
 
-    return [
-        UserScopeRead(
-            id=scope.id,
-            fk_user=scope.fk_user,
-            fk_school=scope.fk_school,
-            fk_faculty=scope.fk_faculty,
-            assigned_at=scope.assigned_at,
-        )
-        for scope in scopes
-    ]
+    result = []
+    for scope in scopes:
+        # Create a dict with all scope data
+        scope_data = {
+            "id": scope.id,
+            "fk_user": scope.fk_user,
+            "fk_school": scope.fk_school,
+            "fk_faculty": scope.fk_faculty,
+            "assigned_at": scope.assigned_at,
+        }
+
+        result.append(scope_data)
+
+    return result

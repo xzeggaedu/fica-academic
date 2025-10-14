@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { useList, CanAccess, useGetIdentity } from "@refinedev/core";
+import React, { useState, useMemo, useEffect } from "react";
+import { useList, CanAccess, useGetIdentity, useCan } from "@refinedev/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { UserRoleEnum } from "../../types/auth";
 import {
@@ -18,11 +18,24 @@ import { UserActions } from "../../components/ui/users/user-actions";
 import { UserCreateButton } from "../../components/ui/users/user-create-button";
 import { UserViewSheet } from "../../components/ui/users/user-view-sheet";
 import { getTableColumnClass } from "../../components/refine-ui/theme/theme-table";
+import { Unauthorized } from "../unauthorized";
 
 export const UserList = () => {
+  // Verificar permisos primero
+  const { data: canAccess } = useCan({
+    resource: "users",
+    action: "list",
+  });
+
   const { query, result } = useList({
     resource: "users",
+    queryOptions: {
+      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
+    },
+    successNotification: false, // Desactivar notificaciones de éxito
+    errorNotification: false,   // Desactivar notificaciones de error
   });
+
   const queryClient = useQueryClient();
   const { data: identity } = useGetIdentity<{ id: number; username: string }>();
 
@@ -46,15 +59,10 @@ export const UserList = () => {
   ]);
 
   // Estado para el sheet de visualización desde la fila
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedUserName, setSelectedUserName] = useState<string>("");
   const [isViewSheetOpen, setIsViewSheetOpen] = useState(false);
 
-  // Debug: Log para verificar los datos
-
-  // Debug: Log para verificar el formato de fecha
-  if (result.data && result.data.length > 0) {
-  }
 
   // Configuración de columnas disponibles
   const availableColumns = [
@@ -170,17 +178,7 @@ export const UserList = () => {
     <CanAccess
       resource="users"
       action="list"
-      fallback={
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-800 p-4">
-          <h1 className="text-4xl font-bold mb-4">Acceso Denegado</h1>
-          <p className="text-lg text-center mb-8">
-            No tienes los permisos necesarios para ver esta página.
-          </p>
-          <p className="text-md text-center text-gray-600">
-            Solo los administradores pueden gestionar usuarios.
-          </p>
-        </div>
-      }
+      fallback={<Unauthorized resourceName="usuarios" message="Solo los administradores pueden gestionar usuarios." />}
     >
       <div className="max-w-7xl mx-auto p-6">
         <Card>

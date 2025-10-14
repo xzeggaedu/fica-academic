@@ -125,7 +125,8 @@ export interface LoginResponse {
 
 export interface UserInfoResponse {
   user_uuid: string;
-  username: string;
+  username?: string;
+  username_or_email?: string;
   email: string;
   name: string;
   role: UserRoleEnum;

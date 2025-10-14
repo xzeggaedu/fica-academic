@@ -10,58 +10,124 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { UserEditForm } from "./user-edit-form";
+import { useUpdate, useOne } from "@refinedev/core";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface UserEditSheetProps {
-  userId: number;
+  userId: string;  // Cambiado de number a string para UUID
   userName: string;
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
+type UpdateFunction = (userData: any) => void;
+type PasswordUpdateFunction = (passwordData: any) => void;
+type UpdatePayload = any;
+
+interface UpdateState {
+  functionCallback: UpdateFunction | PasswordUpdateFunction | null;
+  payload: UpdatePayload | null;
+  enable: boolean;
+}
+
 export function UserEditSheet({ userId, userName, isOpen, onClose, onSuccess }: UserEditSheetProps) {
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+
+  const [activeTab, setActiveTab] = useState("profile");
+  const [updateState, setUpdateState] = useState<UpdateState>({
+    functionCallback: null,
+    payload: null,
+    enable: false
+  });
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  const { mutate: updateUser } = useUpdate();
+  const { mutate: updatePassword } = useUpdate();
+
+  const { result, query } = useOne({
+    resource: "users",
+    id: userId,
+    queryOptions: {
+      enabled: isOpen && !!userId,
+    },
+  });
+
+  const isLoading = query.isLoading;
+  const error = query.error;
 
   useEffect(() => {
-    if (isOpen && userId) {
-      setIsLoading(true);
-      setError(null);
-
-      const token = localStorage.getItem("fica-access-token");
-      const url = `http://localhost:8000/api/v1/user/uuid/${userId}`;
-
-      fetch(url, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        return response.json();
-      })
-      .then(userData => {
-        setData(userData);
-        setIsLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setIsLoading(false);
-      });
+    if (activeTab === "password") {
+      setUpdateState(prev => ({
+        ...prev,
+        functionCallback: handleUpdatePassword
+      }));
+    } else {
+      setUpdateState(prev => ({
+        ...prev,
+        functionCallback: handleUpdateUser
+      }));
     }
-  }, [isOpen, userId]);
+  }, [activeTab]);
 
   const handleSuccess = () => {
     onClose();
     if (onSuccess) {
       onSuccess();
     }
+  };
+
+  const handleActiveTabChange = (tab: string) => {
+    if (tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  };
+
+  const handleUpdateUser: UpdateFunction = (userData: any) => {
+    updateUser({
+      resource: "users",
+      id: userId,
+      values: userData,
+    }, {
+      onSuccess: () => {
+        handleSuccess();
+      }
+    });
+  };
+
+  const handleUpdatePassword: PasswordUpdateFunction = (passwordData: any) => {
+    updatePassword({
+      resource: "users",
+      id: `${userId}/password`,
+      values: passwordData,
+      meta: {
+        method: "patch"
+      },
+      invalidates: []
+    }, {
+      onSuccess: () => {
+        handleSuccess();
+      }
+    });
+  };
+
+  const handleSubmitClick = () => {
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmUpdate = () => {
+    if (updateState.functionCallback && updateState.payload) {
+      updateState.functionCallback(updateState.payload);
+    }
+    setShowConfirmDialog(false);
   };
 
   return (
@@ -78,7 +144,11 @@ export function UserEditSheet({ userId, userName, isOpen, onClose, onSuccess }: 
           {/* Scrollable content */}
           <div className="h-full overflow-y-auto py-0 px-6">
             <div className="py-2">
-              <UserEditForm data={data} isLoading={isLoading} error={error} onSuccess={handleSuccess} onClose={onClose} />
+              <UserEditForm data={result}
+                isLoading={isLoading}
+               error={error?.message}
+               onActiveTabChange={handleActiveTabChange}
+               setUpdateState={setUpdateState} />
             </div>
           </div>
 
@@ -90,11 +160,35 @@ export function UserEditSheet({ userId, userName, isOpen, onClose, onSuccess }: 
           <SheetClose asChild>
             <Button variant="outline">Cancelar</Button>
           </SheetClose>
-          <Button form="user-edit-form" type="submit">
-            Actualizar Usuario
+          <Button
+            type="button"
+            onClick={handleSubmitClick}
+            disabled={!updateState.enable || !updateState.payload || Object.keys(updateState.payload).length === 0}
+          >
+            {activeTab === "password" ? "Actualizar Contraseña" : "Actualizar Usuario"}
           </Button>
         </SheetFooter>
       </SheetContent>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Actualización</AlertDialogTitle>
+            <AlertDialogDescription>
+              {activeTab === "password"
+                ? "¿Estás seguro de que deseas cambiar la contraseña de este usuario? Esta acción es irreversible y el usuario deberá usar la nueva contraseña para iniciar sesión."
+                : "¿Estás seguro de que deseas actualizar la información de este usuario? Esta acción modificará los datos permanentemente."
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmUpdate}>
+              {activeTab === "password" ? "Confirmar Cambio de Contraseña" : "Confirmar Actualización"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }
