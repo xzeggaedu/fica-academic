@@ -8,10 +8,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/forms/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useNotification, CanAccess, useCan } from "@refinedev/core";
+import { useNotification, CanAccess, useCan, useDelete, useInvalidate } from "@refinedev/core";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { ScheduleDeleteDialog } from "@/components/ui/schedule-times/schedule-delete-dialog";
 import { Unauthorized } from "../unauthorized";
-
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 // Constantes para los días de la semana (0=Lunes, 6=Domingo)
 const WEEK_DAYS = [
   { index: 0, key: 'monday', label: 'Lunes', short: 'Lu' },
@@ -135,9 +142,15 @@ export function ScheduleTimesList() {
   const [isEditingDayDropdownOpen, setIsEditingDayDropdownOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'grouped'>('table');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [scheduleToDelete, setScheduleToDelete] = useState<{id: number, range: string, dayGroup: string} | null>(null);
+  const [scheduleToDelete, setScheduleToDelete] = useState<{ id: number, range: string, dayGroup: string } | null>(null);
 
   const { open } = useNotification();
+
+  // Hooks de Refine para eliminación
+  const { mutate: deleteSchedule, mutation: deleteState } = useDelete();
+  const invalidate = useInvalidate();
+  const queryClient = useQueryClient();
+  const isDeleting = deleteState.isPending;
 
   // Función helper para ordenar los horarios por days_array
   const sortScheduleTimes = (scheduleTimes: ScheduleTime[]): ScheduleTime[] => {
@@ -321,6 +334,8 @@ export function ScheduleTimesList() {
         updateData[field] = value;
       }
 
+      console.log(`Updating schedule ${id}, field: ${field}, updateData:`, updateData);
+
       const response = await fetch(`http://localhost:8000/api/v1/catalog/schedule-times/${id}`, {
         method: "PATCH",
         headers: {
@@ -331,12 +346,16 @@ export function ScheduleTimesList() {
         body: JSON.stringify(updateData),
       });
 
+      console.log(`Response status: ${response.status}`);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error(`Error response:`, errorData);
         throw new Error(errorData.detail || "Error al actualizar horario");
       }
 
       const updatedScheduleTime = await response.json();
+      console.log(`Updated schedule time:`, updatedScheduleTime);
       setScheduleTimes(sortScheduleTimes(scheduleTimes.map(st => st.id === id ? updatedScheduleTime : st)));
 
       open?.({
@@ -400,12 +419,44 @@ export function ScheduleTimesList() {
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteSuccess = () => {
-    if (scheduleToDelete) {
-      setScheduleTimes(sortScheduleTimes(scheduleTimes.filter(st => st.id !== scheduleToDelete.id)));
-    }
-    setScheduleToDelete(null);
-    setDeleteDialogOpen(false);
+  // Función para manejar eliminación con hooks de Refine
+  const handleConfirmDelete = (scheduleId: number, scheduleRange: string, dayGroupName: string) => {
+    deleteSchedule(
+      {
+        resource: "schedule-times",
+        id: scheduleId,
+        successNotification: false,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Horario eliminado', {
+            description: `El horario "${dayGroupName} - ${scheduleRange}" ha sido eliminado exitosamente.`,
+            richColors: true,
+          });
+
+          // Actualizar estado local
+          if (scheduleToDelete) {
+            setScheduleTimes(sortScheduleTimes(scheduleTimes.filter(st => st.id !== scheduleToDelete.id)));
+          }
+
+          // Invalidar cache
+          invalidate({
+            resource: "schedule-times",
+            invalidates: ["list"],
+          });
+
+          setScheduleToDelete(null);
+          setDeleteDialogOpen(false);
+        },
+        onError: (error) => {
+          console.error("Error deleting schedule:", error);
+          toast.error('Error al eliminar horario', {
+            description: error?.message || 'Error desconocido',
+            richColors: true,
+          });
+        },
+      }
+    );
   };
 
   const handleDeleteCancel = () => {
@@ -431,383 +482,398 @@ export function ScheduleTimesList() {
       fallback={<Unauthorized resourceName="horarios" message="Solo los administradores pueden gestionar horarios." />}
     >
       <div className="container mx-auto py-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="h-6 w-6" />
-                <h1 className="text-2xl font-bold">Configuración de Horarios</h1>
-              </div>
-
-            {/* Toggle de vista */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Vista:</span>
-              <div className="flex border rounded-md">
-                <Button
-                  variant={viewMode === 'table' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('table')}
-                  className="rounded-r-none border-r"
-                >
-                  <List className="h-4 w-4 mr-2" />
-                  Tabla
-                </Button>
-                <Button
-                  variant={viewMode === 'grouped' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('grouped')}
-                  className="rounded-l-none"
-                >
-                  <Grid3X3 className="h-4 w-4 mr-2" />
-                  Agrupada
-                </Button>
-              </div>
-            </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock className="h-6 w-6" />
+            <h1 className="text-2xl font-bold">Configuración de Horarios</h1>
           </div>
 
-      {/* Formulario para agregar nuevo horario */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            Agregar Nuevo Horario
-          </CardTitle>
-          <CardDescription>
-            Establece rangos horarios recurrentes para el sistema
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="day-selector" className="px-1">
-                Días de la Semana
-              </Label>
-              <Popover open={isDayDropdownOpen} onOpenChange={setIsDayDropdownOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
-                    {selectedDays.length === 0 ? "Seleccionar días" : generateDayGroupName(selectedDays)}
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-3">
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">Seleccionar días</h4>
-                    <div className="space-y-2">
-                      {WEEK_DAYS.map((day) => (
-                        <div key={day.index} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={day.key}
-                            checked={selectedDays.includes(day.index)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedDays([...selectedDays, day.index]);
-                              } else {
-                                setSelectedDays(selectedDays.filter(d => d !== day.index));
-                              }
-                            }}
-                          />
-                          <label htmlFor={day.key} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                            {day.label}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="start-time" className="px-1">
-                Hora Inicio
-              </Label>
-              <Input
-                type="time"
-                id="start-time"
-                value={newScheduleTime.start_time}
-                onChange={(e) => setNewScheduleTime({ ...newScheduleTime, start_time: e.target.value })}
-                className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="end-time" className="px-1">
-                Hora Fin
-              </Label>
-              <Input
-                type="time"
-                id="end-time"
-                value={newScheduleTime.end_time}
-                onChange={(e) => setNewScheduleTime({ ...newScheduleTime, end_time: e.target.value })}
-                className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-              />
-            </div>
-            <div className="flex items-end">
-              <Button onClick={handleCreate} disabled={isLoading} className="w-full">
-                <Plus className="h-4 w-4 mr-2" />
-                Agregar
+          {/* Toggle de vista */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Vista:</span>
+            <div className="flex border rounded-md">
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('table')}
+                className="rounded-r-none border-r"
+              >
+                <List className="h-4 w-4 mr-2" />
+                Tabla
+              </Button>
+              <Button
+                variant={viewMode === 'grouped' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grouped')}
+                className="rounded-l-none"
+              >
+                <Grid3X3 className="h-4 w-4 mr-2" />
+                Agrupada
               </Button>
             </div>
           </div>
+        </div>
 
-          {/* Mostrar el rango de tiempo generado automáticamente */}
-          {newScheduleTime.start_time && newScheduleTime.end_time && (
-            <div className="mt-4 p-3 bg-muted rounded-lg">
-              <div className="text-sm font-medium text-muted-foreground">Rango de tiempo generado:</div>
-              <div className="text-sm font-semibold">{generateRangeText(newScheduleTime.start_time, newScheduleTime.end_time)}</div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Tabla de horarios */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Horarios Configurados</CardTitle>
-          <CardDescription>
-            {scheduleTimes.length} horarios configurados
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {viewMode === 'table' ? (
-            // Vista de tabla normal
-            <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Grupo de Días</TableHead>
-                <TableHead>Rango de Tiempo</TableHead>
-                <TableHead>Hora Inicio</TableHead>
-                <TableHead>Hora Fin</TableHead>
-                <TableHead>Duración (min)</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {scheduleTimes.map((scheduleTime) => (
-                <TableRow key={scheduleTime.id}>
-                  <TableCell className="font-medium">{scheduleTime.id}</TableCell>
-                  <TableCell>
-                    {editingId === scheduleTime.id && editingField === "days_array" ? (
-                      <Popover open={isEditingDayDropdownOpen} onOpenChange={setIsEditingDayDropdownOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full justify-between">
-                            {editingDays.length === 0 ? "Seleccionar días" : generateDayGroupName(editingDays)}
-                            <ChevronDown className="h-3 w-3 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-3">
-                          <div className="space-y-2">
-                            <h4 className="font-medium text-sm">Editar días</h4>
-                            <div className="space-y-2">
-                              {WEEK_DAYS.map((day) => (
-                                <div key={day.index} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`edit-${day.key}`}
-                                    checked={editingDays.includes(day.index)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setEditingDays([...editingDays, day.index]);
-                                      } else {
-                                        setEditingDays(editingDays.filter(d => d !== day.index));
-                                      }
-                                    }}
-                                  />
-                                  <label htmlFor={`edit-${day.key}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                    {day.label}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="flex gap-2 pt-2">
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  handleSaveEdit(scheduleTime.id, "days_array", "");
-                                  setIsEditingDayDropdownOpen(false);
-                                }}
-                                className="flex-1"
-                              >
-                                Guardar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setEditingId(null);
-                                  setEditingField(null);
-                                  setEditingValue("");
-                                  setEditingDays([]);
-                                  setIsEditingDayDropdownOpen(false);
-                                }}
-                                className="flex-1"
-                              >
-                                Cancelar
-                              </Button>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    ) : (
-                      <span
-                        className="cursor-pointer hover:bg-muted px-2 py-1 rounded"
-                        onClick={() => handleEdit(scheduleTime.id, "days_array", scheduleTime.days_array)}
-                      >
-                        {scheduleTime.day_group_name}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-muted-foreground">
-                      {scheduleTime.range_text}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {editingId === scheduleTime.id && editingField === "start_time" ? (
-                      <Input
-                        type="time"
-                        value={editingValue}
-                        onChange={(e) => setEditingValue(e.target.value)}
-                        onBlur={() => handleSaveEdit(scheduleTime.id, "start_time", editingValue)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            handleSaveEdit(scheduleTime.id, "start_time", editingValue);
-                          }
-                          if (e.key === "Escape") {
-                            setEditingId(null);
-                            setEditingField(null);
-                            setEditingValue("");
-                          }
-                        }}
-                        autoFocus
-                        className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                      />
-                    ) : (
-                      <span
-                        className="cursor-pointer hover:bg-muted px-2 py-1 rounded"
-                        onClick={() => handleEdit(scheduleTime.id, "start_time", scheduleTime.start_time)}
-                      >
-                        {scheduleTime.start_time}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingId === scheduleTime.id && editingField === "end_time" ? (
-                      <Input
-                        type="time"
-                        value={editingValue}
-                        onChange={(e) => setEditingValue(e.target.value)}
-                        onBlur={() => handleSaveEdit(scheduleTime.id, "end_time", editingValue)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            handleSaveEdit(scheduleTime.id, "end_time", editingValue);
-                          }
-                          if (e.key === "Escape") {
-                            setEditingId(null);
-                            setEditingField(null);
-                            setEditingValue("");
-                          }
-                        }}
-                        autoFocus
-                        className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                      />
-                    ) : (
-                      <span
-                        className="cursor-pointer hover:bg-muted px-2 py-1 rounded"
-                        onClick={() => handleEdit(scheduleTime.id, "end_time", scheduleTime.end_time)}
-                      >
-                        {scheduleTime.end_time}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>{scheduleTime.duration_min}</TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={scheduleTime.is_active}
-                      onCheckedChange={(checked) => handleToggleActive(scheduleTime.id, checked)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(scheduleTime.id, scheduleTime.range_text, scheduleTime.day_group_name)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
+        {/* Formulario para agregar nuevo horario */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Agregar Nuevo Horario
+            </CardTitle>
+            <CardDescription>
+              Establece rangos horarios recurrentes para el sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="day-selector" className="px-1">
+                  Días de la Semana
+                </Label>
+                <Popover open={isDayDropdownOpen} onOpenChange={setIsDayDropdownOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between">
+                      {selectedDays.length === 0 ? "Seleccionar días" : generateDayGroupName(selectedDays)}
+                      <ChevronDown className="h-4 w-4 opacity-50" />
                     </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-            </Table>
-          ) : (
-            // Vista agrupada
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Grupo de Días</TableHead>
-                  <TableHead>Horarios</TableHead>
-                  <TableHead>Duración</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Object.entries(groupScheduleTimesByDayGroup(scheduleTimes)).map(([dayGroup, times]) => (
-                  times.map((scheduleTime, index) => (
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-3">
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Seleccionar días</h4>
+                      <div className="space-y-2">
+                        {WEEK_DAYS.map((day) => (
+                          <div key={day.index} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={day.key}
+                              checked={selectedDays.includes(day.index)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedDays([...selectedDays, day.index]);
+                                } else {
+                                  setSelectedDays(selectedDays.filter(d => d !== day.index));
+                                }
+                              }}
+                            />
+                            <label htmlFor={day.key} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                              {day.label}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="start-time" className="px-1">
+                  Hora Inicio
+                </Label>
+                <Input
+                  type="time"
+                  id="start-time"
+                  value={newScheduleTime.start_time}
+                  onChange={(e) => setNewScheduleTime({ ...newScheduleTime, start_time: e.target.value })}
+                  className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="end-time" className="px-1">
+                  Hora Fin
+                </Label>
+                <Input
+                  type="time"
+                  id="end-time"
+                  value={newScheduleTime.end_time}
+                  onChange={(e) => setNewScheduleTime({ ...newScheduleTime, end_time: e.target.value })}
+                  className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={handleCreate} disabled={isLoading} className="w-full">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar
+                </Button>
+              </div>
+            </div>
+
+            {/* Mostrar el rango de tiempo generado automáticamente */}
+            {newScheduleTime.start_time && newScheduleTime.end_time && (
+              <div className="mt-4 p-3 bg-muted rounded-lg">
+                <div className="text-sm font-medium text-muted-foreground">Rango de tiempo generado:</div>
+                <div className="text-sm font-semibold">{generateRangeText(newScheduleTime.start_time, newScheduleTime.end_time)}</div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Tabla de horarios */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Horarios Configurados</CardTitle>
+            <CardDescription>
+              {scheduleTimes.length} horarios configurados
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {viewMode === 'table' ? (
+              // Vista de tabla normal
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Grupo de Días</TableHead>
+                    <TableHead>Rango de Tiempo</TableHead>
+                    <TableHead>Hora Inicio</TableHead>
+                    <TableHead>Hora Fin</TableHead>
+                    <TableHead>Duración (min)</TableHead>
+                    <TableHead className="text-center w-[100px]">Estado</TableHead>
+                    <TableHead className="text-center w-[100px]">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {scheduleTimes.map((scheduleTime) => (
                     <TableRow key={scheduleTime.id}>
-                      {index === 0 && (
-                        <TableCell
-                          rowSpan={times.length}
-                          className="font-medium bg-muted/50 align-top"
-                        >
-                          {scheduleTime.day_group_name}
-                        </TableCell>
-                      )}
+                      <TableCell className="font-medium">{scheduleTime.id}</TableCell>
                       <TableCell>
-                        <span className="text-sm">
+                        {editingId === scheduleTime.id && editingField === "days_array" ? (
+                          <Popover open={isEditingDayDropdownOpen} onOpenChange={setIsEditingDayDropdownOpen}>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="sm" className="w-full justify-between">
+                                {editingDays.length === 0 ? "Seleccionar días" : generateDayGroupName(editingDays)}
+                                <ChevronDown className="h-3 w-3 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-56 p-3">
+                              <div className="space-y-2">
+                                <h4 className="font-medium text-sm">Editar días</h4>
+                                <div className="space-y-2">
+                                  {WEEK_DAYS.map((day) => (
+                                    <div key={day.index} className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={`edit-${day.key}`}
+                                        checked={editingDays.includes(day.index)}
+                                        onCheckedChange={(checked) => {
+                                          if (checked) {
+                                            setEditingDays([...editingDays, day.index]);
+                                          } else {
+                                            setEditingDays(editingDays.filter(d => d !== day.index));
+                                          }
+                                        }}
+                                      />
+                                      <label htmlFor={`edit-${day.key}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        {day.label}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="flex gap-2 pt-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      handleSaveEdit(scheduleTime.id, "days_array", "");
+                                      setIsEditingDayDropdownOpen(false);
+                                    }}
+                                    className="flex-1"
+                                  >
+                                    Guardar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setEditingId(null);
+                                      setEditingField(null);
+                                      setEditingValue("");
+                                      setEditingDays([]);
+                                      setIsEditingDayDropdownOpen(false);
+                                    }}
+                                    className="flex-1"
+                                  >
+                                    Cancelar
+                                  </Button>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-muted px-2 py-1 rounded"
+                            onClick={() => handleEdit(scheduleTime.id, "days_array", scheduleTime.days_array)}
+                          >
+                            {scheduleTime.day_group_name}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-muted-foreground">
                           {scheduleTime.range_text}
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm font-medium">
-                          {scheduleTime.duration_min} min
-                        </span>
+                        {editingId === scheduleTime.id && editingField === "start_time" ? (
+                          <Input
+                            type="time"
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleSaveEdit(scheduleTime.id, "start_time", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleSaveEdit(scheduleTime.id, "start_time", editingValue);
+                              }
+                              if (e.key === "Escape") {
+                                setEditingId(null);
+                                setEditingField(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            autoFocus
+                            className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-muted px-2 py-1 rounded"
+                            onClick={() => handleEdit(scheduleTime.id, "start_time", scheduleTime.start_time)}
+                          >
+                            {scheduleTime.start_time}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
+                        {editingId === scheduleTime.id && editingField === "end_time" ? (
+                          <Input
+                            type="time"
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleSaveEdit(scheduleTime.id, "end_time", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleSaveEdit(scheduleTime.id, "end_time", editingValue);
+                              }
+                              if (e.key === "Escape") {
+                                setEditingId(null);
+                                setEditingField(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            autoFocus
+                            className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-muted px-2 py-1 rounded"
+                            onClick={() => handleEdit(scheduleTime.id, "end_time", scheduleTime.end_time)}
+                          >
+                            {scheduleTime.end_time}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>{scheduleTime.duration_min}</TableCell>
+                      <TableCell className="text-center">
                         <Switch
                           checked={scheduleTime.is_active}
                           onCheckedChange={(checked) => handleToggleActive(scheduleTime.id, checked)}
                         />
                       </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(scheduleTime.id, scheduleTime.range_text, scheduleTime.day_group_name)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                      <TableCell className="text-center">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleDelete(scheduleTime.id, scheduleTime.range_text, scheduleTime.day_group_name)}
+                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Eliminar</p>
+                            </TooltipContent>
+                          </Tooltip>
                       </TableCell>
                     </TableRow>
-                  ))
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              // Vista agrupada
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Grupo de Días</TableHead>
+                    <TableHead>Horarios</TableHead>
+                    <TableHead>Duración</TableHead>
+                    <TableHead className="text-center w-[100px]">Estado</TableHead>
+                    <TableHead className="text-center w-[100px]">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(groupScheduleTimesByDayGroup(scheduleTimes)).map(([dayGroup, times]) => (
+                    times.map((scheduleTime, index) => (
+                      <TableRow key={scheduleTime.id}>
+                        {index === 0 && (
+                          <TableCell
+                            rowSpan={times.length}
+                            className="font-medium bg-muted/50 align-top"
+                          >
+                            {scheduleTime.day_group_name}
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          <span className="text-sm">
+                            {scheduleTime.range_text}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm font-medium">
+                            {scheduleTime.duration_min} min
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Switch
+                            checked={scheduleTime.is_active}
+                            onCheckedChange={(checked) => handleToggleActive(scheduleTime.id, checked)}
+                          />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleDelete(scheduleTime.id, scheduleTime.range_text, scheduleTime.day_group_name)}
+                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Eliminar</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Modal de confirmación de eliminación */}
-      {scheduleToDelete && (
-        <ScheduleDeleteDialog
-          scheduleId={scheduleToDelete.id}
-          scheduleRange={scheduleToDelete.range}
-          dayGroupName={scheduleToDelete.dayGroup}
-          isOpen={deleteDialogOpen}
-          onClose={handleDeleteCancel}
-          onSuccess={handleDeleteSuccess}
-        />
-      )}
+        {/* Modal de confirmación de eliminación */}
+        {scheduleToDelete && (
+          <ScheduleDeleteDialog
+            scheduleId={scheduleToDelete.id}
+            scheduleRange={scheduleToDelete.range}
+            dayGroupName={scheduleToDelete.dayGroup}
+            isOpen={deleteDialogOpen}
+            onClose={handleDeleteCancel}
+            onDelete={handleConfirmDelete}
+            isDeleting={isDeleting}
+          />
+        )}
       </div>
     </CanAccess>
   );

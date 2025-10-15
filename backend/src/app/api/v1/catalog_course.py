@@ -84,8 +84,7 @@ async def read_courses(
             )
         )
 
-    # Aplicar filtro de activos
-    query = query.where(CatalogCourse.is_active.is_(True))
+    # No filtrar por is_active - mostrar todos los cursos para gestión completa
 
     # Contar total de registros
     count_query = select(func.count()).select_from(query.subquery())

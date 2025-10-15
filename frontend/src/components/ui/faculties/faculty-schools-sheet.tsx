@@ -1,25 +1,28 @@
 import React, { useState, useEffect } from "react";
+import { useList, useCreate, useUpdate, useDelete, useInvalidate } from "@refinedev/core";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
-import { Checkbox } from "@/components/ui/forms/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/data/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Check, X, Pencil } from "lucide-react";
+import { Trash2, Check, X, Pencil, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { SchoolDeleteDialog } from "./school-delete-dialog";
 
 interface School {
-  id: number;
+  id: number; // School.id es int, no UUID
   name: string;
   acronym: string;
-  fk_faculty: number;
+  fk_faculty: number; // Faculty.id es int, no UUID
   is_active: boolean;
   created_at: string;
   updated_at?: string;
 }
 
 interface FacultySchoolsSheetProps {
-  facultyId: number;
+  facultyId: number; // Facultades usan int, no UUID
   facultyName: string;
   facultyAcronym: string;
   isOpen: boolean;
@@ -33,9 +36,38 @@ export function FacultySchoolsSheet({
   isOpen,
   onClose,
 }: FacultySchoolsSheetProps) {
-  const [schools, setSchools] = useState<School[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Refine hooks
+  const { result: schoolsResult, query: schoolsQuery } = useList({
+    resource: "schools",
+    queryOptions: {
+      enabled: isOpen,
+    },
+    filters: [
+      {
+        field: "faculty_id",
+        operator: "eq",
+        value: facultyId,
+      },
+    ],
+    pagination: {
+      mode: "off", // Cargar todas las escuelas sin paginación
+    },
+  });
+
+  const { mutate: createSchool, mutation: createMutation } = useCreate();
+  const { mutate: updateSchool, mutation: updateMutation } = useUpdate();
+  const { mutate: deleteSchool, mutation: deleteMutation } = useDelete();
+  const invalidate = useInvalidate();
+  const queryClient = useQueryClient();
+
+  // Estado para el diálogo de eliminación
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [schoolToDelete, setSchoolToDelete] = useState<{ id: number; name: string } | null>(null);
+
+  // Datos de las escuelas
+  const schools = (schoolsResult?.data || []) as School[];
+  const isLoading = schoolsQuery.isLoading;
+  const error = schoolsQuery.error?.message || null;
 
   // Estado para nueva escuela
   const [newSchool, setNewSchool] = useState({
@@ -43,7 +75,6 @@ export function FacultySchoolsSheet({
     acronym: "",
     is_active: true,
   });
-  const [isAdding, setIsAdding] = useState(false);
 
   // Estado para edición inline
   const [editingSchoolId, setEditingSchoolId] = useState<number | null>(null);
@@ -54,105 +85,53 @@ export function FacultySchoolsSheet({
   });
 
   // Cargar escuelas cuando se abre el sheet
-  useEffect(() => {
-    if (isOpen && facultyId) {
-      loadSchools();
-    }
-  }, [isOpen, facultyId]);
 
-  const loadSchools = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const token = localStorage.getItem('fica-access-token');
-      if (!token) {
-        throw new Error('No se encontró el token de autenticación');
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}${import.meta.env.VITE_API_BASE_PATH}/schools?faculty_id=${facultyId}&items_per_page=100`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Error al cargar las escuelas');
-      }
-
-      const data = await response.json();
-      setSchools(data.data || []);
-    } catch (err) {
-      console.error('Error al cargar escuelas:', err);
-      setError(err instanceof Error ? err.message : 'Error al cargar escuelas');
-      toast.error('Error al cargar escuelas', {
-        description: err instanceof Error ? err.message : 'Error desconocido',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAddSchool = async () => {
+  const handleAddSchool = () => {
     if (!newSchool.name.trim()) {
-      toast.error('Error de validación', { description: 'El nombre es requerido' });
+      toast.error('Error de validación', {
+        description: 'El nombre es requerido',
+        richColors: true,
+      });
       return;
     }
     if (!newSchool.acronym.trim()) {
-      toast.error('Error de validación', { description: 'El acrónimo es requerido' });
+      toast.error('Error de validación', {
+        description: 'El acrónimo es requerido',
+        richColors: true,
+      });
       return;
     }
 
-    setIsAdding(true);
-
-    try {
-      const token = localStorage.getItem('fica-access-token');
-      if (!token) {
-        throw new Error('No se encontró el token de autenticación');
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}${import.meta.env.VITE_API_BASE_PATH}/school`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            name: newSchool.name,
-            acronym: newSchool.acronym.toUpperCase(),
-            fk_faculty: facultyId,
-            is_active: newSchool.is_active,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
-        throw new Error(errorData.detail || `Error ${response.status}`);
-      }
-
-      toast.success('Escuela creada exitosamente', {
+    createSchool({
+      resource: "school",
+      values: {
+        name: newSchool.name,
+        acronym: newSchool.acronym.toUpperCase(),
+        fk_faculty: facultyId,
+        is_active: newSchool.is_active,
+      },
+      successNotification: () => ({
+        message: 'Escuela creada exitosamente',
         description: `La escuela "${newSchool.name}" ha sido creada.`,
-      });
+        type: 'success',
+      }),
+      errorNotification: (error) => ({
+        message: 'Error al crear escuela',
+        description: error?.message || 'Error desconocido',
+        type: 'error',
+      }),
+    }, {
+      onSuccess: () => {
+        // Limpiar formulario
+        setNewSchool({ name: "", acronym: "", is_active: true });
 
-      // Limpiar formulario
-      setNewSchool({ name: "", acronym: "", is_active: true });
-
-      // Recargar escuelas
-      await loadSchools();
-    } catch (err) {
-      console.error('Error al crear escuela:', err);
-      toast.error('Error al crear escuela', {
-        description: err instanceof Error ? err.message : 'Error desconocido',
-      });
-    } finally {
-      setIsAdding(false);
-    }
+        // Invalidar la lista de escuelas para refrescar
+        invalidate({
+          resource: "schools",
+          invalidates: ["list"],
+        });
+      },
+    });
   };
 
   const handleStartEdit = (school: School) => {
@@ -169,97 +148,99 @@ export function FacultySchoolsSheet({
     setEditData({ name: "", acronym: "", is_active: true });
   };
 
-  const handleSaveEdit = async (schoolId: number) => {
+  const handleSaveEdit = (schoolId: number) => {
     if (!editData.name.trim()) {
-      toast.error('Error de validación', { description: 'El nombre es requerido' });
+      toast.error('Error de validación', {
+        description: 'El nombre es requerido',
+        richColors: true,
+      });
       return;
     }
     if (!editData.acronym.trim()) {
-      toast.error('Error de validación', { description: 'El acrónimo es requerido' });
+      toast.error('Error de validación', {
+        description: 'El acrónimo es requerido',
+        richColors: true,
+      });
       return;
     }
 
-    try {
-      const token = localStorage.getItem('fica-access-token');
-      if (!token) {
-        throw new Error('No se encontró el token de autenticación');
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}${import.meta.env.VITE_API_BASE_PATH}/school/${schoolId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            name: editData.name,
-            acronym: editData.acronym.toUpperCase(),
-            is_active: editData.is_active,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
-        throw new Error(errorData.detail || `Error ${response.status}`);
-      }
-
-      toast.success('Escuela actualizada exitosamente', {
+    updateSchool({
+      resource: "school",
+      id: schoolId,
+      values: {
+        name: editData.name,
+        acronym: editData.acronym.toUpperCase(),
+        is_active: editData.is_active,
+      },
+      successNotification: () => ({
+        message: 'Escuela actualizada exitosamente',
         description: `La escuela "${editData.name}" ha sido actualizada.`,
-      });
+        type: 'success',
+      }),
+      errorNotification: (error) => ({
+        message: 'Error al actualizar escuela',
+        description: error?.message || 'Error desconocido',
+        type: 'error',
+      }),
+    }, {
+      onSuccess: () => {
+        setEditingSchoolId(null);
 
-      setEditingSchoolId(null);
-      await loadSchools();
-    } catch (err) {
-      console.error('Error al actualizar escuela:', err);
-      toast.error('Error al actualizar escuela', {
-        description: err instanceof Error ? err.message : 'Error desconocido',
-      });
-    }
+        // Invalidar la lista de escuelas para refrescar
+        invalidate({
+          resource: "schools",
+          invalidates: ["list"],
+        });
+      },
+    });
   };
 
-  const handleDeleteSchool = async (schoolId: number, schoolName: string) => {
-    if (!confirm(`¿Estás seguro de eliminar la escuela "${schoolName}"? Esta acción no se puede deshacer.`)) {
-      return;
-    }
+  const handleDeleteSchool = (schoolId: number, schoolName: string) => {
+    setSchoolToDelete({ id: schoolId, name: schoolName });
+    setDeleteDialogOpen(true);
+  };
 
-    try {
-      const token = localStorage.getItem('fica-access-token');
-      if (!token) {
-        throw new Error('No se encontró el token de autenticación');
+  const handleConfirmDelete = () => {
+    if (!schoolToDelete) return;
+
+    deleteSchool({
+      resource: "school",
+      id: schoolToDelete.id,
+      successNotification: () => ({
+        message: 'Escuela eliminada exitosamente',
+        description: `La escuela "${schoolToDelete.name}" ha sido eliminada.`,
+        type: 'success',
+      }),
+      errorNotification: (error) => ({
+        message: 'Error al eliminar escuela',
+        description: error?.message || 'Error desconocido',
+        type: 'error',
+      }),
+    }, {
+      onSuccess: () => {
+        // Cerrar el diálogo
+        setDeleteDialogOpen(false);
+        setSchoolToDelete(null);
+
+        // Invalidar y refrescar la lista
+        invalidate({
+          resource: "schools",
+          invalidates: ["list"],
+        });
+
+        queryClient.invalidateQueries({ queryKey: ["schools"] });
+        queryClient.refetchQueries({ queryKey: ["schools"] });
+      },
+      onError: () => {
+        // En caso de error, cerrar el diálogo
+        setDeleteDialogOpen(false);
+        setSchoolToDelete(null);
       }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}${import.meta.env.VITE_API_BASE_PATH}/school/${schoolId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
-        throw new Error(errorData.detail || `Error ${response.status}`);
-      }
-
-      toast.success('Escuela eliminada exitosamente', {
-        description: `La escuela "${schoolName}" ha sido eliminada.`,
-      });
-
-      await loadSchools();
-    } catch (err) {
-      console.error('Error al eliminar escuela:', err);
-      toast.error('Error al eliminar escuela', {
-        description: err instanceof Error ? err.message : 'Error desconocido',
-      });
-    }
+    });
   };
 
   return (
+    <>
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent side="right" className="w-[500px] sm:max-w-[90vw] flex flex-col">
         <SheetHeader className="flex-shrink-0 px-6">
@@ -291,7 +272,7 @@ export function FacultySchoolsSheet({
                       placeholder="Ingrese el nombre de la escuela"
                       value={newSchool.name}
                       onChange={(e) => setNewSchool({ ...newSchool, name: e.target.value })}
-                      disabled={isAdding}
+                      disabled={createMutation.isPending}
                       className="h-11 mt-3"
                     />
                   </div>
@@ -302,17 +283,17 @@ export function FacultySchoolsSheet({
                       value={newSchool.acronym}
                       onChange={(e) => setNewSchool({ ...newSchool, acronym: e.target.value.toUpperCase() })}
                       maxLength={20}
-                      disabled={isAdding}
+                      disabled={createMutation.isPending}
                       className="h-11 font-mono mt-3"
                     />
                   </div>
                   <div className="flex-shrink-0">
                     <Button
                       onClick={handleAddSchool}
-                      disabled={isAdding || !newSchool.name || !newSchool.acronym}
+                      disabled={createMutation.isPending || !newSchool.name || !newSchool.acronym}
                       className="h-11 px-6"
                     >
-                      {isAdding ? 'Agregando...' : 'Agregar'}
+                      {createMutation.isPending ? 'Agregando...' : 'Agregar'}
                     </Button>
                   </div>
                 </div>
@@ -347,7 +328,7 @@ export function FacultySchoolsSheet({
                           <TableHead className="w-[60px]">ID</TableHead>
                           <TableHead>Nombre</TableHead>
                           <TableHead className="w-[150px]">Acrónimo</TableHead>
-                          <TableHead className="w-[100px]">Estado</TableHead>
+                          <TableHead className="w-[100px] text-center">Estado</TableHead>
                           <TableHead className="w-[100px]">Acciones</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -380,16 +361,22 @@ export function FacultySchoolsSheet({
                                 </Badge>
                               )}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-center">
                               {editingSchoolId === school.id ? (
-                                <Checkbox
-                                  checked={editData.is_active}
-                                  onCheckedChange={(checked) => setEditData({ ...editData, is_active: checked as boolean })}
-                                />
+                                <div className="flex justify-center">
+                                  <Switch
+                                    checked={editData.is_active}
+                                    onCheckedChange={(checked) => setEditData({ ...editData, is_active: checked })}
+                                  />
+                                </div>
                               ) : (
-                                <Badge variant={school.is_active ? "default" : "secondary"}>
-                                  {school.is_active ? "Activa" : "Inactiva"}
-                                </Badge>
+                                <div className="flex justify-center">
+                                  {school.is_active ? (
+                                    <CheckCircle className="h-5 w-5 text-green-600" />
+                                  ) : (
+                                    <XCircle className="h-5 w-5 text-red-600" />
+                                  )}
+                                </div>
                               )}
                             </TableCell>
                             <TableCell>
@@ -457,5 +444,20 @@ export function FacultySchoolsSheet({
         </div>
       </SheetContent>
     </Sheet>
+
+      {/* Diálogo de confirmación de eliminación */}
+      {schoolToDelete && (
+        <SchoolDeleteDialog
+          schoolName={schoolToDelete.name}
+          isOpen={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false);
+            setSchoolToDelete(null);
+          }}
+          onConfirm={handleConfirmDelete}
+          isDeleting={deleteMutation.isPending}
+        />
+      )}
+    </>
   );
 }

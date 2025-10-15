@@ -10,7 +10,7 @@ import routerProvider, {
 } from "@refinedev/react-router";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router";
 import "./App.css";
-import { authProvider, dataProvider, accessControlProvider } from "./providers";
+import { authProvider, dataProvider, accessControlProvider } from "@providers/index";
 import { ErrorComponent } from "./components/refine-ui/layout/error-component";
 import { Layout } from "./components/refine-ui/layout/layout";
 import { Toaster } from "./components/refine-ui/notification/toaster";
@@ -35,6 +35,7 @@ import {
 } from "./pages/faculties";
 import { CoursesList } from "./pages/courses";
 import { ScheduleTimesList } from "./pages/schedule-times";
+import { RecycleBinList } from "./pages/recycle-bin";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -124,6 +125,16 @@ function App() {
                     icon: "Clock",
                   },
                 },
+                {
+                  name: "recycle-bin",
+                  list: "/recycle-bin",
+                  meta: {
+                    label: "Papelera",
+                    canDelete: true,
+                    parent: "configuration",
+                    icon: "Trash2",
+                  },
+                },
 
               ]}
               options={{
@@ -169,6 +180,9 @@ function App() {
                   <Route path="/configuration">
                     <Route path="schedule-times" element={<ScheduleTimesList />} />
                     <Route path="courses" element={<CoursesList />} />
+                  </Route>
+                  <Route path="/recycle-bin">
+                    <Route index element={<RecycleBinList />} />
                   </Route>
                   <Route path="*" element={<ErrorComponent />} />
                 </Route>

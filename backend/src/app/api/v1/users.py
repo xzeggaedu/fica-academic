@@ -15,9 +15,10 @@ from ...core.exceptions.http_exceptions import (
 )
 from ...core.security import blacklist_token, get_password_hash, oauth2_scheme, verify_password
 from ...crud.crud_faculties import get_faculty_by_uuid
+from ...crud.crud_recycle_bin import create_recycle_bin_entry, find_recycle_bin_entry, mark_as_restored
 from ...crud.crud_schools import get_school_by_uuid
 from ...crud.crud_user_scope import create_faculty_scope, create_school_scope, delete_user_scopes, get_user_scopes
-from ...crud.crud_users import crud_users
+from ...crud.crud_users import crud_users, get_deleted_users, get_non_deleted_users, restore_user, soft_delete_user
 from ...models.role import UserRoleEnum
 from ...schemas.user import (
     UserCreate,
@@ -61,7 +62,7 @@ async def get_current_user_profile(
     if not user_uuid:
         raise UnauthorizedException("Invalid authentication token")
 
-    db_user = await crud_users.get(db=db, uuid=user_uuid, is_deleted=False, schema_to_select=UserRead)
+    db_user = await crud_users.get(db=db, uuid=user_uuid, deleted=False, schema_to_select=UserRead)
 
     if db_user is None:
         raise NotFoundException("User not found")
@@ -135,13 +136,20 @@ async def read_users(
     current_user: Annotated[dict, Depends(get_current_superuser)],  # ✅ Requiere admin
     page: int = 1,
     items_per_page: int = 10,
+    include_deleted: bool = False,
 ) -> dict:
-    users_data = await crud_users.get_multi(
-        db=db,
-        offset=compute_offset(page, items_per_page),
-        limit=items_per_page,
-        is_deleted=False,
-    )
+    if include_deleted:
+        # Incluir usuarios eliminados
+        users_data = await crud_users.get_multi(
+            db=db,
+            offset=compute_offset(page, items_per_page),
+            limit=items_per_page,
+        )
+    else:
+        # Por defecto, solo usuarios no eliminados
+        users_data = await get_non_deleted_users(
+            db=db, offset=compute_offset(page, items_per_page), limit=items_per_page
+        )
 
     response: dict[str, Any] = paginated_response(crud_data=users_data, page=page, items_per_page=items_per_page)
     return response
@@ -154,7 +162,7 @@ async def read_users_me(request: Request, current_user: Annotated[dict, Depends(
 
 @router.get("/user/{username}", response_model=UserRead)
 async def read_user(request: Request, username: str, db: Annotated[AsyncSession, Depends(async_get_db)]) -> UserRead:
-    db_user = await crud_users.get(db=db, username=username, is_deleted=False, schema_to_select=UserRead)
+    db_user = await crud_users.get(db=db, username=username, deleted=False, schema_to_select=UserRead)
     if db_user is None:
         raise NotFoundException("User not found")
 
@@ -177,14 +185,14 @@ async def read_user_by_uuid(
 
     # Si es admin, puede ver cualquier perfil
     if current_user_role == UserRoleEnum.ADMIN:
-        db_user = await crud_users.get(db=db, uuid=user_uuid, is_deleted=False, schema_to_select=UserRead)
+        db_user = await crud_users.get(db=db, uuid=user_uuid, deleted=False, schema_to_select=UserRead)
         if db_user is None:
             raise NotFoundException("User not found")
         return cast(UserRead, db_user)
 
     # Si no es admin, solo puede ver su propio perfil
     if current_user_uuid and str(current_user_uuid) == str(user_uuid):
-        db_user = await crud_users.get(db=db, uuid=user_uuid, is_deleted=False, schema_to_select=UserRead)
+        db_user = await crud_users.get(db=db, uuid=user_uuid, deleted=False, schema_to_select=UserRead)
         if db_user is None:
             raise NotFoundException("User not found")
         return cast(UserRead, db_user)
@@ -558,3 +566,138 @@ async def get_user_scope_assignments(
         result.append(scope_data)
 
     return result
+
+
+@router.patch("/user/uuid/soft-delete/{user_uuid}", response_model=UserRead)
+async def soft_delete_user_endpoint(
+    request: Request,
+    user_uuid: uuid_pkg.UUID,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    values: dict = None,
+) -> UserRead:
+    """Eliminar un usuario (soft delete) - Solo Admin.
+
+    Esto marcará el usuario como eliminado pero no lo removerá físicamente de la base de datos.
+    También crea un registro en RecycleBin para auditoría y posible restauración.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        user_uuid: UUID del usuario a eliminar
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+
+    Returns:
+    -------
+        Datos del usuario eliminado
+
+    Raises:
+    ------
+        NotFoundException: Si el usuario no se encuentra
+    """
+    # Verificar si el usuario existe
+    db_user = await crud_users.get(db=db, uuid=user_uuid, schema_to_select=UserRead)
+    if db_user is None:
+        raise NotFoundException(f"No se encontró el usuario con UUID '{user_uuid}'")
+
+    # Soft delete user
+    success = await soft_delete_user(db=db, user_uuid=user_uuid)
+    if not success:
+        raise NotFoundException(f"Error al eliminar el usuario con UUID '{user_uuid}'")
+
+    # Crear registro en RecycleBin
+    await create_recycle_bin_entry(
+        db=db,
+        entity_type="user",
+        entity_id=str(user_uuid),  # UUID como string
+        entity_display_name=f"{db_user['name']} ({db_user['email']})",
+        deleted_by_id=current_user["user_uuid"],
+        deleted_by_name=current_user["name"],
+        reason=None,  # Se puede agregar un parámetro opcional en el request
+        can_restore=True,
+    )
+
+    # Retrieve and return updated user
+    updated_user = await crud_users.get(db=db, uuid=user_uuid, schema_to_select=UserRead)
+    return cast(UserRead, updated_user)
+
+
+@router.patch("/user/uuid/restore/{user_uuid}", response_model=UserRead)
+async def restore_user_endpoint(
+    request: Request,
+    user_uuid: uuid_pkg.UUID,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    values: dict = None,
+) -> UserRead:
+    """Restaurar un usuario eliminado (soft delete) - Solo Admin.
+
+    Esto revertirá la eliminación del usuario y actualizará el registro en RecycleBin.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        user_uuid: UUID del usuario a restaurar
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+
+    Returns:
+    -------
+        Datos del usuario restaurado
+
+    Raises:
+    ------
+        NotFoundException: Si el usuario no se encuentra
+    """
+    # Verificar si el usuario existe
+    db_user = await crud_users.get(db=db, uuid=user_uuid, schema_to_select=UserRead)
+    if db_user is None:
+        raise NotFoundException(f"No se encontró el usuario con UUID '{user_uuid}'")
+
+    # Restore user
+    success = await restore_user(db=db, user_uuid=user_uuid)
+    if not success:
+        raise NotFoundException(f"Error al restaurar el usuario con UUID '{user_uuid}'")
+
+    # Buscar y actualizar registro en RecycleBin
+    recycle_bin_entry = await find_recycle_bin_entry(db=db, entity_type="user", entity_id=str(user_uuid))
+    if recycle_bin_entry:
+        await mark_as_restored(
+            db=db,
+            recycle_bin_id=recycle_bin_entry["id"],
+            restored_by_id=current_user["user_uuid"],
+            restored_by_name=current_user["name"],
+        )
+
+    # Retrieve and return updated user
+    updated_user = await crud_users.get(db=db, uuid=user_uuid, schema_to_select=UserRead)
+    return cast(UserRead, updated_user)
+
+
+@router.get("/users/deleted", response_model=PaginatedListResponse[UserRead])
+async def list_deleted_users(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    page: int = 1,
+    items_per_page: int = 10,
+) -> dict:
+    """Obtener lista paginada de usuarios eliminados (soft delete) - Solo Admin.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+        page: Número de página (default: 1)
+        items_per_page: Items por página (default: 10)
+
+    Returns:
+    -------
+        Lista paginada de usuarios eliminados
+    """
+    users_data = await get_deleted_users(db=db, offset=compute_offset(page, items_per_page), limit=items_per_page)
+
+    response: dict[str, Any] = paginated_response(crud_data=users_data, page=page, items_per_page=items_per_page)
+    return response

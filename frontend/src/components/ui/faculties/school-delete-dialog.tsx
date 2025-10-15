@@ -10,39 +10,35 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-interface ScheduleDeleteDialogProps {
-  scheduleId: number;
-  scheduleRange: string;
-  dayGroupName: string;
+interface SchoolDeleteDialogProps {
+  schoolName: string;
   isOpen: boolean;
   onClose: () => void;
-  onDelete?: (scheduleId: number, scheduleRange: string, dayGroupName: string) => void;
-  isDeleting?: boolean;
+  onConfirm: () => void;
+  isDeleting: boolean;
 }
 
-export function ScheduleDeleteDialog({
-  scheduleId,
-  scheduleRange,
-  dayGroupName,
+export function SchoolDeleteDialog({
+  schoolName,
   isOpen,
   onClose,
-  onDelete,
-  isDeleting = false,
-}: ScheduleDeleteDialogProps) {
-  const handleDelete = () => {
-    if (onDelete) {
-      onDelete(scheduleId, scheduleRange, dayGroupName);
+  onConfirm,
+  isDeleting,
+}: SchoolDeleteDialogProps) {
+  const handleClose = () => {
+    if (!isDeleting) {
+      onClose();
     }
   };
 
   return (
-    <AlertDialog open={isOpen} onOpenChange={onClose}>
+    <AlertDialog open={isOpen} onOpenChange={handleClose}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Eliminar Horario</AlertDialogTitle>
+          <AlertDialogTitle>Eliminar Escuela</AlertDialogTitle>
           <AlertDialogDescription className="space-y-2">
             <p>
-              ¿Estás seguro de que deseas eliminar el horario <strong>{dayGroupName} de {scheduleRange}</strong>?
+              ¿Estás seguro de que deseas eliminar la escuela <strong>{schoolName}</strong>?
             </p>
             <p className="text-red-600 font-semibold">
               Esta acción no se puede deshacer.
@@ -55,7 +51,7 @@ export function ScheduleDeleteDialog({
             Cancelar
           </AlertDialogCancel>
           <AlertDialogAction
-            onClick={handleDelete}
+            onClick={onConfirm}
             disabled={isDeleting}
             className="bg-red-600 hover:bg-red-700"
           >

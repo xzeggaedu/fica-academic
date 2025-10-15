@@ -39,6 +39,7 @@ const ENDPOINTS = {
   USERS: `${API_BASE_PATH}/users`,
   USER: `${API_BASE_PATH}/user/uuid`,  // ✅ Correcto: /user/uuid/{user_uuid}
   USER_ADMIN: `${API_BASE_PATH}/user/admin`,  // ✅ Endpoint para crear usuarios como admin
+  USER_SOFT_DELETE: `${API_BASE_PATH}/user/uuid`,  // Para soft delete: /user/uuid/{user_uuid}/soft-delete
   ME: `${API_BASE_PATH}/me`,
   TASKS: `${API_BASE_PATH}/tasks/task`,
   FACULTIES: `${API_BASE_PATH}/faculties`,
@@ -46,6 +47,8 @@ const ENDPOINTS = {
   SCHOOLS: `${API_BASE_PATH}/schools`,
   SCHOOL: `${API_BASE_PATH}/school`,
   COURSES: `${API_BASE_PATH}/catalog/courses`,
+  RECYCLE_BIN: `${API_BASE_PATH}/recycle-bin`,
+  RESTORE_ITEM: `${API_BASE_PATH}/recycle-bin/restore`,
   COURSES_ACTIVE: `${API_BASE_PATH}/catalog/courses/active`,
   SCHEDULE_TIMES: `${API_BASE_PATH}/catalog/schedule-times`,
   SCHEDULE_TIMES_ACTIVE: `${API_BASE_PATH}/catalog/schedule-times/active`,
@@ -281,6 +284,18 @@ export const dataProvider: DataProvider = {
         };
       }
 
+      case "recycle-bin": {
+        const current = (pagination as any)?.currentPage || (pagination as any)?.current || (pagination as any)?.page || 1;
+        const pageSize = pagination?.pageSize || 10;
+        const response = await apiRequest<PaginatedResponse<any>>(
+          `${ENDPOINTS.RECYCLE_BIN}?page=${current}&items_per_page=${pageSize}`
+        );
+        return {
+          data: response.data as any[],
+          total: response.total_count,
+        };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported`);
     }
@@ -397,6 +412,7 @@ export const dataProvider: DataProvider = {
 
   update: async ({ resource, id, variables, meta }) => {
     if (DEBUG_MODE) {
+      console.log('Updating resource:', resource, 'with id:', id, 'and variables:', variables);
     }
 
     switch (resource) {
@@ -479,6 +495,28 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "soft-delete": {
+        const response = await apiRequest<{ message: string }>(
+          `${API_BASE_PATH}/${variables["type"]}/soft-delete/${id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(variables as UserUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "recycle-bin-restore": {
+        const response = await apiRequest<{ message: string }>(
+          `${API_BASE_PATH}/recycle-bin/${id}/restore`,
+          {
+            method: "POST",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported for update`);
     }
@@ -503,7 +541,7 @@ export const dataProvider: DataProvider = {
         const response = await apiRequest<{ message: string }>(
           `${ENDPOINTS.FACULTY}/${id}`,
           {
-            method: "DELETE",
+            method: "PATCH",
           }
         );
         return { data: response as any };
@@ -522,6 +560,16 @@ export const dataProvider: DataProvider = {
       case "courses": {
         const response = await apiRequest<{ message: string }>(
           `${ENDPOINTS.COURSES}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "recycle-bin": {
+        const response = await apiRequest<{ message: string }>(
+          `${ENDPOINTS.RECYCLE_BIN}/${id}`,
           {
             method: "DELETE",
           }
@@ -641,3 +689,6 @@ export const dataProvider: DataProvider = {
     return { data: response as any };
   },
 };
+
+// Export ENDPOINTS for use in components
+export { ENDPOINTS };

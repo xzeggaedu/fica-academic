@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { useList, CanAccess, useGetIdentity, useCan } from "@refinedev/core";
+import { useList, CanAccess, useGetIdentity, useCan, useUpdate, useInvalidate } from "@refinedev/core";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { UserRoleEnum } from "../../types/auth";
 import {
   Table,
@@ -39,6 +40,11 @@ export const UserList = () => {
   const queryClient = useQueryClient();
   const { data: identity } = useGetIdentity<{ id: number; username: string }>();
 
+  // Hooks para soft delete
+  const { mutate: softDeleteUser, mutation: deleteState } = useUpdate();
+  const invalidate = useInvalidate();
+  const isDeleting = deleteState.isPending;
+
   // Función para refrescar datos directamente
   const refreshData = async () => {
     // Refetch todas las queries que contengan "users"
@@ -50,6 +56,39 @@ export const UserList = () => {
         );
       }
     });
+  };
+
+  // Función para manejar eliminación de usuario (soft delete)
+  const handleDeleteUser = (userId: string, userName: string) => {
+    softDeleteUser(
+      {
+        resource: "soft-delete",
+        id: userId,
+        values: { type: "user/uuid" },
+        successNotification: false,
+      },
+      {
+        onSuccess: async () => {
+          invalidate({
+            resource: "users",
+            invalidates: ["all", "list"],
+          });
+
+          toast.success('Usuario movido a papelera', {
+            description: `El usuario "${userName}" ha sido movido a la papelera de reciclaje.`,
+            richColors: true,
+          });
+
+        },
+        onError: (error) => {
+          console.error("UserList - Soft delete error:", error);
+          toast.error('Error al mover a papelera', {
+            description: error.message,
+            richColors: true,
+          });
+        },
+      }
+    );
   };
 
   // Estados para filtros y columnas
@@ -180,7 +219,7 @@ export const UserList = () => {
       action="list"
       fallback={<Unauthorized resourceName="usuarios" message="Solo los administradores pueden gestionar usuarios." />}
     >
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="space-y-6 p-6">
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -204,7 +243,7 @@ export const UserList = () => {
             />
 
             {/* Tabla */}
-            <div className="rounded-md border">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -215,7 +254,7 @@ export const UserList = () => {
                     {visibleColumns.includes("email") && <TableHead className={getTableColumnClass("email")}>Correo</TableHead>}
                     {visibleColumns.includes("role") && <TableHead className={getTableColumnClass("role")}>Rol</TableHead>}
                     {visibleColumns.includes("created_at") && <TableHead className={getTableColumnClass("date")}>Fecha de Creación</TableHead>}
-                    {visibleColumns.includes("actions") && <TableHead className={getTableColumnClass("actions")}></TableHead>}
+                    {visibleColumns.includes("actions") && <TableHead className={`${getTableColumnClass("actions")} w-[40px] max-w-[40px]`}></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -279,13 +318,15 @@ export const UserList = () => {
                           </TableCell>
                         )}
                         {visibleColumns.includes("actions") && (
-                          <TableCell className={getTableColumnClass("actions")} data-actions-cell onClick={(e) => e.stopPropagation()}>
+                          <TableCell className={`${getTableColumnClass("actions")} w-[40px] max-w-[40px]`} data-actions-cell onClick={(e) => e.stopPropagation()}>
                             <UserActions
                               userId={user.uuid}
                               userName={user.name}
                               userRole={user.role}
                               onSuccess={handleSuccess}
                               isCurrentUser={identity?.id === user.uuid}
+                              onDelete={handleDeleteUser}
+                              isDeleting={isDeleting}
                             />
                           </TableCell>
                         )}

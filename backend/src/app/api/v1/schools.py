@@ -11,7 +11,7 @@ from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import DuplicateValueException, NotFoundException
 from ...crud.crud_faculties import get_faculty_by_uuid
 from ...crud.crud_schools import crud_schools, get_school_by_uuid, school_acronym_exists, school_exists
-from ...schemas.school import SchoolCreate, SchoolRead, SchoolReadWithFaculty, SchoolUpdate
+from ...schemas.school import SchoolCreate, SchoolRead, SchoolUpdate
 
 router = APIRouter(tags=["schools"])
 
@@ -105,13 +105,13 @@ async def list_schools(
     return response
 
 
-@router.get("/school/{school_id}", response_model=SchoolReadWithFaculty)
+@router.get("/school/{school_id}", response_model=SchoolRead)
 async def get_school(
     request: Request,
     school_id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
-) -> SchoolReadWithFaculty:
+) -> SchoolRead:
     """Obtener una escuela específica por UUID con su facultad - Solo Admin.
 
     Args:
@@ -133,7 +133,7 @@ async def get_school(
     if school is None:
         raise NotFoundException(f"No se encontró la escuela con id '{school_id}'")
 
-    return cast(SchoolReadWithFaculty, school)
+    return cast(SchoolRead, school)
 
 
 @router.patch("/school/{school_id}", response_model=SchoolRead)

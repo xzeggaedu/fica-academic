@@ -34,7 +34,9 @@ class UserRead(BaseModel):
     email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
     profile_image_url: str
     role: UserRoleEnum
+    deleted: bool
     created_at: datetime
+    deleted_at: datetime | None
 
 
 class UserCreate(UserBase):
@@ -110,6 +112,8 @@ class UserUpdateAdmin(UserUpdate):
     """Schema for admin to update users including role changes."""
 
     role: Annotated[UserRoleEnum | None, Field(default=None)]
+    deleted: Annotated[bool | None, Field(default=None)]
+    deleted_at: Annotated[datetime | None, Field(default=None)]
 
 
 class UserUpdateInternal(UserUpdate):
@@ -119,7 +123,7 @@ class UserUpdateInternal(UserUpdate):
 class UserDelete(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    is_deleted: bool
+    deleted: bool
     deleted_at: datetime
 
 
@@ -167,4 +171,4 @@ class UserPasswordUpdateAdmin(BaseModel):
 
 
 class UserRestoreDeleted(BaseModel):
-    is_deleted: bool
+    deleted: bool

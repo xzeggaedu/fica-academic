@@ -29,12 +29,14 @@ class Faculty(Base):
 
     # Estado
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
     # Campos de Auditoría
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), default=None, onupdate=datetime.now(UTC)
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
 
     # Clave Primaria (al final para evitar problemas con dataclasses)
     id: Mapped[int | None] = mapped_column(autoincrement=True, primary_key=True, default=None)
