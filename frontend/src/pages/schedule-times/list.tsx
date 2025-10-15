@@ -154,7 +154,19 @@ export function ScheduleTimesList() {
 
   // Función helper para ordenar los horarios por days_array
   const sortScheduleTimes = (scheduleTimes: ScheduleTime[]): ScheduleTime[] => {
+    // Validar que scheduleTimes sea un array válido
+    if (!Array.isArray(scheduleTimes)) {
+      console.warn('sortScheduleTimes received non-array:', scheduleTimes);
+      return [];
+    }
+
     return [...scheduleTimes].sort((a, b) => {
+      // Validar que a y b tengan days_array
+      if (!a?.days_array || !b?.days_array) {
+        console.warn('Invalid schedule time object:', { a, b });
+        return 0;
+      }
+
       // Comparar arrays de días elemento por elemento
       for (let i = 0; i < Math.min(a.days_array.length, b.days_array.length); i++) {
         if (a.days_array[i] !== b.days_array[i]) {
@@ -188,27 +200,37 @@ export function ScheduleTimesList() {
 
   // Cargar horarios al montar el componente solo si tiene permisos
 
-  // Usar useList para cargar schedule times activos
+  // Usar useList para cargar TODOS los schedule times (activos e inactivos)
   const { query: scheduleTimesQuery, result: scheduleTimesResult } = useList({
     resource: "schedule-times",
-    filters: [
-      {
-        field: "is_active",
-        operator: "eq",
-        value: true,
-      },
-    ],
-    queryOptions: {
-      enabled: canAccess?.can ?? false,
+    pagination: {
+      currentPage: 1,
+      pageSize: 1000,
+      mode: "server",
     },
+    queryOptions: {
+      // Habilitar siempre la carga; la autorización se maneja a nivel de ruta/proveedor
+      enabled: true,
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+      staleTime: 0,
+      gcTime: 0,
+    },
+    successNotification: false,
+    errorNotification: false,
   });
 
   // Actualizar scheduleTimes cuando cambien los datos (evitar loops)
   useEffect(() => {
-    const data = scheduleTimesResult?.data as any[] | undefined;
-    if (!data) return;
+    // dataProvider.getList retorna { data, total }
+    const raw = (scheduleTimesResult as any)?.data ?? (scheduleTimesResult as any)?.data?.data;
+    const data: any[] = Array.isArray(raw) ? raw : ((scheduleTimesResult as any)?.data?.data || []);
+    if (!Array.isArray(data)) {
+      console.warn('Invalid data received from useList:', scheduleTimesResult);
+      return;
+    }
 
-    const next = sortScheduleTimes(data || []);
+    const next = sortScheduleTimes(data);
 
     setScheduleTimes((prev) => {
       // Evitar actualizaciones si no hay cambios reales
@@ -345,6 +367,17 @@ export function ScheduleTimesList() {
     }, {
       onSuccess: (updatedScheduleTime) => {
         console.log(`Updated schedule time:`, updatedScheduleTime);
+        // Validar que updatedScheduleTime tenga la estructura esperada
+        if (!updatedScheduleTime || typeof updatedScheduleTime !== 'object') {
+          console.warn('Invalid updatedScheduleTime received:', updatedScheduleTime);
+          // Si no hay datos válidos, solo refrescar la lista
+          invalidate({
+            resource: "schedule-times",
+            invalidates: ["list"],
+          });
+          return;
+        }
+
         setScheduleTimes(sortScheduleTimes(scheduleTimes.map(st => st.id === id ? updatedScheduleTime as any : st)));
 
         toast.success('Horario actualizado', {
@@ -383,6 +416,17 @@ export function ScheduleTimesList() {
       successNotification: false,
     }, {
       onSuccess: (updatedScheduleTime) => {
+        // Validar que updatedScheduleTime tenga la estructura esperada
+        if (!updatedScheduleTime || typeof updatedScheduleTime !== 'object') {
+          console.warn('Invalid updatedScheduleTime received:', updatedScheduleTime);
+          // Si no hay datos válidos, solo refrescar la lista
+          invalidate({
+            resource: "schedule-times",
+            invalidates: ["list"],
+          });
+          return;
+        }
+
         setScheduleTimes(sortScheduleTimes(scheduleTimes.map(st => st.id === id ? updatedScheduleTime as any : st)));
 
         toast.success('Estado actualizado', {

@@ -285,21 +285,17 @@ export const dataProvider: DataProvider = {
       }
 
       case "schedule-times": {
-        // Si se pide solo activos, usar el endpoint dedicado
-        const isActiveFilter = (filters as any[])?.find?.((f: any) => f.field === "is_active");
-        if (isActiveFilter && isActiveFilter.value === true) {
-          const response = await apiRequest<any[]>(ENDPOINTS.SCHEDULE_TIMES_ACTIVE);
-          return {
-            data: response as any[],
-            total: response.length,
-          };
-        }
+        // Paginación por defecto: mostrar todo (hasta 1000)
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 1000;
 
-        // Fallback al listado general (sin paginación definida por ahora)
-        const response = await apiRequest<any[]>(ENDPOINTS.SCHEDULE_TIMES);
+        const response = await apiRequest<PaginatedResponse<any>>(
+          `${ENDPOINTS.SCHEDULE_TIMES}?page=${current}&items_per_page=${pageSize}`
+        );
+
         return {
-          data: response as any[],
-          total: response.length,
+          data: response.data as any[],
+          total: response.total_count,
         };
       }
 
@@ -533,6 +529,10 @@ export const dataProvider: DataProvider = {
             body: JSON.stringify(variables),
           }
         );
+        // Si la respuesta está vacía (204 No Content), devolver los datos enviados
+        if (!response || Object.keys(response).length === 0) {
+          return { data: { id, ...variables } as any };
+        }
         return { data: response as any };
       }
 
