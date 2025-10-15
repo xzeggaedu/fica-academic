@@ -1,11 +1,9 @@
 import React, { useState } from "react";
-import { useCreate } from "@refinedev/core";
 import { UserRoleEnum } from "../../../types/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,11 +14,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
 
 interface UserCreateFormProps {
   onSuccess?: () => void;
   onClose?: () => void;
+  onCreate?: (userData: {
+    name: string;
+    username: string;
+    email: string;
+    password: string;
+    profile_image_url: string;
+    role: string;
+  }) => void;
+  isCreating?: boolean;
 }
 
 interface FormErrors {
@@ -34,7 +40,7 @@ interface FormErrors {
   submit?: string;
 }
 
-export function UserCreateForm({ onSuccess, onClose }: UserCreateFormProps) {
+export function UserCreateForm({ onSuccess, onClose, onCreate, isCreating = false }: UserCreateFormProps) {
   const [formData, setFormData] = useState({
     name: "",
     username: "",
@@ -47,9 +53,7 @@ export function UserCreateForm({ onSuccess, onClose }: UserCreateFormProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  // Refine hook para crear usuario
-  const { mutate: createUser, mutation } = useCreate();
-  const isSubmitting = mutation.isPending;
+  const isSubmitting = isCreating;
 
   const roleOptions = [
     { value: UserRoleEnum.UNAUTHORIZED, label: "No Autorizado" },
@@ -134,54 +138,25 @@ export function UserCreateForm({ onSuccess, onClose }: UserCreateFormProps) {
       role: formData.role,
     };
 
-    createUser({
-      resource: "users",
-      values: dataToSend,
-    }, {
-      onSuccess: (data) => {
-        toast.success('Usuario creado exitosamente', {
-          description: `El usuario "${formData.username}" ha sido creado correctamente.`,
-          richColors: true,
-        });
+    // Llamar al callback onCreate pasado desde el padre
+    // NO limpiamos el formulario aquí - se limpiará solo si la operación es exitosa
+    if (onCreate) {
+      onCreate(dataToSend);
+    }
+  };
 
-        // Limpiar formulario
-        setFormData({
-          name: "",
-          username: "",
-          email: "",
-          password: "",
-          confirm_password: "",
-          profile_image_url: "",
-          role: UserRoleEnum.UNAUTHORIZED,
-        });
-        setErrors({});
-
-        // Llamar callback de éxito
-        onSuccess?.();
-
-        // Cerrar el modal/formulario si se proporciona callback
-        onClose?.();
-      },
-      onError: (error) => {
-        console.error("UserCreateForm - Create error:", error);
-        const errorMessage = error?.message || "Error desconocido al crear usuario";
-
-        // Mostrar toast de error
-        toast.error('Error al crear usuario', {
-          description: errorMessage,
-          richColors: true,
-        });
-
-        setErrors({ submit: errorMessage });
-
-        // Si es error de autenticación, redirigir al login
-        if (errorMessage.includes("Sesión expirada")) {
-          setTimeout(() => {
-            window.location.href = "/login";
-          }, 2000);
-        }
-      }
+  // Función pública para limpiar el formulario (será llamada desde el padre en onSuccess)
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      username: "",
+      email: "",
+      password: "",
+      confirm_password: "",
+      profile_image_url: "",
+      role: UserRoleEnum.UNAUTHORIZED,
     });
+    setErrors({});
   };
 
   const handleInputChange = (field: keyof FormErrors, value: string) => {

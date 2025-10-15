@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { useList, CanAccess, useGetIdentity, useCan, useUpdate, useInvalidate } from "@refinedev/core";
+import { useList, CanAccess, useGetIdentity, useCan, useUpdate, useInvalidate, useCreate } from "@refinedev/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { UserRoleEnum } from "../../types/auth";
@@ -32,31 +32,79 @@ export const UserList = () => {
   const { query, result } = useList({
     resource: "users",
     queryOptions: {
-      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
+      enabled: canAccess?.can ?? false,
     },
-    successNotification: false, // Desactivar notificaciones de éxito
-    errorNotification: false,   // Desactivar notificaciones de error
+    successNotification: false,
+    errorNotification: false,
   });
+
+  const users = result.data;
 
   const queryClient = useQueryClient();
   const { data: identity } = useGetIdentity<{ id: number; username: string }>();
 
-  // Hooks para soft delete
+  // Hooks para operaciones CRUD
   const { mutate: softDeleteUser, mutation: deleteState } = useUpdate();
+  const { mutate: createUser, mutation: createState } = useCreate();
+
   const invalidate = useInvalidate();
   const isDeleting = deleteState.isPending;
+  const isCreating = createState.isPending;
 
-  // Función para refrescar datos directamente
-  const refreshData = async () => {
-    // Refetch todas las queries que contengan "users"
-    await queryClient.refetchQueries({
-      predicate: (query) => {
-        const queryKey = query.queryKey;
-        return queryKey.some(key =>
-          typeof key === 'string' && key.includes('users')
-        );
+  // Función para manejar creación de usuario
+  const handleCreateUser = (
+    userData: {
+      name: string;
+      username: string;
+      email: string;
+      password: string;
+      profile_image_url: string;
+      role: string;
+    },
+    onSuccessCallback?: () => void
+  ) => {
+    createUser(
+      {
+        resource: "users",
+        values: userData,
+        successNotification: false,
+        errorNotification: false,
+      },
+      {
+        onSuccess: () => {
+          // invalidate({
+          //   resource: "users",
+          //   invalidates: ["all", "list"],
+          // });
+
+          toast.success('Usuario creado exitosamente', {
+            description: `El usuario "${userData.username}" ha sido creado correctamente.`,
+            richColors: true,
+          });
+
+          // Llamar al callback de éxito para cerrar el sheet
+          if (onSuccessCallback) {
+            onSuccessCallback();
+          }
+        },
+        onError: (error) => {
+          console.error("UserList - Create error:", error);
+          const errorMessage = error?.message || "Error desconocido al crear usuario";
+
+          toast.error('Error al crear usuario', {
+            description: errorMessage,
+            richColors: true,
+          });
+
+          // Si es error de autenticación, redirigir al login
+          if (errorMessage.includes("Sesión expirada")) {
+            setTimeout(() => {
+              window.location.href = "/login";
+            }, 2000);
+          }
+        },
       }
-    });
+    );
   };
 
   // Función para manejar eliminación de usuario (soft delete)
@@ -79,7 +127,6 @@ export const UserList = () => {
             description: `El usuario "${userName}" ha sido movido a la papelera de reciclaje.`,
             richColors: true,
           });
-
         },
         onError: (error) => {
           console.error("UserList - Soft delete error:", error);
@@ -118,18 +165,19 @@ export const UserList = () => {
 
   // Filtrar datos basado en búsqueda
   const filteredData = useMemo(() => {
-    if (!result.data) return [];
+    if (!users) return [];
 
-    if (!searchValue.trim()) return result.data;
+    if (!searchValue.trim()) return users;
 
     const searchLower = searchValue.toLowerCase();
-    return result.data.filter((user: any) =>
+    console.log("users", users);
+    return users.filter((user: any) =>
       user.name?.toLowerCase().includes(searchLower) ||
       user.username?.toLowerCase().includes(searchLower) ||
       user.email?.toLowerCase().includes(searchLower) ||
       user.role?.toLowerCase().includes(searchLower)
     );
-  }, [result.data, searchValue]);
+  }, [users, searchValue]);
 
   const getRoleVariant = (role: string) => {
     switch (role) {
@@ -197,8 +245,7 @@ export const UserList = () => {
 
   // Función para manejar éxito de operaciones
   const handleSuccess = async () => {
-    // Refrescar datos directamente
-    await refreshData();
+    setIsViewSheetOpen(false);
   };
 
   // Función para manejar click en la fila
@@ -236,7 +283,11 @@ export const UserList = () => {
                   Gestiona todos los usuarios del sistema
                 </CardDescription>
               </div>
-              <UserCreateButton onSuccess={handleSuccess} />
+              <UserCreateButton
+                onSuccess={handleSuccess}
+                onCreate={handleCreateUser}
+                isCreating={isCreating}
+              />
             </div>
           </CardHeader>
           <CardContent>

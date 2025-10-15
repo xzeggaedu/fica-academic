@@ -25,12 +25,35 @@ export default defineConfig({
           proxy.on('proxyRes', (proxyRes, req, _res) => {
             console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
           });
+        }
+      },
+      '/devtools': {
+        target: 'http://devtools:5001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/devtools/, ''),
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('devtools proxy error', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('Sending DevTools Request:', req.method, req.url);
+            // Configurar headers como en nginx
+            proxyReq.setHeader('Host', 'devtools.local');
+            proxyReq.setHeader('X-Real-IP', req.headers['x-real-ip'] || req.connection.remoteAddress || '');
+            proxyReq.setHeader('X-Forwarded-For', req.headers['x-forwarded-for'] || req.connection.remoteAddress || '');
+            proxyReq.setHeader('X-Forwarded-Proto', req.headers['x-forwarded-proto'] || 'http');
+          });
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log('Received DevTools Response:', proxyRes.statusCode, req.url);
+          });
         },
       },
+
     },
   },
+  // DevTools habilitado para desarrollo
   define: {
-    // Disable Refine Devtools in development to avoid WebSocket errors
     __REFINE_DEVTOOLS_PORT__: JSON.stringify(null),
   },
 });
