@@ -284,6 +284,25 @@ export const dataProvider: DataProvider = {
         };
       }
 
+      case "schedule-times": {
+        // Si se pide solo activos, usar el endpoint dedicado
+        const isActiveFilter = (filters as any[])?.find?.((f: any) => f.field === "is_active");
+        if (isActiveFilter && isActiveFilter.value === true) {
+          const response = await apiRequest<any[]>(ENDPOINTS.SCHEDULE_TIMES_ACTIVE);
+          return {
+            data: response as any[],
+            total: response.length,
+          };
+        }
+
+        // Fallback al listado general (sin paginación definida por ahora)
+        const response = await apiRequest<any[]>(ENDPOINTS.SCHEDULE_TIMES);
+        return {
+          data: response as any[],
+          total: response.length,
+        };
+      }
+
       case "recycle-bin": {
         const current = (pagination as any)?.currentPage || (pagination as any)?.current || (pagination as any)?.page || 1;
         const pageSize = pagination?.pageSize || 10;
@@ -405,6 +424,17 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "schedule-times": {
+        const response = await apiRequest<any>(
+          ENDPOINTS.SCHEDULE_TIMES,
+          {
+            method: "POST",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported`);
     }
@@ -495,6 +525,17 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "schedule-times": {
+        const response = await apiRequest<any>(
+          `${ENDPOINTS.SCHEDULE_TIMES}/${id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
       case "soft-delete": {
         const response = await apiRequest<{ message: string }>(
           `${API_BASE_PATH}/${variables["type"]}/soft-delete/${id}`,
@@ -570,6 +611,16 @@ export const dataProvider: DataProvider = {
       case "recycle-bin": {
         const response = await apiRequest<{ message: string }>(
           `${ENDPOINTS.RECYCLE_BIN}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "schedule-times": {
+        const response = await apiRequest<{ message: string }>(
+          `${ENDPOINTS.SCHEDULE_TIMES}/${id}`,
           {
             method: "DELETE",
           }

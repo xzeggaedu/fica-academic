@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/forms/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useNotification, CanAccess, useCan, useDelete, useInvalidate } from "@refinedev/core";
+import { useNotification, CanAccess, useCan, useDelete, useInvalidate, useList, useCreate, useUpdate } from "@refinedev/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ScheduleDeleteDialog } from "@/components/ui/schedule-times/schedule-delete-dialog";
@@ -187,109 +187,112 @@ export function ScheduleTimesList() {
   };
 
   // Cargar horarios al montar el componente solo si tiene permisos
+
+  // Usar useList para cargar schedule times activos
+  const { query: scheduleTimesQuery, result: scheduleTimesResult } = useList({
+    resource: "schedule-times",
+    filters: [
+      {
+        field: "is_active",
+        operator: "eq",
+        value: true,
+      },
+    ],
+    queryOptions: {
+      enabled: canAccess?.can ?? false,
+    },
+  });
+
+  // Actualizar scheduleTimes cuando cambien los datos (evitar loops)
   useEffect(() => {
-    if (canAccess?.can) {
-      fetchScheduleTimes();
-    }
-  }, [canAccess?.can]);
+    const data = scheduleTimesResult?.data as any[] | undefined;
+    if (!data) return;
 
-  const fetchScheduleTimes = async () => {
-    // No hacer fetch si no tiene permisos
-    if (!canAccess?.can) {
-      return;
-    }
+    const next = sortScheduleTimes(data || []);
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const token = localStorage.getItem("fica-access-token");
-      const response = await fetch("http://localhost:8000/api/v1/catalog/schedule-times/active", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-
-      if (!response.ok) throw new Error("Error al cargar horarios");
-
-      const data = await response.json();
-      setScheduleTimes(sortScheduleTimes(data || []));
-    } catch (err: any) {
-      setError(err.message);
-      open?.({
-        type: "error",
-        message: "Error",
-        description: err.message,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCreate = async () => {
-    if (selectedDays.length === 0 || !newScheduleTime.start_time || !newScheduleTime.end_time) {
-      open?.({
-        type: "error",
-        message: "Error",
-        description: "Todos los campos son requeridos",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const token = localStorage.getItem("fica-access-token");
-
-      const payload = {
-        days_array: selectedDays,
-        start_time: newScheduleTime.start_time,
-        end_time: newScheduleTime.end_time,
-        is_active: newScheduleTime.is_active,
-      };
-
-      const response = await fetch("http://localhost:8000/api/v1/catalog/schedule-times", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Error al crear horario");
+    setScheduleTimes((prev) => {
+      // Evitar actualizaciones si no hay cambios reales
+      if (
+        prev.length === next.length &&
+        prev.every((item, idx) => item.id === next[idx]?.id && item.updated_at === (next[idx] as any)?.updated_at)
+      ) {
+        return prev; // sin cambios
       }
+      return next;
+    });
+  }, [scheduleTimesResult?.data]);
 
-      const createdScheduleTime = await response.json();
-      setScheduleTimes(sortScheduleTimes([...scheduleTimes, createdScheduleTime]));
-
-      // Limpiar formulario
-      setNewScheduleTime({
-        start_time: "",
-        end_time: "",
-        is_active: true,
-      });
-      setSelectedDays([]);
-
-      open?.({
-        type: "success",
-        message: "Éxito",
-        description: "Horario creado correctamente",
-      });
-    } catch (err: any) {
-      const errorMessage = err?.message || err?.toString() || "Error desconocido";
+  // Manejar errores
+  useEffect(() => {
+    if (scheduleTimesQuery.error) {
+      setError(scheduleTimesQuery.error.message);
       open?.({
         type: "error",
         message: "Error",
-        description: errorMessage,
+        description: scheduleTimesQuery.error.message,
       });
-    } finally {
-      setIsLoading(false);
     }
+  }, [scheduleTimesQuery.error, open]);
+
+  // Hooks de Refine para operaciones CRUD
+  const { mutate: createScheduleTime, mutation: createMutation } = useCreate();
+  const { mutate: updateScheduleTime, mutation: updateMutation } = useUpdate();
+
+  // Actualizar estado de loading (sin provocar renders extra)
+  useEffect(() => {
+    const nextLoading = scheduleTimesQuery.isLoading || createMutation.isPending || updateMutation.isPending;
+    setIsLoading((prev) => (prev === nextLoading ? prev : nextLoading));
+  }, [scheduleTimesQuery.isLoading, createMutation.isPending, updateMutation.isPending]);
+
+  const handleCreate = () => {
+    if (selectedDays.length === 0 || !newScheduleTime.start_time || !newScheduleTime.end_time) {
+      toast.error('Error de validación', {
+        description: 'Todos los campos son requeridos',
+        richColors: true,
+      });
+      return;
+    }
+
+    const payload = {
+      days_array: selectedDays,
+      start_time: newScheduleTime.start_time,
+      end_time: newScheduleTime.end_time,
+      is_active: newScheduleTime.is_active,
+    };
+
+    createScheduleTime({
+      resource: "schedule-times",
+      values: payload,
+      successNotification: false,
+    }, {
+      onSuccess: () => {
+        // Limpiar formulario
+        setNewScheduleTime({
+          start_time: "",
+          end_time: "",
+          is_active: true,
+        });
+        setSelectedDays([]);
+
+        toast.success('Horario creado', {
+          description: 'El horario ha sido creado correctamente.',
+          richColors: true,
+        });
+
+        // Invalidar la lista para refrescar
+        invalidate({
+          resource: "schedule-times",
+          invalidates: ["list"],
+        });
+      },
+      onError: (error) => {
+        const errorMessage = error?.message || "Error desconocido";
+        toast.error('Error al crear horario', {
+          description: errorMessage,
+          richColors: true,
+        });
+      },
+    });
   };
 
   const handleEdit = (id: number, field: string, value: string | number[]) => {
@@ -303,115 +306,104 @@ export function ScheduleTimesList() {
     }
   };
 
-  const handleSaveEdit = async (id: number, field: string, value: string) => {
-    try {
-      const token = localStorage.getItem("fica-access-token");
-      const scheduleTime = scheduleTimes.find(st => st.id === id);
-      if (!scheduleTime) return;
+  const handleSaveEdit = (id: number, field: string, value: string) => {
+    const scheduleTime = scheduleTimes.find(st => st.id === id);
+    if (!scheduleTime) return;
 
-      let updateData: any = {};
+    let updateData: any = {};
 
-      if (field === "days_array") {
-        // Si estamos editando días, usar el array de índices
-        // Guardar solo si cambió
-        const currentSorted = [...scheduleTime.days_array].sort();
-        const nextSorted = [...editingDays].sort();
-        const same = currentSorted.length === nextSorted.length && currentSorted.every((v, i) => v === nextSorted[i]);
-        if (same) {
-          setEditingId(null);
-          setEditingField(null);
-          setEditingDays([]);
-          return;
-        }
-        updateData.days_array = editingDays;
-      } else {
-        if ((scheduleTime as any)[field] === value) {
-          setEditingId(null);
-          setEditingField(null);
-          setEditingValue("");
-          return;
-        }
-        updateData[field] = value;
+    if (field === "days_array") {
+      // Si estamos editando días, usar el array de índices
+      // Guardar solo si cambió
+      const currentSorted = [...scheduleTime.days_array].sort();
+      const nextSorted = [...editingDays].sort();
+      const same = currentSorted.length === nextSorted.length && currentSorted.every((v, i) => v === nextSorted[i]);
+      if (same) {
+        setEditingId(null);
+        setEditingField(null);
+        setEditingDays([]);
+        return;
       }
-
-      console.log(`Updating schedule ${id}, field: ${field}, updateData:`, updateData);
-
-      const response = await fetch(`http://localhost:8000/api/v1/catalog/schedule-times/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(updateData),
-      });
-
-      console.log(`Response status: ${response.status}`);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error(`Error response:`, errorData);
-        throw new Error(errorData.detail || "Error al actualizar horario");
+      updateData.days_array = editingDays;
+    } else {
+      if ((scheduleTime as any)[field] === value) {
+        setEditingId(null);
+        setEditingField(null);
+        setEditingValue("");
+        return;
       }
-
-      const updatedScheduleTime = await response.json();
-      console.log(`Updated schedule time:`, updatedScheduleTime);
-      setScheduleTimes(sortScheduleTimes(scheduleTimes.map(st => st.id === id ? updatedScheduleTime : st)));
-
-      open?.({
-        type: "success",
-        message: "Éxito",
-        description: "Horario actualizado correctamente",
-      });
-    } catch (err: any) {
-      const errorMessage = err?.message || err?.toString() || "Error desconocido";
-      open?.({
-        type: "error",
-        message: "Error",
-        description: errorMessage,
-      });
-    } finally {
-      setEditingId(null);
-      setEditingField(null);
-      setEditingValue("");
-      setEditingDays([]);
+      updateData[field] = value;
     }
+
+    console.log(`Updating schedule ${id}, field: ${field}, updateData:`, updateData);
+
+    updateScheduleTime({
+      resource: "schedule-times",
+      id: id,
+      values: updateData,
+      successNotification: false,
+    }, {
+      onSuccess: (updatedScheduleTime) => {
+        console.log(`Updated schedule time:`, updatedScheduleTime);
+        setScheduleTimes(sortScheduleTimes(scheduleTimes.map(st => st.id === id ? updatedScheduleTime as any : st)));
+
+        toast.success('Horario actualizado', {
+          description: 'El horario ha sido actualizado correctamente.',
+          richColors: true,
+        });
+
+        // Invalidar la lista para refrescar
+        invalidate({
+          resource: "schedule-times",
+          invalidates: ["list"],
+        });
+      },
+      onError: (error) => {
+        console.error(`Error response:`, error);
+        const errorMessage = error?.message || "Error desconocido";
+        toast.error('Error al actualizar horario', {
+          description: errorMessage,
+          richColors: true,
+        });
+      },
+      onSettled: () => {
+        setEditingId(null);
+        setEditingField(null);
+        setEditingValue("");
+        setEditingDays([]);
+      },
+    });
   };
 
-  const handleToggleActive = async (id: number, newStatus: boolean) => {
-    try {
-      const token = localStorage.getItem("fica-access-token");
-      const response = await fetch(`http://localhost:8000/api/v1/catalog/schedule-times/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ is_active: newStatus }),
-      });
+  const handleToggleActive = (id: number, newStatus: boolean) => {
+    updateScheduleTime({
+      resource: "schedule-times",
+      id: id,
+      values: { is_active: newStatus },
+      successNotification: false,
+    }, {
+      onSuccess: (updatedScheduleTime) => {
+        setScheduleTimes(sortScheduleTimes(scheduleTimes.map(st => st.id === id ? updatedScheduleTime as any : st)));
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Error al cambiar estado");
-      }
+        toast.success('Estado actualizado', {
+          description: 'El estado del horario ha sido actualizado correctamente.',
+          richColors: true,
+        });
 
-      const updatedScheduleTime = await response.json();
-      setScheduleTimes(sortScheduleTimes(scheduleTimes.map(st => st.id === id ? updatedScheduleTime : st)));
-
-      open?.({
-        type: "success",
-        message: "Éxito",
-        description: "Estado actualizado correctamente",
-      });
-    } catch (err: any) {
-      const errorMessage = err?.message || err?.toString() || "Error desconocido";
-      open?.({
-        type: "error",
-        message: "Error",
-        description: errorMessage,
-      });
-    }
+        // Invalidar la lista para refrescar
+        invalidate({
+          resource: "schedule-times",
+          invalidates: ["list"],
+        });
+      },
+      onError: (error) => {
+        const errorMessage = error?.message || "Error desconocido";
+        toast.error('Error al cambiar estado', {
+          description: errorMessage,
+          richColors: true,
+        });
+      },
+    });
   };
 
   const handleDelete = (id: number, range: string, dayGroup: string) => {
