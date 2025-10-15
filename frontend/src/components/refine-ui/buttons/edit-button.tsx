@@ -1,5 +1,5 @@
 import React from "react";
-import { useEditButton } from "@refinedev/core";
+import { useNavigation } from "@refinedev/core";
 import { Button } from "../../ui/button";
 import { Edit } from "lucide-react";
 
@@ -16,14 +16,13 @@ export const EditButton: React.FC<EditButtonProps> = ({
   hideText = false,
   className,
 }) => {
-  const { onClick, disabled } = useEditButton({ recordItemId, resource });
+  const { edit } = useNavigation();
 
   return (
     <Button
       variant="outline"
       size="sm"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={() => edit(resource || "", recordItemId || "")}
       className={className}
     >
       <Edit className="h-4 w-4" />

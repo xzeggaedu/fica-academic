@@ -11,14 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 export const UserEdit = () => {
   const { id } = useParams<{ id: string }>();
-  const { data: queryResult, isLoading: formLoading } = useOne({
+  const oneQuery = useOne({
     resource: "users",
     id: id || "",
   });
   const { saveButtonProps, register, formState: { errors } } = useForm();
   const navigation = useNavigation();
 
-  const userData = queryResult?.data;
+  const formLoading = oneQuery.query.isLoading;
+  const userData = oneQuery.query.data?.data;
 
   const roleOptions = [
     { value: UserRoleEnum.UNAUTHORIZED, label: "No Autorizado" },
@@ -69,7 +70,7 @@ export const UserEdit = () => {
                     defaultValue={userData?.name || ""}
                   />
                   {errors?.name && (
-                    <p className="text-sm text-red-600">{errors.name?.message}</p>
+                    <p className="text-sm text-red-600">{String(errors.name?.message || '')}</p>
                   )}
                 </div>
 
@@ -91,7 +92,7 @@ export const UserEdit = () => {
                     defaultValue={userData?.username || ""}
                   />
                   {errors?.username && (
-                    <p className="text-sm text-red-600">{errors.username?.message}</p>
+                    <p className="text-sm text-red-600">{String(errors.username?.message || '')}</p>
                   )}
                 </div>
               </div>
@@ -111,9 +112,9 @@ export const UserEdit = () => {
                   placeholder="Ingrese el correo electrónico"
                   defaultValue={userData?.email || ""}
                 />
-                {errors?.email && (
-                  <p className="text-sm text-red-600">{errors.email?.message}</p>
-                )}
+                  {errors?.email && (
+                    <p className="text-sm text-red-600">{String(errors.email?.message || '')}</p>
+                  )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -132,7 +133,7 @@ export const UserEdit = () => {
                     defaultValue={userData?.profile_image_url || ""}
                   />
                   {errors?.profile_image_url && (
-                    <p className="text-sm text-red-600">{errors.profile_image_url?.message}</p>
+                    <p className="text-sm text-red-600">{String(errors.profile_image_url?.message || '')}</p>
                   )}
                 </div>
 
@@ -151,7 +152,7 @@ export const UserEdit = () => {
                     </SelectContent>
                   </Select>
                   {errors?.role && (
-                    <p className="text-sm text-red-600">{errors.role?.message}</p>
+                    <p className="text-sm text-red-600">{String(errors.role?.message || '')}</p>
                   )}
                 </div>
               </div>
@@ -160,7 +161,7 @@ export const UserEdit = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => goBack()}
+                  onClick={() => navigation.list("users")}
                 >
                   Cancelar
                 </Button>

@@ -1,5 +1,5 @@
 import React from "react";
-import { useShowButton } from "@refinedev/core";
+import { useNavigation } from "@refinedev/core";
 import { Button } from "../../ui/button";
 import { Eye } from "lucide-react";
 
@@ -16,14 +16,13 @@ export const ShowButton: React.FC<ShowButtonProps> = ({
   hideText = false,
   className,
 }) => {
-  const { onClick, disabled } = useShowButton({ recordItemId, resource });
+  const { show } = useNavigation();
 
   return (
     <Button
       variant="outline"
       size="sm"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={() => show(resource || "", recordItemId || "")}
       className={className}
     >
       <Eye className="h-4 w-4" />

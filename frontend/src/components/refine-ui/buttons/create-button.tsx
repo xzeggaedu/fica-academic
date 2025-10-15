@@ -1,5 +1,5 @@
 import React from "react";
-import { useCreateButton } from "@refinedev/core";
+import { useNavigation } from "@refinedev/core";
 import { Button } from "../../ui/button";
 import { Plus } from "lucide-react";
 
@@ -14,12 +14,11 @@ export const CreateButton: React.FC<CreateButtonProps> = ({
   hideText = false,
   className,
 }) => {
-  const { onClick, disabled } = useCreateButton({ resource });
+  const { create } = useNavigation();
 
   return (
     <Button
-      onClick={onClick}
-      disabled={disabled}
+      onClick={() => create(resource || "")}
       className={className}
     >
       <Plus className="h-4 w-4" />
