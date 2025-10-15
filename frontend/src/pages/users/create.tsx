@@ -9,7 +9,7 @@ import { Label } from "../../components/ui/forms/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/forms/select";
 
 export const UserCreate = () => {
-  const { saveButtonProps, formLoading, register, formState: { errors } } = useForm();
+  const { saveButtonProps, register, formState: { errors } } = useForm();
 
   const roleOptions = [
     { value: UserRoleEnum.UNAUTHORIZED, label: "No Autorizado" },

@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useList, CanAccess, useCan, useUpdate, useDelete, useInvalidate, useGetIdentity } from "@refinedev/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Trash2, RotateCcw, Archive, Users, Building2, BookOpen, Calendar, ChevronDown, Settings2 } from "lucide-react";
+import { Trash2, RotateCcw, Archive, Users, Building2, BookOpen, Calendar, ChevronDown, Settings2, Clock } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/data/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { TableFilters } from "@/components/ui/data/table-filters";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
@@ -32,8 +31,6 @@ import {
     PaginationEllipsis,
     PaginationItem,
     PaginationLink,
-    PaginationNext,
-    PaginationPrevious
 } from "@/components/ui/pagination";
 import {
     Tooltip,
@@ -125,13 +122,7 @@ export const RecycleBinList = () => {
     const [confirmationText, setConfirmationText] = useState("");
 
     // Debug: Monitorear cambios en selectedItem
-    useEffect(() => {
-        console.log("🔄 selectedItem changed:", selectedItem);
-        if (selectedItem === null) {
-            console.log("⚠️ selectedItem is now null - investigating...");
-            console.trace("Stack trace for selectedItem becoming null:");
-        }
-    }, [selectedItem]);
+    // Debug logging removed for production
 
     // Función para formatear fechas
     const formatDate = (dateString: string) => {
@@ -191,7 +182,6 @@ export const RecycleBinList = () => {
     // Función para confirmar restauración
     const handleConfirmRestore = () => {
         if (!selectedItem || !currentUser) return;
-        console.log(selectedItem.id, currentUser)
 
         restoreItem(
             {
@@ -235,10 +225,7 @@ export const RecycleBinList = () => {
     }, []);
 
     async function waitOneSecond(seconds: number): Promise<void> {
-        console.log("Inicio de la espera...");
         await new Promise<void>((resolve) => setTimeout(resolve, seconds));
-
-        console.log("Finalizó la espera.");
     }
 
     // Función para proceder a la confirmación final (Paso 2: Validar texto y abrir segundo modal)
@@ -252,14 +239,10 @@ export const RecycleBinList = () => {
         }
 
         // Cerrar primer modal
-        console.log("🔒 Cerrando primer modal, selectedItem:", selectedItem);
         setDeleteDialogOpen(false);
 
         // Esperar 0.5 segundos
         await waitOneSecond(250);
-
-        console.log("⏰ Después de espera, selectedItem:", selectedItem);
-        console.log("🚀 Abriendo segundo modal");
 
         // Abrir segundo modal
         setConfirmDeleteDialogOpen(true);
@@ -267,19 +250,12 @@ export const RecycleBinList = () => {
 
     // Función para confirmar eliminación permanente (Paso 3: Ejecutar eliminación)
     const handleConfirmPermanentDelete = useCallback((itemToDelete?: RecycleBinItem) => {
-        console.log("=== DEBUGGING handleConfirmPermanentDelete ===");
-        console.log("Parameter itemToDelete:", itemToDelete);
-        console.log("Current selectedItem state:", selectedItem);
-
         // Usar el parámetro si está disponible, sino usar el state
         const item = itemToDelete || selectedItem;
 
         if (!item) {
-            console.log("❌ No item available for deletion, aborting");
             return;
         }
-
-        console.log("✅ Item is valid, proceeding with delete:", item);
 
         permanentDelete(
             {
@@ -383,6 +359,15 @@ export const RecycleBinList = () => {
     }
 
     return (
+        <div className="container mx-auto py-6 space-y-6">
+        <div className="flex items-center justify-between">
+            <div className="flex items-start gap-2">
+              <Clock className="h-6 w-6 mt-1" />
+              <div className="flex flex-col">
+                <h1 className="text-2xl font-bold">Papelera</h1>
+              </div>
+            </div>
+          </div>
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -813,5 +798,6 @@ export const RecycleBinList = () => {
                 </AlertDialogContent>
             </AlertDialog>
         </Card>
+        </div>
     );
 };

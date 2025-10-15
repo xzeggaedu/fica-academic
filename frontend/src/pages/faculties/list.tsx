@@ -2,7 +2,6 @@ import React, { useState, useMemo } from "react";
 import { useList, CanAccess, useCan, useUpdate, useInvalidate } from "@refinedev/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ENDPOINTS } from "@providers/dataProvider";
 import {
   Table,
   TableBody,
@@ -12,7 +11,7 @@ import {
   TableRow,
 } from "../../components/ui/data/table";
 import { Badge } from "../../components/ui/badge";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, Clock, XCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { TableFilters } from "../../components/ui/data/table-filters";
 import { FacultyActions } from "../../components/ui/faculties/faculty-actions";
@@ -177,14 +176,22 @@ export const FacultyList = () => {
       action="list"
       fallback={<Unauthorized resourceName="facultades y escuelas" message="Solo los administradores pueden gestionar facultades y escuelas." />}
     >
-      <div className="space-y-6 p-6">
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-start gap-2">
+            <Clock className="h-6 w-6 mt-1" />
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-bold">Facultades</h1>
+            </div>
+          </div>
+        </div>
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
               <div>
-                <CardTitle>Facultades</CardTitle>
+                <CardTitle>Lista de facultades y escuelas</CardTitle>
                 <CardDescription>
-                  Gestiona todas las facultades del sistema
+                  Aquí puedes ver y administrar el listado de facultades y sus respectivas escuelas.
                 </CardDescription>
               </div>
               <FacultyCreateButton onSuccess={handleSuccess} />

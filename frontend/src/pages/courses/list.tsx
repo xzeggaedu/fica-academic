@@ -9,13 +9,13 @@ import {
   TableRow,
 } from "@/components/ui/data/table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, X, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Save, X, ChevronDown, Clock } from "lucide-react";
 import { TableFilters } from "@/components/ui/data/table-filters";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import {
@@ -472,7 +472,15 @@ export const CoursesList = () => {
       action="list"
       fallback={<Unauthorized resourceName="asignaturas" message="Solo los administradores pueden gestionar asignaturas." />}
     >
-      <div className="space-y-6 p-6">
+      <div className="container mx-auto py-6 space-y-6">
+      <div className="flex items-center justify-between">
+          <div className="flex items-start gap-2">
+            <Clock className="h-6 w-6 mt-1" />
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-bold">Asignaturas</h1>
+            </div>
+          </div>
+        </div>
         {/* Formulario de creación */}
         <Card>
           <CardHeader>
@@ -622,6 +630,9 @@ export const CoursesList = () => {
         <Card>
           <CardHeader>
             <CardTitle>Lista de Asignaturas ({total})</CardTitle>
+            <CardDescription>
+              Aquí puedes ver y administrar el listado de asignaturas.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {/* Filtros y selector de columnas */}

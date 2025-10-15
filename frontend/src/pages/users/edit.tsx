@@ -1,6 +1,7 @@
 import React from "react";
 import { useForm } from "@refinedev/react-hook-form";
-import { useNavigation, CanAccess } from "@refinedev/core";
+import { useNavigation, CanAccess, useOne } from "@refinedev/core";
+import { useParams } from "react-router-dom";
 import { UserRoleEnum } from "../../types/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -9,10 +10,15 @@ import { Label } from "../../components/ui/forms/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/forms/select";
 
 export const UserEdit = () => {
-  const { saveButtonProps, formLoading, queryResult, register, formState: { errors } } = useForm();
-  const { goBack } = useNavigation();
+  const { id } = useParams<{ id: string }>();
+  const { data: queryResult, isLoading: formLoading } = useOne({
+    resource: "users",
+    id: id || "",
+  });
+  const { saveButtonProps, register, formState: { errors } } = useForm();
+  const navigation = useNavigation();
 
-  const userData = queryResult?.data?.data;
+  const userData = queryResult?.data;
 
   const roleOptions = [
     { value: UserRoleEnum.UNAUTHORIZED, label: "No Autorizado" },

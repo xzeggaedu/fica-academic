@@ -20,6 +20,7 @@ import { UserCreateButton } from "../../components/ui/users/user-create-button";
 import { UserViewSheet } from "../../components/ui/users/user-view-sheet";
 import { getTableColumnClass } from "../../components/refine-ui/theme/theme-table";
 import { Unauthorized } from "../unauthorized";
+import { Clock } from "lucide-react";
 
 export const UserList = () => {
   // Verificar permisos primero
@@ -219,7 +220,13 @@ export const UserList = () => {
       action="list"
       fallback={<Unauthorized resourceName="usuarios" message="Solo los administradores pueden gestionar usuarios." />}
     >
-      <div className="space-y-6 p-6">
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock className="h-6 w-6" />
+            <h1 className="text-2xl font-bold">Usuarios</h1>
+          </div>
+        </div>
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">

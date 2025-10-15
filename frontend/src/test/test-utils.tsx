@@ -6,54 +6,60 @@
 import React, { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
-// Mock de AuthProvider para las pruebas
-const mockAuthProvider = {
-  login: vi.fn().mockResolvedValue({ success: true }),
-  logout: vi.fn().mockResolvedValue({ success: true }),
-  check: vi.fn().mockResolvedValue({ authenticated: true }),
-  onError: vi.fn().mockResolvedValue({}),
-  getPermissions: vi.fn().mockResolvedValue(['admin']),
-  getIdentity: vi.fn().mockResolvedValue({
-    id: 1,
-    name: 'Admin User',
-    username: 'admin',
-    email: 'admin@example.com',
-    role: 'admin',
-  }),
-};
+/**
+ * Crear una instancia de QueryClient para tests
+ * Configuración según React Query testing docs
+ */
+const createTestQueryClient = () =>
+  new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: Infinity, // v5: cacheTime → gcTime
+        staleTime: 0,
+      },
+      mutations: {
+        retry: false,
+      },
+    },
+  });
 
-// Mock de DataProvider para las pruebas
-const mockDataProvider = {
-  getList: vi.fn().mockResolvedValue({ data: [], total: 0 }),
-  getOne: vi.fn().mockResolvedValue({ data: {} }),
-  getMany: vi.fn().mockResolvedValue({ data: [] }),
-  create: vi.fn().mockResolvedValue({ data: {} }),
-  update: vi.fn().mockResolvedValue({ data: {} }),
-  deleteOne: vi.fn().mockResolvedValue({ data: {} }),
-  getApiUrl: vi.fn().mockReturnValue('http://localhost:8000'),
-  custom: vi.fn().mockResolvedValue({ data: {} }),
-};
-
-interface AllTheProvidersProps {
+interface WrapperProps {
   children: React.ReactNode;
 }
 
 /**
- * Wrapper simple que provee solo el MemoryRouter para las pruebas
+ * Wrapper simple que solo provee QueryClient y Router
+ * Usado cuando los hooks de Refine están mockeados directamente
  */
-export const AllTheProviders: React.FC<AllTheProvidersProps> = ({ children }) => {
-  return <MemoryRouter>{children}</MemoryRouter>;
-};
+function createWrapper() {
+  const queryClient = createTestQueryClient();
+
+  return function Wrapper({ children }: WrapperProps) {
+    return (
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            {children}
+          </TooltipProvider>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+  };
+}
 
 /**
- * Función helper para renderizar componentes con todos los providers
+ * Función helper para renderizar componentes con providers mínimos
+ * Usa un nuevo QueryClient por test para aislamiento completo
  */
 export const renderWithProviders = (
   ui: ReactElement,
   options?: Omit<RenderOptions, 'wrapper'>
 ) => {
-  return render(ui, { wrapper: AllTheProviders, ...options });
+  return render(ui, { wrapper: createWrapper(), ...options });
 };
 
 /**
@@ -62,6 +68,6 @@ export const renderWithProviders = (
 export * from '@testing-library/react';
 
 /**
- * Exportar los mocks para que puedan ser usados en las pruebas
+ * Exportar helper para crear QueryClient en tests específicos
  */
-export { mockAuthProvider, mockDataProvider };
+export { createTestQueryClient };
