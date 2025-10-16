@@ -40,8 +40,10 @@ const mockCourses = [
     course_name: 'Introducción a la Programación',
     department_code: 'CS',
     is_active: true,
+    deleted: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+    deleted_at: null,
     schools: [],
   },
   {
@@ -50,8 +52,10 @@ const mockCourses = [
     course_name: 'Cálculo Diferencial',
     department_code: 'MATH',
     is_active: true,
+    deleted: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+    deleted_at: null,
     schools: [],
   },
 ];
@@ -258,5 +262,30 @@ describe('CoursesList - Lista de Asignaturas', () => {
       // Si no hay input, el curso debe seguir visible
       expect(screen.queryByText('CS101') || screen.queryByDisplayValue('CS101')).toBeTruthy();
     }
+  });
+
+  it('debería abrir el diálogo de confirmación al hacer clic en eliminar', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<CoursesList />);
+
+    // Buscar el botón de eliminar
+    const deleteButtons = screen.getAllByTestId('trash-icon');
+    expect(deleteButtons.length).toBeGreaterThan(0);
+
+    // Hacer clic en el primer botón de eliminar
+    await user.click(deleteButtons[0].closest('button')!);
+
+    // Verificar que aparece el diálogo de confirmación
+    await waitFor(() => {
+      expect(screen.getByText(/¿Eliminar asignatura?/i)).toBeInTheDocument();
+    });
+  });
+
+  it('debería incluir campos deleted y deleted_at en el mock de datos', () => {
+    // Verificar que los mock courses tienen los campos necesarios para soft-delete
+    expect(mockCourses[0]).toHaveProperty('deleted');
+    expect(mockCourses[0]).toHaveProperty('deleted_at');
+    expect(mockCourses[0].deleted).toBe(false);
+    expect(mockCourses[0].deleted_at).toBe(null);
   });
 });

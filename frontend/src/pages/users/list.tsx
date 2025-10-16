@@ -48,6 +48,7 @@ export const UserList = () => {
   const { mutate: createUser, mutation: createState } = useCreate();
 
   const invalidate = useInvalidate();
+
   const isDeleting = deleteState.isPending;
   const isCreating = createState.isPending;
 
@@ -72,11 +73,6 @@ export const UserList = () => {
       },
       {
         onSuccess: () => {
-          // invalidate({
-          //   resource: "users",
-          //   invalidates: ["all", "list"],
-          // });
-
           toast.success('Usuario creado exitosamente', {
             description: `El usuario "${userData.username}" ha sido creado correctamente.`,
             richColors: true,
@@ -134,7 +130,7 @@ export const UserList = () => {
             description: error.message,
             richColors: true,
           });
-        },
+        }
       }
     );
   };
@@ -165,6 +161,7 @@ export const UserList = () => {
 
   // Filtrar datos basado en búsqueda
   const filteredData = useMemo(() => {
+    console.log("users", users);
     if (!users) return [];
 
     if (!searchValue.trim()) return users;

@@ -44,11 +44,8 @@ class School(Base):
 
     # Relaciones
     faculty: Mapped[Faculty] = relationship("Faculty", back_populates="schools", lazy="selectin", init=False)
-    courses: Mapped[list["CourseSchool"]] = relationship(
-        "CourseSchool",
-        back_populates="school",
-        cascade="all, delete-orphan",
-        init=False
+    courses: Mapped[list[CourseSchool]] = relationship(
+        "CourseSchool", back_populates="school", cascade="all, delete-orphan", init=False
     )
 
     def __repr__(self) -> str:

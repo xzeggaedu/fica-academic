@@ -8,10 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/forms/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useNotification, CanAccess, useCan, useDelete, useInvalidate, useList, useCreate, useUpdate } from "@refinedev/core";
+import { useNotification, CanAccess, useCan, useInvalidate, useList, useCreate, useUpdate } from "@refinedev/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ScheduleDeleteDialog } from "@/components/ui/schedule-times/schedule-delete-dialog";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Unauthorized } from "../unauthorized";
 import {
   Tooltip,
@@ -147,10 +147,10 @@ export function ScheduleTimesList() {
   const { open } = useNotification();
 
   // Hooks de Refine para eliminación
-  const { mutate: deleteSchedule, mutation: deleteState } = useDelete();
+  const { mutate: softDeleteSchedule, mutation: softDeleteState } = useUpdate();
   const invalidate = useInvalidate();
   const queryClient = useQueryClient();
-  const isDeleting = deleteState.isPending;
+  const isDeleting = softDeleteState.isPending;
 
   // Función helper para ordenar los horarios por days_array
   const sortScheduleTimes = (scheduleTimes: ScheduleTime[]): ScheduleTime[] => {
@@ -455,38 +455,37 @@ export function ScheduleTimesList() {
     setDeleteDialogOpen(true);
   };
 
-  // Función para manejar eliminación con hooks de Refine
-  const handleConfirmDelete = (scheduleId: number, scheduleRange: string, dayGroupName: string) => {
-    deleteSchedule(
+  // Función para manejar eliminación con hooks de Refine (soft-delete)
+  const handleConfirmDelete = () => {
+    if (!scheduleToDelete) return;
+
+    const { id, range, dayGroup } = scheduleToDelete;
+
+    softDeleteSchedule(
       {
-        resource: "schedule-times",
-        id: scheduleId,
+        resource: "soft-delete",
+        id,
+        values: { type: "catalog/schedule-times" },
         successNotification: false,
       },
       {
         onSuccess: () => {
-          toast.success('Horario eliminado', {
-            description: `El horario "${dayGroupName} - ${scheduleRange}" ha sido eliminado exitosamente.`,
-            richColors: true,
-          });
-
-          // Actualizar estado local
-          if (scheduleToDelete) {
-            setScheduleTimes(sortScheduleTimes(scheduleTimes.filter(st => st.id !== scheduleToDelete.id)));
-          }
-
-          // Invalidar cache
           invalidate({
             resource: "schedule-times",
             invalidates: ["list"],
           });
 
+          toast.success('Horario movido a papelera', {
+            description: `El horario "${dayGroup}: ${range}" ha sido movido a la papelera de reciclaje.`,
+            richColors: true,
+          });
+
           setScheduleToDelete(null);
           setDeleteDialogOpen(false);
         },
-        onError: (error) => {
+        onError: (error: any) => {
           console.error("Error deleting schedule:", error);
-          toast.error('Error al eliminar horario', {
+          toast.error('Error al mover a papelera', {
             description: error?.message || 'Error desconocido',
             richColors: true,
           });
@@ -900,14 +899,14 @@ export function ScheduleTimesList() {
 
         {/* Modal de confirmación de eliminación */}
         {scheduleToDelete && (
-          <ScheduleDeleteDialog
-            scheduleId={scheduleToDelete.id}
-            scheduleRange={scheduleToDelete.range}
-            dayGroupName={scheduleToDelete.dayGroup}
+          <DeleteConfirmDialog
+            entityType="horario"
+            entityName={`${scheduleToDelete.dayGroup}: ${scheduleToDelete.range}`}
             isOpen={deleteDialogOpen}
             onClose={handleDeleteCancel}
-            onDelete={handleConfirmDelete}
+            onConfirm={handleConfirmDelete}
             isDeleting={isDeleting}
+            gender="m"
           />
         )}
       </div>

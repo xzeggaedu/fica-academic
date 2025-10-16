@@ -56,12 +56,14 @@ def mock_redis_pools():
 def client(mock_redis_pools) -> Generator[TestClient, Any, None]:
     """Create test client with mocked Redis dependencies."""
     # Mock Redis cache setup
-    with patch("src.app.core.utils.cache.client", mock_redis_pools["cache_client"]), patch(
-        "src.app.core.utils.cache.pool", mock_redis_pools["cache_pool"]
-    ), patch("src.app.core.utils.queue.pool", mock_redis_pools["queue_pool"]), patch(
-        "src.app.core.setup.create_redis_cache_pool"
-    ), patch("src.app.core.setup.create_redis_queue_pool"), patch("src.app.core.setup.close_redis_cache_pool"), patch(
-        "src.app.core.setup.close_redis_queue_pool"
+    with (
+        patch("src.app.core.utils.cache.client", mock_redis_pools["cache_client"]),
+        patch("src.app.core.utils.cache.pool", mock_redis_pools["cache_pool"]),
+        patch("src.app.core.utils.queue.pool", mock_redis_pools["queue_pool"]),
+        patch("src.app.core.setup.create_redis_cache_pool"),
+        patch("src.app.core.setup.create_redis_queue_pool"),
+        patch("src.app.core.setup.close_redis_cache_pool"),
+        patch("src.app.core.setup.close_redis_queue_pool"),
     ):
         with TestClient(app) as _client:
             yield _client

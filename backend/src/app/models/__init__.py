@@ -10,12 +10,12 @@ from .user import User
 from .user_scope import UserScope
 
 __all__ = [
-    "User", 
-    "UserRoleEnum", 
-    "Faculty", 
-    "School", 
+    "User",
+    "UserRoleEnum",
+    "Faculty",
+    "School",
     "UserScope",
     "CatalogCourse",
     "CatalogScheduleTime",
-    "CourseSchool"
+    "CourseSchool",
 ]

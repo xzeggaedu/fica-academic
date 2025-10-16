@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, time
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Time, ARRAY
+from sqlalchemy import ARRAY, Boolean, DateTime, Integer, String, Time
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.db.database import Base
@@ -39,6 +39,10 @@ class CatalogScheduleTime(Base):
     )
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), default=None, onupdate=datetime.now(UTC), init=False
+    )
+    deleted: Mapped[bool | None] = mapped_column(Boolean, default=False, nullable=True, index=True, init=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None, nullable=True, init=False
     )
 
     def __repr__(self) -> str:

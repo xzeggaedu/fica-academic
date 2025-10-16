@@ -23,29 +23,30 @@ ALLOWED_EXTENSIONS = {
 # Tamaños máximos por tipo (en bytes)
 MAX_FILE_SIZES = {
     "schedules": 10 * 1024 * 1024,  # 10MB
-    "users": 5 * 1024 * 1024,       # 5MB
-    "temp": 100 * 1024 * 1024,      # 100MB
+    "users": 5 * 1024 * 1024,  # 5MB
+    "temp": 100 * 1024 * 1024,  # 100MB
 }
 
+
 def get_upload_path(category: str, filename: str = None) -> Path:
-    """
-    Obtiene la ruta completa para un archivo en una categoría específica.
-    
+    """Obtiene la ruta completa para un archivo en una categoría específica.
+
     Args:
         category: Categoría del archivo (data, schedules, users, temp)
         filename: Nombre del archivo (opcional)
-    
+
     Returns:
         Path completo del archivo
     """
     base_path = UPLOAD_PATHS.get(category)
     if not base_path:
         raise ValueError(f"Categoría de upload no válida: {category}")
-    
+
     if filename:
         return base_path / filename
-    
+
     return base_path
+
 
 def ensure_upload_dirs():
     """Asegura que todos los directorios de upload existan."""

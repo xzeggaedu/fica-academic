@@ -309,7 +309,7 @@ class TestSoftDeleteProfessor:
     @pytest.mark.asyncio
     async def test_soft_delete_professor_success(self, mock_db, current_admin_user_dict):
         """Test successful explicit soft delete."""
-        mock_professor = {"id": 1, "professor_id": "P001"}
+        mock_professor = {"id": 1, "professor_id": "P001", "professor_name": "Dr. Juan Pérez", "deleted": False}
 
         with patch("src.app.api.v1.catalog_professor.crud_catalog_professor") as mock_crud:
             mock_crud.get = AsyncMock(return_value=mock_professor)
@@ -317,10 +317,14 @@ class TestSoftDeleteProfessor:
             with patch("src.app.api.v1.catalog_professor.soft_delete_professor") as mock_soft_delete:
                 mock_soft_delete.return_value = True
 
-                result = await soft_delete_professor_endpoint(1, mock_db, current_admin_user_dict)
+                with patch("src.app.api.v1.catalog_professor.create_recycle_bin_entry") as mock_recycle:
+                    mock_recycle.return_value = None
 
-                assert result is None
-                mock_soft_delete.assert_called_once_with(mock_db, 1)
+                    result = await soft_delete_professor_endpoint(1, mock_db, current_admin_user_dict)
+
+                    assert result is None
+                    mock_soft_delete.assert_called_once_with(mock_db, 1)
+                    mock_recycle.assert_called_once()
 
 
 class TestRestoreProfessor:

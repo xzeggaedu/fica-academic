@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoreHorizontal, Edit, Trash2, Building2, Archive } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,15 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { FacultyEditSheet } from "./faculty-edit-sheet";
 import { FacultySchoolsSheet } from "./faculty-schools-sheet";
 
@@ -104,39 +96,15 @@ export function FacultyActions({
       />
 
       {/* Dialog de confirmación de soft delete */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Archive className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-              ¿Eliminar facultad?
-            </AlertDialogTitle>
-            <div className="text-sm text-muted-foreground space-y-3">
-              <div className="text-base">
-                La facultad <strong className="text-foreground">{facultyName}</strong> será movida a la papelera de reciclaje.
-              </div>
-              <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 p-3">
-                <span className="text-sm flex text-blue-800 dark:text-blue-200 items-start">
-                  <span className="mt-1">💡</span> <span className="ml-2"><strong>Podrás restaurarla más tarde</strong> desde la papelera de reciclaje si lo necesitas.</span>
-                </span>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Esta facultad y sus escuelas asociadas estarán ocultas hasta que sea restaurada o eliminada permanentemente.
-              </div>
-            </div>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              disabled={isDeleting}
-              className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {isDeleting ? 'Moviendo...' : 'Mover a papelera'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        entityType="facultad"
+        entityName={facultyName}
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+        gender="f"
+      />
 
       {/* Sheet para gestionar escuelas */}
       <FacultySchoolsSheet
