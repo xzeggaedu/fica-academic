@@ -68,19 +68,19 @@ class TestReadUsers:
     @pytest.mark.asyncio
     async def test_read_users_success(self, mock_db, current_user_dict):
         """Test successful users list retrieval."""
-        mock_users_data = {"data": [{"id": 1}, {"id": 2}], "count": 2}
+        mock_users_data = {"data": [{"id": 1}, {"id": 2}], "total_count": 2}
 
-        with patch("src.app.api.v1.users.crud_users") as mock_crud:
-            mock_crud.get_multi = AsyncMock(return_value=mock_users_data)
+        with patch("src.app.api.v1.users.get_non_deleted_users") as mock_get_users:
+            mock_get_users.return_value = mock_users_data
 
             with patch("src.app.api.v1.users.paginated_response") as mock_paginated:
-                expected_response = {"data": [{"id": 1}, {"id": 2}], "pagination": {}}
+                expected_response = {"data": [{"id": 1}, {"id": 2}], "total_count": 2, "page": 1, "items_per_page": 10}
                 mock_paginated.return_value = expected_response
 
                 result = await read_users(Mock(), mock_db, current_user_dict, page=1, items_per_page=10)
 
                 assert result == expected_response
-                mock_crud.get_multi.assert_called_once()
+                mock_get_users.assert_called_once()
                 mock_paginated.assert_called_once()
 
 
@@ -99,7 +99,7 @@ class TestGetCurrentUserProfile:
             mock_crud.get.assert_called_once_with(
                 db=mock_db,
                 uuid=current_user_dict["user_uuid"],
-                is_deleted=False,
+                deleted=False,
                 schema_to_select=UserRead,
             )
 
