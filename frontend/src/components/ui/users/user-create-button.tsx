@@ -5,9 +5,18 @@ import { UserCreateSheet } from "./user-create-sheet";
 
 interface UserCreateButtonProps {
   onSuccess?: () => void;
+  onCreate?: (userData: {
+    name: string;
+    username: string;
+    email: string;
+    password: string;
+    profile_image_url: string;
+    role: string;
+  }, onSuccessCallback?: () => void) => void;
+  isCreating?: boolean;
 }
 
-export function UserCreateButton({ onSuccess }: UserCreateButtonProps) {
+export function UserCreateButton({ onSuccess, onCreate, isCreating }: UserCreateButtonProps) {
   const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false);
 
   const handleCreate = () => {
@@ -18,6 +27,20 @@ export function UserCreateButton({ onSuccess }: UserCreateButtonProps) {
     setIsCreateSheetOpen(false);
     if (onSuccess) {
       onSuccess();
+    }
+  };
+
+  const handleCreateWithCallback = (userData: {
+    name: string;
+    username: string;
+    email: string;
+    password: string;
+    profile_image_url: string;
+    role: string;
+  }) => {
+    if (onCreate) {
+      // Pasar handleSuccess como callback para que se llame después del éxito
+      onCreate(userData, handleSuccess);
     }
   };
 
@@ -33,6 +56,8 @@ export function UserCreateButton({ onSuccess }: UserCreateButtonProps) {
         isOpen={isCreateSheetOpen}
         onClose={() => setIsCreateSheetOpen(false)}
         onSuccess={handleSuccess}
+        onCreate={handleCreateWithCallback}
+        isCreating={isCreating}
       />
     </>
   );

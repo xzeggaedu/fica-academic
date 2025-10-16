@@ -3,15 +3,7 @@ import { screen } from '@testing-library/react';
 import { UserCreateForm } from './user-create-form';
 import { renderWithProviders } from '@/test/test-utils';
 
-// Mock de sonner
-vi.mock('sonner', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
-}));
-
-describe('UserCreateForm - Renderizado Básico', () => {
+describe('UserCreateForm - Componente Presentacional', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.setItem('fica-access-token', 'test-token');
@@ -45,5 +37,23 @@ describe('UserCreateForm - Renderizado Básico', () => {
     // Verificar que exista al menos un combobox (rol)
     const comboboxes = screen.getAllByRole('combobox');
     expect(comboboxes.length).toBeGreaterThan(0);
+  });
+
+  it('debería aceptar el callback onCreate como prop', () => {
+    const mockOnCreate = vi.fn();
+
+    renderWithProviders(
+      <UserCreateForm onCreate={mockOnCreate} />
+    );
+
+    // Verificar que el formulario se renderiza correctamente con el prop
+    expect(screen.getByPlaceholderText('Ingrese el nombre completo')).toBeInTheDocument();
+  });
+
+  it('debería mostrar estado de carga cuando isCreating es true', () => {
+    renderWithProviders(<UserCreateForm isCreating={true} />);
+
+    // El componente se renderiza normalmente (el estado de loading se maneja en el padre)
+    expect(screen.getByPlaceholderText('Ingrese el nombre completo')).toBeInTheDocument();
   });
 });

@@ -1,8 +1,9 @@
-from typing import Any
+from typing import Annotated, Any
 
 from arq.jobs import Job as ArqJob
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from ...api.dependencies import get_current_superuser
 from ...core.utils import queue
 from ...schemas.job import Job
 
@@ -10,13 +11,18 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
 @router.post("/task", response_model=Job, status_code=201)
-async def create_task(message: str) -> dict[str, str]:
+async def create_task(
+    message: str,
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+) -> dict[str, str]:
     """Create a new background task.
 
     Parameters
     ----------
     message: str
         The message or data to be processed by the task.
+    current_user: dict
+        Current authenticated admin user.
 
     Returns
     -------
@@ -34,13 +40,18 @@ async def create_task(message: str) -> dict[str, str]:
 
 
 @router.get("/task/{task_id}")
-async def get_task(task_id: str) -> dict[str, Any] | None:
+async def get_task(
+    task_id: str,
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+) -> dict[str, Any] | None:
     """Get information about a specific background task.
 
     Parameters
     ----------
     task_id: str
         The ID of the task.
+    current_user: dict
+        Current authenticated admin user.
 
     Returns
     -------

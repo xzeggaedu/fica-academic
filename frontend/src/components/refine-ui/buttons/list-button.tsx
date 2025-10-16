@@ -1,5 +1,5 @@
 import React from "react";
-import { useListButton } from "@refinedev/core";
+import { useNavigation } from "@refinedev/core";
 import { Button } from "../../ui/button";
 import { List } from "lucide-react";
 
@@ -14,13 +14,12 @@ export const ListButton: React.FC<ListButtonProps> = ({
   hideText = false,
   className,
 }) => {
-  const { onClick, disabled } = useListButton({ resource });
+  const { list } = useNavigation();
 
   return (
     <Button
       variant="outline"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={() => list(resource || "")}
       className={className}
     >
       <List className="h-4 w-4" />

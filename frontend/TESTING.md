@@ -1,157 +1,269 @@
-# Testing Guide
+# Estrategia de Testing - FICA Academics
 
-Este proyecto utiliza **Vitest** y **@testing-library/react** para las pruebas unitarias del frontend.
+## 📋 Resumen
 
-## Configuración
+Este documento describe la estrategia de testing unitario implementada para el frontend de FICA Academics. La estrategia se enfoca en probar las **páginas/vistas principales** y los **componentes críticos de UX/UI**, dejando de lado providers, hooks y componentes genéricos de UI.
 
-### Dependencias instaladas:
+## 🎯 Alcance de Testing
 
-- `vitest` - Framework de testing
-- `@testing-library/react` - Utilidades para testing de componentes React
-- `@testing-library/jest-dom` - Matchers adicionales para DOM
-- `@testing-library/user-event` - Simulación de eventos de usuario
-- `@testing-library/dom` - Utilidades base para testing DOM
-- `jsdom` - Entorno DOM simulado
+### ✅ QUÉ SE PRUEBA
 
-## Scripts disponibles
+#### 1. Páginas/Vistas (Interfaz de Usuario)
+
+- ✅ `pages/login/index.tsx` - Autenticación
+- ✅ `pages/users/list.tsx` - Lista de usuarios
+- ✅ `pages/faculties/list.tsx` - Lista de facultades
+- ✅ `pages/courses/list.tsx` - Lista de cursos
+- ✅ `pages/recycle-bin/list.tsx` - Papelera de reciclaje
+
+#### 2. Componentes Críticos (UX/UI)
+
+- ✅ `components/ui/users/user-create-form.tsx` - Crear usuario
+- ✅ `components/ui/faculties/faculty-create-form.tsx` - Crear facultad
+- ✅ `components/ui/faculties/faculty-schools-sheet.tsx` - Gestión de escuelas
+- ✅ `components/ui/modals/session-expired-modal.tsx` - Modal de sesión expirada
+
+### ❌ QUÉ NO SE PRUEBA
+
+- ❌ **Providers** (`authProvider.ts`, `dataProvider.ts`, `accessControlProvider.ts`)
+- ❌ **Hooks personalizados** (`use-api-debug.ts`, `use-token-refresh.ts`, etc.)
+- ❌ **Componentes genéricos de UI** (`button.tsx`, `input.tsx`, `dialog.tsx`, etc.)
+- ❌ **Utilidades** (`utils.ts`, `iconMap.tsx`, etc.)
+
+**Razón**: Los providers y hooks se prueban indirectamente a través de las vistas que los utilizan. Los componentes genéricos de UI son de terceros (Shadcn/ui) o muy simples.
+
+## 🛠️ Herramientas y Configuración
+
+### Stack de Testing
+
+- **Framework**: [Vitest](https://vitest.dev/) - Rápido y compatible con Vite
+- **Testing Library**: [@testing-library/react](https://testing-library.com/react) - Testing orientado al usuario
+- **Mock API**: [MSW (Mock Service Worker)](https://mswjs.io/) - Intercepta y mockea llamadas HTTP
+- **Aserciones**: [jest-dom](https://github.com/testing-library/jest-dom) - Matchers personalizados para DOM
+
+### Estructura de Archivos
+
+```
+frontend/
+├── src/
+│   ├── pages/
+│   │   ├── login/
+│   │   │   ├── index.tsx
+│   │   │   └── index.test.tsx          ✅ Test de página
+│   │   ├── users/
+│   │   │   ├── list.tsx
+│   │   │   └── list.test.tsx            ✅ Test de página
+│   │   └── ...
+│   ├── components/
+│   │   └── ui/
+│   │       ├── users/
+│   │       │   ├── user-create-form.tsx
+│   │       │   └── user-create-form.test.tsx  ✅ Test de componente
+│   │       └── ...
+│   ├── mocks/
+│   │   ├── handlers.ts                  📦 Handlers de MSW
+│   │   └── server.ts                    🖥️ Server de MSW
+│   └── test/
+│       ├── setup.ts                     ⚙️ Configuración global
+│       └── test-utils.tsx               🛠️ Utilidades de testing
+└── vitest.config.ts                     ⚙️ Configuración de Vitest
+```
+
+## 📝 Convenciones de Testing
+
+### Nombrado de Tests
+
+```typescript
+describe('NombreComponente - Descripción del Contexto', () => {
+  it('debería hacer X cuando Y', () => {
+    // Arrange, Act, Assert
+  });
+});
+```
+
+### Patrón AAA (Arrange, Act, Assert)
+
+```typescript
+it('debería mostrar usuarios desde la API', async () => {
+  // Arrange: Preparar el entorno
+  renderWithRefine(<UserList />);
+
+  // Act: Ejecutar la acción (implícito en la carga)
+
+  // Assert: Verificar el resultado
+  await waitFor(() => {
+    expect(screen.getByText('Admin User')).toBeInTheDocument();
+  });
+});
+```
+
+### Uso de MSW
+
+Los handlers de MSW se definen en `src/mocks/handlers.ts`:
+
+```typescript
+export const handlers = [
+  http.get('http://localhost:8000/api/v1/users', () => {
+    return HttpResponse.json(mockUsers);
+  }),
+  // ...
+];
+```
+
+Para override en tests específicos:
+
+```typescript
+it('debería mostrar mensaje cuando no hay usuarios', async () => {
+  const { server } = await import('@/mocks/server');
+  const { http, HttpResponse } = await import('msw');
+
+  server.use(
+    http.get('http://localhost:8000/api/v1/users', () => {
+      return HttpResponse.json([]);
+    })
+  );
+
+  renderWithRefine(<UserList />);
+  // ...
+});
+```
+
+## 🧪 Tipos de Tests por Categoría
+
+### Tests de Páginas/Vistas
+
+**Qué probar**:
+
+1. ✅ Renderizado de elementos principales (título, botones, tabla)
+1. ✅ Carga de datos desde API (MSW)
+1. ✅ Estados vacíos (sin datos)
+1. ✅ Interacciones básicas (click en fila, abrir modales)
+1. ✅ Filtros y búsqueda
+1. ✅ Paginación
+1. ✅ Estados de carga
+
+**Ejemplo**:
+
+```typescript
+describe('UserList - Lista de Usuarios con MSW', () => {
+  it('debería cargar y mostrar usuarios desde la API (MSW)', async () => {
+    renderWithRefine(<UserList />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Admin User')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('admin@example.com')).toBeInTheDocument();
+  });
+});
+```
+
+### Tests de Componentes Críticos
+
+**Qué probar**:
+
+1. ✅ Renderizado de campos del formulario
+1. ✅ Validaciones básicas
+1. ✅ Estados de botones (habilitado/deshabilitado)
+1. ✅ Transformaciones de datos (ej: mayúsculas en acrónimos)
+1. ✅ Apertura/cierre de modales o sheets
+
+**Ejemplo**:
+
+```typescript
+describe('FacultyCreateForm - Renderizado Básico', () => {
+  it('debería renderizar los campos del formulario', () => {
+    renderWithProviders(<FacultyCreateForm />);
+
+    expect(screen.getByLabelText(/Nombre/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Acrónimo/i)).toBeInTheDocument();
+  });
+});
+```
+
+## 🚀 Comandos de Testing
 
 ```bash
+# Ejecutar todos los tests
+npm test
+
 # Ejecutar tests en modo watch
-npm run test
+npm run test:watch
 
-# Ejecutar tests una sola vez
-npm run test:run
+# Ejecutar tests con cobertura
+npm run test:coverage
 
-# Ejecutar tests con interfaz gráfica
+# Ejecutar tests de un archivo específico
+npm test -- src/pages/login/index.test.tsx
+
+# Ejecutar tests con UI de Vitest
 npm run test:ui
 ```
 
-## Estructura de archivos
+## 📊 Cobertura de Testing
 
-```
-src/
-├── test/
-│   └── setup.ts          # Configuración global de tests
-├── components/
-│   └── ui/
-│       ├── button.test.tsx
-│       ├── card.test.tsx
-│       ├── input.test.tsx
-│       └── counter.test.tsx
-└── ...
-```
+### Estado Actual
 
-## Configuración
+- **Total de tests**: 77
+- **Tests pasando**: 38 ✅
+- **Tests fallando**: 39 ❌ (en proceso de ajuste)
 
-### vite.config.ts
+### Archivos de Test
 
-```typescript
-export default defineConfig({
-  // ... configuración de Vite
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    css: true,
-  },
-});
+1. ✅ `pages/login/index.test.tsx` - Login page
+1. ✅ `pages/users/list.test.tsx` - Users list
+1. ✅ `pages/faculties/list.test.tsx` - Faculties list
+1. ✅ `pages/courses/list.test.tsx` - Courses list
+1. ✅ `pages/recycle-bin/list.test.tsx` - Recycle bin
+1. ✅ `components/ui/users/user-create-form.test.tsx` - User create form
+1. ✅ `components/ui/faculties/faculty-create-form.test.tsx` - Faculty create form
+1. ✅ `components/ui/faculties/faculty-schools-sheet.test.tsx` - Faculty schools sheet
+1. ✅ `components/ui/modals/session-expired-modal.test.tsx` - Session expired modal (7/7 ✅)
+
+## 🐛 Debugging de Tests
+
+### Ver output detallado
+
+```bash
+npm test -- --reporter=verbose
 ```
 
-### src/test/setup.ts
+### Debugging en VS Code
 
-Configuración global que incluye:
+Agregar a `.vscode/launch.json`:
 
-- Importación de `@testing-library/jest-dom`
-- Mocks para APIs del navegador (matchMedia, ResizeObserver, etc.)
-- Mocks para localStorage y sessionStorage
-
-## Ejemplos de tests
-
-### Test básico de componente
-
-```typescript
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
-import { Button } from '@/components/ui/button';
-
-describe('Button Component', () => {
-  it('renders button with text', () => {
-    render(<Button>Click me</Button>);
-    expect(screen.getByRole('button', { name: 'Click me' })).toBeInTheDocument();
-  });
-});
+```json
+{
+  "type": "node",
+  "request": "launch",
+  "name": "Debug Tests",
+  "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/vitest",
+  "args": ["--run"],
+  "console": "integratedTerminal"
+}
 ```
 
-### Test con interacciones
+### Tips comunes
 
-```typescript
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+- **Queries no encuentran elementos**: Usar `screen.debug()` para ver el DOM
+- **Timing issues**: Usar `waitFor()` o `findBy*` queries
+- **MSW no intercepta**: Verificar que el handler esté registrado y la URL sea exacta
 
-describe('Input Component', () => {
-  it('handles value changes', () => {
-    const handleChange = vi.fn();
-    render(<Input onChange={handleChange} />);
+## 📚 Recursos
 
-    const input = screen.getByRole('textbox');
-    fireEvent.change(input, { target: { value: 'test input' } });
+- [Vitest Docs](https://vitest.dev/)
+- [Testing Library Docs](https://testing-library.com/)
+- [MSW Docs](https://mswjs.io/)
+- [Common Testing Patterns](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library)
 
-    expect(handleChange).toHaveBeenCalledTimes(1);
-    expect(input).toHaveValue('test input');
-  });
-});
-```
+## 🔄 Próximos Pasos
 
-### Test con estado
+1. ⏳ Ajustar tests fallidos para que pasen
+1. ⏳ Agregar tests para user-edit-form (si es necesario)
+1. ⏳ Incrementar cobertura de casos edge (validaciones, errores)
+1. ⏳ Configurar CI/CD para ejecutar tests automáticamente
 
-```typescript
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+______________________________________________________________________
 
-describe('Counter Component', () => {
-  it('increments count when button is clicked', async () => {
-    render(<Counter />);
-    const button = screen.getByRole('button', { name: 'Increment' });
-    const countDisplay = screen.getByTestId('count');
-
-    fireEvent.click(button);
-
-    await waitFor(() => {
-      expect(countDisplay).toHaveTextContent('1');
-    });
-  });
-});
-```
-
-## Convenciones
-
-1. **Naming**: Los archivos de test deben terminar en `.test.tsx` o `.test.ts`
-1. **Estructura**: Usar `describe` para agrupar tests relacionados
-1. **Assertions**: Usar matchers de `@testing-library/jest-dom` cuando sea apropiado
-1. **Mocks**: Usar `vi.fn()` para crear mocks de funciones
-1. **Async**: Usar `waitFor` para esperar cambios de estado asíncronos
-
-## Cobertura
-
-El proyecto está configurado para generar reportes de cobertura. Los archivos excluidos son:
-
-- `node_modules/`
-- `src/test/`
-- `**/*.d.ts`
-- `**/*.config.*`
-- `**/coverage/**`
-
-## Mejores prácticas
-
-1. **Testear comportamiento, no implementación**
-1. **Usar queries accesibles** (getByRole, getByLabelText, etc.)
-1. **Evitar testear detalles internos** de componentes
-1. **Mantener tests simples y legibles**
-1. **Usar data-testid solo cuando sea necesario**
-
-## Recursos útiles
-
-- [Vitest Documentation](https://vitest.dev/)
-- [Testing Library Documentation](https://testing-library.com/)
-- [Testing Library React](https://testing-library.com/docs/react-testing-library/intro/)
-- [Jest DOM Matchers](https://github.com/testing-library/jest-dom)
+**Última actualización**: Octubre 2025
+**Mantenido por**: Equipo de Desarrollo FICA Academics

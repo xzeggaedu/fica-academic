@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,11 +14,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
 
 interface UserCreateFormProps {
   onSuccess?: () => void;
   onClose?: () => void;
+  onCreate?: (userData: {
+    name: string;
+    username: string;
+    email: string;
+    password: string;
+    profile_image_url: string;
+    role: string;
+  }) => void;
+  isCreating?: boolean;
 }
 
 interface FormErrors {
@@ -33,7 +40,7 @@ interface FormErrors {
   submit?: string;
 }
 
-export function UserCreateForm({ onSuccess, onClose }: UserCreateFormProps) {
+export function UserCreateForm({ onSuccess, onClose, onCreate, isCreating = false }: UserCreateFormProps) {
   const [formData, setFormData] = useState({
     name: "",
     username: "",
@@ -44,8 +51,9 @@ export function UserCreateForm({ onSuccess, onClose }: UserCreateFormProps) {
     role: UserRoleEnum.UNAUTHORIZED,
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  const isSubmitting = isCreating;
 
   const roleOptions = [
     { value: UserRoleEnum.UNAUTHORIZED, label: "No Autorizado" },
@@ -118,81 +126,37 @@ export function UserCreateForm({ onSuccess, onClose }: UserCreateFormProps) {
     setShowConfirmDialog(true);
   };
 
-  const handleConfirmCreate = async () => {
-    setIsSubmitting(true);
+  const handleConfirmCreate = () => {
     setShowConfirmDialog(false);
 
-    try {
-      const token = localStorage.getItem("fica-access-token");
+    const dataToSend = {
+      name: formData.name,
+      username: formData.username,
+      email: formData.email,
+      password: formData.password,
+      profile_image_url: formData.profile_image_url || "https://www.profileimageurl.com",
+      role: formData.role,
+    };
 
-      if (!token) {
-        throw new Error("No hay token de autenticación disponible");
-      }
-
-      const url = `http://localhost:8000/api/v1/user/admin`;
-
-      const dataToSend = {
-        name: formData.name,
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-        profile_image_url: formData.profile_image_url || "https://www.profileimageurl.com",
-        role: formData.role,
-      };
-
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(dataToSend),
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Token expirado o inválido
-          localStorage.removeItem("fica-access-token");
-          localStorage.removeItem("fica-refresh-token");
-          throw new Error("Sesión expirada. Por favor, inicia sesión nuevamente.");
-        }
-
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      // Mostrar toast de éxito
-      toast.success('Usuario creado exitosamente', {
-        description: `El usuario "${formData.username}" ha sido creado correctamente.`,
-        richColors: true,
-      });
-
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (err) {
-      console.error("UserCreateForm - Create error:", err);
-      const errorMessage = (err as Error).message;
-
-      // Mostrar toast de error
-      toast.error('Error al crear usuario', {
-        description: errorMessage,
-        richColors: true,
-      });
-
-      setErrors({ submit: errorMessage });
-
-      // Si es error de autenticación, redirigir al login
-      if (errorMessage.includes("Sesión expirada")) {
-        setTimeout(() => {
-          window.location.href = "/login";
-        }, 2000);
-      }
-    } finally {
-      setIsSubmitting(false);
+    // Llamar al callback onCreate pasado desde el padre
+    // NO limpiamos el formulario aquí - se limpiará solo si la operación es exitosa
+    if (onCreate) {
+      onCreate(dataToSend);
     }
+  };
+
+  // Función pública para limpiar el formulario (será llamada desde el padre en onSuccess)
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      username: "",
+      email: "",
+      password: "",
+      confirm_password: "",
+      profile_image_url: "",
+      role: UserRoleEnum.UNAUTHORIZED,
+    });
+    setErrors({});
   };
 
   const handleInputChange = (field: keyof FormErrors, value: string) => {

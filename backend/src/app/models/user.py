@@ -54,7 +54,7 @@ class User(Base):
 
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
 
-    is_deleted: Mapped[bool] = mapped_column(default=False, index=True)
+    deleted: Mapped[bool] = mapped_column(default=False, index=True)
 
     # =============================================================================
     # Autorización

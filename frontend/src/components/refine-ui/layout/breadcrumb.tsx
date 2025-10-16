@@ -6,7 +6,7 @@ import {
   BreadcrumbList as ShadcnBreadcrumbList,
   BreadcrumbPage as ShadcnBreadcrumbPage,
   BreadcrumbSeparator as ShadcnBreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+} from "@/components/ui/layout/breadcrumb";
 import {
   matchResourceFromRoute,
   useBreadcrumb,
@@ -37,7 +37,7 @@ export function Breadcrumb() {
       Component: (
         <Link to={rootRouteResource.matchedRoute ?? "/"}>
           {rootRouteResource?.resource?.meta?.icon ? (
-            React.createElement(getIcon(rootRouteResource.resource.meta.icon), { className: "h-4 w-4" })
+            React.createElement(getIcon(String(rootRouteResource.resource.meta.icon)), { className: "h-4 w-4" })
           ) : (
             <Home className="h-4 w-4" />
           )}

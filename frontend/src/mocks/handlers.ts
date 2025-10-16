@@ -71,6 +71,41 @@ export const mockSchools = [
   },
 ];
 
+export const mockCourses = [
+  {
+    id: 1,
+    course_code: 'CS101',
+    course_name: 'Introducción a la Programación',
+    department_code: 'CS',
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    schools: [
+      {
+        id: 1,
+        school_id: 1,
+        created_at: new Date().toISOString(),
+      },
+    ],
+  },
+  {
+    id: 2,
+    course_code: 'MATH201',
+    course_name: 'Cálculo Diferencial',
+    department_code: 'MATH',
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    schools: [
+      {
+        id: 2,
+        school_id: 1,
+        created_at: new Date().toISOString(),
+      },
+    ],
+  },
+];
+
 export const handlers = [
   // ==================== AUTH ENDPOINTS ====================
 
@@ -138,13 +173,13 @@ export const handlers = [
 
   // Create user
   http.post(`${API_URL}/api/v1/users`, async ({ request }) => {
-    const body = await request.json();
+    const body = await request.json() as Record<string, any>;
     const newUser = {
       id: mockUsers.length + 1,
       ...body,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    };
+    } as any;
     mockUsers.push(newUser);
     return HttpResponse.json(newUser, { status: 201 });
   }),
@@ -152,7 +187,7 @@ export const handlers = [
   // Update user
   http.patch(`${API_URL}/api/v1/users/:id`, async ({ params, request }) => {
     const { id } = params;
-    const body = await request.json();
+    const body = await request.json() as Record<string, any>;
     const userIndex = mockUsers.findIndex((u) => u.id === Number(id));
 
     if (userIndex === -1) {
@@ -187,15 +222,15 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  // ==================== FACULTY ENDPOINTS ====================
+  // ==================== FACULTY ENDPOINTS (CATALOG) ====================
 
   // List faculties
-  http.get(`${API_URL}/api/v1/faculties`, () => {
+  http.get(`${API_URL}/api/v1/catalog/faculties`, () => {
     return HttpResponse.json(mockFaculties);
   }),
 
   // Get faculty by ID
-  http.get(`${API_URL}/api/v1/faculties/:id`, ({ params }) => {
+  http.get(`${API_URL}/api/v1/catalog/faculties/:id`, ({ params }) => {
     const { id } = params;
     const faculty = mockFaculties.find((f) => f.id === Number(id));
 
@@ -210,23 +245,23 @@ export const handlers = [
   }),
 
   // Create faculty
-  http.post(`${API_URL}/api/v1/faculties`, async ({ request }) => {
-    const body = await request.json();
+  http.post(`${API_URL}/api/v1/catalog/faculties`, async ({ request }) => {
+    const body = await request.json() as Record<string, any>;
     const newFaculty = {
       id: mockFaculties.length + 1,
       ...body,
       is_active: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    };
+    } as any;
     mockFaculties.push(newFaculty);
     return HttpResponse.json(newFaculty, { status: 201 });
   }),
 
   // Update faculty
-  http.patch(`${API_URL}/api/v1/faculties/:id`, async ({ params, request }) => {
+  http.patch(`${API_URL}/api/v1/catalog/faculties/:id`, async ({ params, request }) => {
     const { id } = params;
-    const body = await request.json();
+    const body = await request.json() as Record<string, any>;
     const facultyIndex = mockFaculties.findIndex((f) => f.id === Number(id));
 
     if (facultyIndex === -1) {
@@ -246,7 +281,7 @@ export const handlers = [
   }),
 
   // Delete faculty
-  http.delete(`${API_URL}/api/v1/faculties/:id`, ({ params }) => {
+  http.delete(`${API_URL}/api/v1/catalog/faculties/:id`, ({ params }) => {
     const { id } = params;
     const facultyIndex = mockFaculties.findIndex((f) => f.id === Number(id));
 
@@ -261,10 +296,10 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  // ==================== SCHOOL ENDPOINTS ====================
+  // ==================== SCHOOL ENDPOINTS (CATALOG) ====================
 
   // List schools (with optional faculty filter)
-  http.get(`${API_URL}/api/v1/schools`, ({ request }) => {
+  http.get(`${API_URL}/api/v1/catalog/schools`, ({ request }) => {
     const url = new URL(request.url);
     const facultyId = url.searchParams.get('fk_faculty') || url.searchParams.get('faculty_id');
 
@@ -279,7 +314,7 @@ export const handlers = [
   }),
 
   // Get school by ID
-  http.get(`${API_URL}/api/v1/schools/:id`, ({ params }) => {
+  http.get(`${API_URL}/api/v1/catalog/schools/:id`, ({ params }) => {
     const { id } = params;
     const school = mockSchools.find((s) => s.id === Number(id));
 
@@ -294,23 +329,23 @@ export const handlers = [
   }),
 
   // Create school
-  http.post(`${API_URL}/api/v1/schools`, async ({ request }) => {
-    const body = await request.json();
+  http.post(`${API_URL}/api/v1/catalog/schools`, async ({ request }) => {
+    const body = await request.json() as Record<string, any>;
     const newSchool = {
       id: mockSchools.length + 1,
       ...body,
       is_active: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    };
+    } as any;
     mockSchools.push(newSchool);
     return HttpResponse.json(newSchool, { status: 201 });
   }),
 
   // Update school
-  http.patch(`${API_URL}/api/v1/schools/:id`, async ({ params, request }) => {
+  http.patch(`${API_URL}/api/v1/catalog/schools/:id`, async ({ params, request }) => {
     const { id } = params;
-    const body = await request.json();
+    const body = await request.json() as Record<string, any>;
     const schoolIndex = mockSchools.findIndex((s) => s.id === Number(id));
 
     if (schoolIndex === -1) {
@@ -330,7 +365,7 @@ export const handlers = [
   }),
 
   // Delete school
-  http.delete(`${API_URL}/api/v1/schools/:id`, ({ params }) => {
+  http.delete(`${API_URL}/api/v1/catalog/schools/:id`, ({ params }) => {
     const { id } = params;
     const schoolIndex = mockSchools.findIndex((s) => s.id === Number(id));
 
@@ -350,5 +385,106 @@ export const handlers = [
   // List tasks
   http.get(`${API_URL}/api/v1/tasks`, () => {
     return HttpResponse.json([]);
+  }),
+
+  // ==================== COURSES ENDPOINTS ====================
+
+  // List courses
+  http.get(`${API_URL}/api/v1/catalog/courses`, () => {
+    return HttpResponse.json(mockCourses);
+  }),
+
+  // Get course by ID
+  http.get(`${API_URL}/api/v1/catalog/courses/:id`, ({ params }) => {
+    const { id } = params;
+    const course = mockCourses.find((c) => c.id === Number(id));
+
+    if (!course) {
+      return HttpResponse.json(
+        { detail: 'Course not found' },
+        { status: 404 }
+      );
+    }
+
+    return HttpResponse.json(course);
+  }),
+
+  // Create course
+  http.post(`${API_URL}/api/v1/catalog/courses`, async ({ request }) => {
+    const body = await request.json() as Record<string, any>;
+    const newCourse = {
+      id: mockCourses.length + 1,
+      ...body,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      schools: [],
+    } as any;
+    mockCourses.push(newCourse);
+    return HttpResponse.json(newCourse, { status: 201 });
+  }),
+
+  // Update course
+  http.patch(`${API_URL}/api/v1/catalog/courses/:id`, async ({ params, request }) => {
+    const { id } = params;
+    const body = await request.json() as Record<string, any>;
+    const courseIndex = mockCourses.findIndex((c) => c.id === Number(id));
+
+    if (courseIndex === -1) {
+      return HttpResponse.json(
+        { detail: 'Course not found' },
+        { status: 404 }
+      );
+    }
+
+    mockCourses[courseIndex] = {
+      ...mockCourses[courseIndex],
+      ...body,
+      updated_at: new Date().toISOString(),
+    };
+
+    return HttpResponse.json(mockCourses[courseIndex]);
+  }),
+
+  // Delete course
+  http.delete(`${API_URL}/api/v1/catalog/courses/:id`, ({ params }) => {
+    const { id } = params;
+    const courseIndex = mockCourses.findIndex((c) => c.id === Number(id));
+
+    if (courseIndex === -1) {
+      return HttpResponse.json(
+        { detail: 'Course not found' },
+        { status: 404 }
+      );
+    }
+
+    mockCourses.splice(courseIndex, 1);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  // ==================== RECYCLE BIN ENDPOINTS ====================
+
+  // List recycle bin items
+  http.get(`${API_URL}/api/v1/recycle-bin`, () => {
+    return HttpResponse.json({
+      data: [],
+      total: 0,
+    });
+  }),
+
+  // Restore item
+  http.post(`${API_URL}/api/v1/recycle-bin/:id/restore`, ({ params }) => {
+    const { id } = params;
+    return HttpResponse.json({
+      message: `Item ${id} restored successfully`,
+    });
+  }),
+
+  // Permanent delete
+  http.delete(`${API_URL}/api/v1/recycle-bin/:id`, ({ params }) => {
+    const { id } = params;
+    return HttpResponse.json({
+      message: `Item ${id} permanently deleted`,
+    });
   }),
 ];

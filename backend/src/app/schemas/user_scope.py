@@ -14,20 +14,21 @@ class UserScopeBase(BaseModel):
     fk_school: int | None = None
     fk_faculty: int | None = None
 
-    @field_validator("fk_school", "fk_faculty")
+    @field_validator("fk_faculty", mode="after")
     @classmethod
-    def validate_exclusive_scope(cls, v, info):
-        """Validar que solo uno de fk_school o fk_faculty esté establecido."""
-        values = info.data
-        fk_school = values.get("fk_school") if "fk_school" in values else v if info.field_name == "fk_school" else None
-        fk_faculty = (
-            values.get("fk_faculty") if "fk_faculty" in values else v if info.field_name == "fk_faculty" else None
-        )
+    def validate_at_least_one_scope(cls, v, info):
+        """Validar que al menos uno de fk_school o fk_faculty esté establecido.
 
-        if fk_school and fk_faculty:
-            raise ValueError("Solo uno de fk_school o fk_faculty puede estar establecido")
+        Casos permitidos:
+        - DECANO: solo fk_faculty (fk_school = None)
+        - DIRECTOR: fk_school y fk_faculty (ambos NOT NULL)
+        """
+        values = info.data
+        fk_school = values.get("fk_school")
+        fk_faculty = v
+
         if not fk_school and not fk_faculty:
-            raise ValueError("Ya sea fk_school o fk_faculty debe estar establecido")
+            raise ValueError("Al menos uno de fk_school o fk_faculty debe estar establecido")
 
         return v
 
@@ -50,8 +51,10 @@ class UserScopeRead(UserScopeBase):
 class UserScopeAssignment(BaseModel):
     """Schema para asignar alcance a un usuario basado en su rol.
 
-    - Para DECANO: Proporcionar un solo faculty_id
-    - Para DIRECTOR: Proporcionar un solo school_id
+    - Para DECANO: Proporcionar solo faculty_id (school_id debe ser None)
+    - Para DIRECTOR: Proporcionar ambos faculty_id y school_id
+
+    Nota: La validación específica del rol se realiza en el endpoint.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -61,19 +64,15 @@ class UserScopeAssignment(BaseModel):
 
     @field_validator("faculty_id", "school_id")
     @classmethod
-    def validate_exclusive_assignment(cls, v, info):
-        """Validar que solo uno de faculty_id o school_id sea proporcionado."""
+    def validate_at_least_one_assignment(cls, v, info):
+        """Validar que al menos uno de faculty_id o school_id sea proporcionado."""
         values = info.data
         faculty_id = (
             values.get("faculty_id") if "faculty_id" in values else v if info.field_name == "faculty_id" else None
         )
-        school_id = (
-            values.get("school_id") if "school_id" in values else v if info.field_name == "school_id" else None
-        )
+        school_id = values.get("school_id") if "school_id" in values else v if info.field_name == "school_id" else None
 
-        if faculty_id and school_id:
-            raise ValueError("Solo uno de faculty_id o school_id puede ser proporcionado")
         if not faculty_id and not school_id:
-            raise ValueError("Ya sea faculty_id o school_id debe ser proporcionado")
+            raise ValueError("Al menos uno de faculty_id o school_id debe ser proporcionado")
 
         return v

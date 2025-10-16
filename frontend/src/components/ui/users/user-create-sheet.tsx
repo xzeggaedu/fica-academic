@@ -15,14 +15,24 @@ interface UserCreateSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  onCreate?: (userData: {
+    name: string;
+    username: string;
+    email: string;
+    password: string;
+    profile_image_url: string;
+    role: string;
+  }) => void;
+  isCreating?: boolean;
 }
 
-export function UserCreateSheet({ isOpen, onClose, onSuccess }: UserCreateSheetProps) {
+export function UserCreateSheet({ isOpen, onClose, onSuccess, onCreate, isCreating }: UserCreateSheetProps) {
   const handleSuccess = () => {
-    onClose();
     if (onSuccess) {
       onSuccess();
     }
+    // Cerrar el sheet después de llamar onSuccess
+    onClose();
   };
 
   return (
@@ -42,7 +52,14 @@ export function UserCreateSheet({ isOpen, onClose, onSuccess }: UserCreateSheetP
           {/* Scrollable content */}
           <div className="h-full overflow-y-auto py-0 px-6">
             <div className="py-2">
-              <UserCreateForm onSuccess={handleSuccess} onClose={onClose} />
+              {/* Key cambia cuando se abre el sheet para resetear el formulario */}
+              <UserCreateForm
+                key={isOpen ? 'open' : 'closed'}
+                onSuccess={handleSuccess}
+                onClose={onClose}
+                onCreate={onCreate}
+                isCreating={isCreating}
+              />
             </div>
           </div>
 
@@ -54,8 +71,8 @@ export function UserCreateSheet({ isOpen, onClose, onSuccess }: UserCreateSheetP
           <SheetClose asChild>
             <Button variant="outline">Cancelar</Button>
           </SheetClose>
-          <Button form="user-create-form" type="submit">
-            Crear Usuario
+          <Button form="user-create-form" type="submit" disabled={isCreating}>
+            {isCreating ? "Creando..." : "Crear Usuario"}
           </Button>
         </SheetFooter>
       </SheetContent>

@@ -40,14 +40,16 @@ async def create_faculty_scope(db: AsyncSession, user_uuid: uuid_pkg.UUID, facul
     -------
         Instancia UserScope creada
     """
-    user_scope = UserScope(fk_user=user_uuid, fk_faculty=faculty_id, fk_school=None)
+    user_scope = UserScope(id=None, fk_user=user_uuid, fk_faculty=faculty_id, fk_school=None)
     db.add(user_scope)
     await db.commit()
     await db.refresh(user_scope)
     return user_scope
 
 
-async def create_school_scope(db: AsyncSession, user_uuid: uuid_pkg.UUID, school_id: int) -> UserScope:
+async def create_school_scope(
+    db: AsyncSession, user_uuid: uuid_pkg.UUID, school_id: int, faculty_id: int | None = None
+) -> UserScope:
     """Crear una asignación de alcance de escuela para el rol DIRECTOR.
 
     Args:
@@ -55,12 +57,13 @@ async def create_school_scope(db: AsyncSession, user_uuid: uuid_pkg.UUID, school
         db: Sesión de base de datos
         user_uuid: UUID del usuario
         school_id: ID de la escuela a asignar
+        faculty_id: ID de la facultad a la que pertenece la escuela (opcional)
 
     Returns:
     -------
         Instancia UserScope creada
     """
-    user_scope = UserScope(fk_user=user_uuid, fk_school=school_id, fk_faculty=None)
+    user_scope = UserScope(id=None, fk_user=user_uuid, fk_school=school_id, fk_faculty=faculty_id)
     db.add(user_scope)
     await db.commit()
     await db.refresh(user_scope)

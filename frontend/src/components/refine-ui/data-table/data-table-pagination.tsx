@@ -15,7 +15,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/forms/select";
 import { cn } from "@/lib/utils";
 
 type DataTablePaginationProps = {

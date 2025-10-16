@@ -1,5 +1,5 @@
 import React from "react";
-import { useRefreshButton } from "@refinedev/core";
+import { useInvalidate } from "@refinedev/core";
 import { Button } from "../../ui/button";
 import { RefreshCw } from "lucide-react";
 
@@ -14,13 +14,19 @@ export const RefreshButton: React.FC<RefreshButtonProps> = ({
   hideText = false,
   className,
 }) => {
-  const { onClick, disabled } = useRefreshButton({ resource });
+  const invalidate = useInvalidate();
+
+  const handleRefresh = () => {
+    invalidate({
+      resource: resource || "",
+      invalidates: ["list"],
+    });
+  };
 
   return (
     <Button
       variant="outline"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={handleRefresh}
       className={className}
     >
       <RefreshCw className="h-4 w-4" />

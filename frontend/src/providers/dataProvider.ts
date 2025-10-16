@@ -37,15 +37,18 @@ const DEBUG_MODE = import.meta.env.VITE_DEBUG_MODE === "true";
 // API Endpoints
 const ENDPOINTS = {
   USERS: `${API_BASE_PATH}/users`,
-  USER: `${API_BASE_PATH}/user/uuid`,  // ✅ Correcto: /user/uuid/{user_uuid}
+  USER: `${API_BASE_PATH}/user`,  // ✅ Simplificado: /user/{user_uuid}
   USER_ADMIN: `${API_BASE_PATH}/user/admin`,  // ✅ Endpoint para crear usuarios como admin
+  USER_SOFT_DELETE: `${API_BASE_PATH}/user`,  // Para soft delete: /user/soft-delete/{user_uuid}
   ME: `${API_BASE_PATH}/me`,
   TASKS: `${API_BASE_PATH}/tasks/task`,
-  FACULTIES: `${API_BASE_PATH}/faculties`,
-  FACULTY: `${API_BASE_PATH}/faculty`,
-  SCHOOLS: `${API_BASE_PATH}/schools`,
-  SCHOOL: `${API_BASE_PATH}/school`,
+  FACULTIES: `${API_BASE_PATH}/catalog/faculties`,  // ✅ Movido a catalog
+  FACULTY: `${API_BASE_PATH}/catalog/faculties`,    // ✅ Movido a catalog
+  SCHOOLS: `${API_BASE_PATH}/catalog/schools`,    // ✅ Movido a catalog
+  SCHOOL: `${API_BASE_PATH}/catalog/schools`,     // ✅ Movido a catalog
   COURSES: `${API_BASE_PATH}/catalog/courses`,
+  RECYCLE_BIN: `${API_BASE_PATH}/recycle-bin`,
+  RESTORE_ITEM: `${API_BASE_PATH}/recycle-bin/restore`,
   COURSES_ACTIVE: `${API_BASE_PATH}/catalog/courses/active`,
   SCHEDULE_TIMES: `${API_BASE_PATH}/catalog/schedule-times`,
   SCHEDULE_TIMES_ACTIVE: `${API_BASE_PATH}/catalog/schedule-times/active`,
@@ -281,6 +284,33 @@ export const dataProvider: DataProvider = {
         };
       }
 
+      case "schedule-times": {
+        // Paginación por defecto: mostrar todo (hasta 1000)
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 1000;
+
+        const response = await apiRequest<PaginatedResponse<any>>(
+          `${ENDPOINTS.SCHEDULE_TIMES}?page=${current}&items_per_page=${pageSize}`
+        );
+
+        return {
+          data: response.data as any[],
+          total: response.total_count,
+        };
+      }
+
+      case "recycle-bin": {
+        const current = (pagination as any)?.currentPage || (pagination as any)?.current || (pagination as any)?.page || 1;
+        const pageSize = pagination?.pageSize || 10;
+        const response = await apiRequest<PaginatedResponse<any>>(
+          `${ENDPOINTS.RECYCLE_BIN}?page=${current}&items_per_page=${pageSize}`
+        );
+        return {
+          data: response.data as any[],
+          total: response.total_count,
+        };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported`);
     }
@@ -292,6 +322,20 @@ export const dataProvider: DataProvider = {
 
     switch (resource) {
       case "users": {
+        // Handle user scopes endpoint
+        if (id && id.toString().includes('/scope')) {
+          const userId = id.toString().replace('/scope', '');
+          const response = await apiRequest<any[]>(`${API_BASE_PATH}/user/${userId}/scope`);
+          // Return the array directly since the endpoint returns an array, not an object with data property
+          return { data: response as any };
+        }
+
+        // Soporte para endpoint me/profile
+        if (id === "me/profile") {
+          const response = await apiRequest<User>(`${API_BASE_PATH}/me/profile`);
+          return { data: response as any };
+        }
+
         const response = await apiRequest<User>(`${ENDPOINTS.USER}/${id}`);
         return { data: response as any };
       }
@@ -376,6 +420,17 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "schedule-times": {
+        const response = await apiRequest<any>(
+          ENDPOINTS.SCHEDULE_TIMES,
+          {
+            method: "POST",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported`);
     }
@@ -383,10 +438,37 @@ export const dataProvider: DataProvider = {
 
   update: async ({ resource, id, variables, meta }) => {
     if (DEBUG_MODE) {
+      console.log('Updating resource:', resource, 'with id:', id, 'and variables:', variables);
     }
 
     switch (resource) {
       case "users": {
+        // Handle user scopes endpoint
+        if (id && id.toString().includes('/scope')) {
+          const userId = id.toString().replace('/scope', '');
+          const response = await apiRequest<{ message: string }>(
+            `${API_BASE_PATH}/user/${userId}/scope`,
+            {
+              method: meta?.method || "PUT",
+              body: JSON.stringify(variables),
+            }
+          );
+          return { data: response as any };
+        }
+
+        // Handle user password endpoint
+        if (id && id.toString().includes('/password')) {
+          const userId = id.toString().replace('/password', '');
+          const response = await apiRequest<{ message: string }>(
+            `${API_BASE_PATH}/user/${userId}/password`,
+            {
+              method: meta?.method || "PATCH",
+              body: JSON.stringify(variables),
+            }
+          );
+          return { data: response as any };
+        }
+
         const response = await apiRequest<{ message: string }>(
           `${ENDPOINTS.USER}/${id}`,
           {
@@ -439,6 +521,46 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "schedule-times": {
+        const response = await apiRequest<any>(
+          `${ENDPOINTS.SCHEDULE_TIMES}/${id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(variables),
+          }
+        );
+        // Si la respuesta está vacía (204 No Content), devolver los datos enviados
+        if (!response || Object.keys(response).length === 0) {
+          return { data: { id, ...variables } as any };
+        }
+        return { data: response as any };
+      }
+
+      case "soft-delete": {
+        const type = variables["type"] as string;
+        // Normalizar la ruta: "user/uuid" → "user", "faculty" → "catalog/faculties"
+        const normalizedType = type === "user/uuid" ? "user" : type === "faculty" ? "catalog/faculties" : type;
+        const response = await apiRequest<{ message: string }>(
+          `${API_BASE_PATH}/${normalizedType}/soft-delete/${id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(variables as UserUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "recycle-bin-restore": {
+        const response = await apiRequest<{ message: string }>(
+          `${API_BASE_PATH}/recycle-bin/${id}/restore`,
+          {
+            method: "POST",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported for update`);
     }
@@ -463,7 +585,7 @@ export const dataProvider: DataProvider = {
         const response = await apiRequest<{ message: string }>(
           `${ENDPOINTS.FACULTY}/${id}`,
           {
-            method: "DELETE",
+            method: "PATCH",
           }
         );
         return { data: response as any };
@@ -482,6 +604,26 @@ export const dataProvider: DataProvider = {
       case "courses": {
         const response = await apiRequest<{ message: string }>(
           `${ENDPOINTS.COURSES}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "recycle-bin": {
+        const response = await apiRequest<{ message: string }>(
+          `${ENDPOINTS.RECYCLE_BIN}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "schedule-times": {
+        const response = await apiRequest<{ message: string }>(
+          `${ENDPOINTS.SCHEDULE_TIMES}/${id}`,
           {
             method: "DELETE",
           }
@@ -601,3 +743,6 @@ export const dataProvider: DataProvider = {
     return { data: response as any };
   },
 };
+
+// Export ENDPOINTS for use in components
+export { ENDPOINTS };

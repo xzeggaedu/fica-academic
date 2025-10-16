@@ -16,6 +16,7 @@ const ENDPOINTS = {
   LOGOUT: import.meta.env.VITE_AUTH_LOGOUT_ENDPOINT || `${API_BASE_PATH}/logout`,
   REFRESH: import.meta.env.VITE_AUTH_REFRESH_ENDPOINT || `${API_BASE_PATH}/refresh`,
   ME: import.meta.env.VITE_AUTH_ME_ENDPOINT || `${API_BASE_PATH}/me`,
+  ME_PROFILE: `${API_BASE_PATH}/me/profile`,  // ✅ Endpoint para obtener perfil fresco de BD
   REGISTER: `${API_BASE_PATH}/user`,  // ✅ Endpoint de registro (sin validación de admin)
 };
 
@@ -33,7 +34,7 @@ interface RegisterParams {
 }
 
 interface UserIdentity {
-  id: number;
+  id: string;
   name: string;
   username: string;
   email: string;
@@ -48,7 +49,8 @@ interface LoginResponse {
 
 interface UserInfoResponse {
   user_uuid: string;
-  username: string;
+  username?: string;
+  username_or_email?: string;
   email: string;
   name: string;
   role: string;
@@ -249,7 +251,7 @@ export const authProvider: AuthProvider = {
         return {
           id: userData.user_uuid,
           name: userData.name,
-          username: userData.username,
+          username: userData.username_or_email || userData.username,
           email: userData.email,
           role: userData.role,
           avatar: `${AVATAR_SERVICE_URL}/?name=${encodeURIComponent(userData.name)}&background=${AVATAR_DEFAULT_BG}`,
