@@ -162,6 +162,10 @@ async def restore_from_recycle_bin(
         from ...crud.crud_users import restore_user
 
         restore_success = await restore_user(db=db, user_uuid=UUID(entity_id))
+    elif entity_type == "professor":
+        from ...crud.crud_catalog_professor import restore_professor
+
+        restore_success = await restore_professor(db=db, id=int(entity_id))
     elif entity_type == "course":
         # TODO: Implementar restore para courses cuando esté disponible
         raise NotFoundException("Restauración de cursos aún no implementada")
@@ -236,6 +240,11 @@ async def mark_as_permanently_deleted(
 
         await hard_delete_user(db=db, user_uuid=UUID(entity_id))
         # hard_delete_user ya hace commit internamente
+    elif entity_type == "professor":
+        from ...crud.crud_catalog_professor import hard_delete_professor
+
+        await hard_delete_professor(db=db, id=int(entity_id))
+        # hard_delete_professor ya hace commit internamente
     elif entity_type == "course":
         from ...crud.crud_catalog_courses import crud_courses
 

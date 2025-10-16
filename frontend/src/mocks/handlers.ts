@@ -106,6 +106,47 @@ export const mockCourses = [
   },
 ];
 
+export const mockProfessors = [
+  {
+    id: 1,
+    professor_id: 'P001',
+    professor_name: 'Dr. Juan Pérez',
+    institutional_email: 'juan.perez@utec.edu.sv',
+    personal_email: null,
+    phone_number: null,
+    professor_category: 'DHC',
+    academic_title: 'Dr.',
+    doctorates: 1,
+    masters: 0,
+    is_bilingual: true,
+    is_paid: true,
+    is_active: true,
+    deleted: false,
+    deleted_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    professor_id: 'P002',
+    professor_name: 'Ing. María López',
+    institutional_email: 'maria.lopez@utec.edu.sv',
+    personal_email: 'maria@example.com',
+    phone_number: '7777-7777',
+    professor_category: 'ADM',
+    academic_title: 'Ing.',
+    doctorates: 0,
+    masters: 1,
+    is_bilingual: false,
+    is_paid: true,
+    is_active: true,
+    deleted: false,
+    deleted_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export const handlers = [
   // ==================== AUTH ENDPOINTS ====================
 
@@ -459,6 +500,119 @@ export const handlers = [
     }
 
     mockCourses.splice(courseIndex, 1);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  // ==================== PROFESSORS ENDPOINTS ====================
+
+  // List professors
+  http.get(`${API_URL}/api/v1/catalog/professors`, ({ request }) => {
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const itemsPerPage = parseInt(url.searchParams.get('items_per_page') || '1000');
+    const search = url.searchParams.get('search') || '';
+
+    let filteredProfessors = [...mockProfessors];
+
+    if (search) {
+      filteredProfessors = filteredProfessors.filter(
+        (p) =>
+          p.professor_id.toLowerCase().includes(search.toLowerCase()) ||
+          p.professor_name.toLowerCase().includes(search.toLowerCase()) ||
+          p.institutional_email?.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    const total = filteredProfessors.length;
+    const start = (page - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const paginatedProfessors = filteredProfessors.slice(start, end);
+
+    return HttpResponse.json({
+      data: paginatedProfessors,
+      total_count: total,
+      page: page,
+      items_per_page: itemsPerPage,
+    });
+  }),
+
+  // Get professor by ID
+  http.get(`${API_URL}/api/v1/catalog/professors/:id`, ({ params }) => {
+    const { id } = params;
+    const professor = mockProfessors.find((p) => p.id === Number(id));
+
+    if (!professor) {
+      return HttpResponse.json(
+        { detail: 'Professor not found' },
+        { status: 404 }
+      );
+    }
+
+    return HttpResponse.json(professor);
+  }),
+
+  // Create professor
+  http.post(`${API_URL}/api/v1/catalog/professors`, async ({ request }) => {
+    const body = await request.json() as Record<string, any>;
+    const newProfessor = {
+      id: mockProfessors.length + 1,
+      professor_id: body.professor_id,
+      professor_name: body.professor_name,
+      institutional_email: body.institutional_email || null,
+      personal_email: body.personal_email || null,
+      phone_number: body.phone_number || null,
+      professor_category: body.professor_category || null,
+      academic_title: body.academic_title || null,
+      doctorates: body.doctorates || 0,
+      masters: body.masters || 0,
+      is_bilingual: body.is_bilingual || false,
+      is_paid: body.is_paid || false,
+      is_active: body.is_active !== undefined ? body.is_active : true,
+      deleted: false,
+      deleted_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as any;
+    mockProfessors.push(newProfessor);
+    return HttpResponse.json(newProfessor, { status: 201 });
+  }),
+
+  // Update professor
+  http.patch(`${API_URL}/api/v1/catalog/professors/:id`, async ({ params, request }) => {
+    const { id } = params;
+    const body = await request.json() as Record<string, any>;
+    const professorIndex = mockProfessors.findIndex((p) => p.id === Number(id));
+
+    if (professorIndex === -1) {
+      return HttpResponse.json(
+        { detail: 'Professor not found' },
+        { status: 404 }
+      );
+    }
+
+    mockProfessors[professorIndex] = {
+      ...mockProfessors[professorIndex],
+      ...body,
+      updated_at: new Date().toISOString(),
+    };
+
+    return HttpResponse.json(mockProfessors[professorIndex]);
+  }),
+
+  // Delete professor (soft delete)
+  http.delete(`${API_URL}/api/v1/catalog/professors/:id`, ({ params }) => {
+    const { id } = params;
+    const professorIndex = mockProfessors.findIndex((p) => p.id === Number(id));
+
+    if (professorIndex === -1) {
+      return HttpResponse.json(
+        { detail: 'Professor not found' },
+        { status: 404 }
+      );
+    }
+
+    mockProfessors[professorIndex].deleted = true;
+    mockProfessors[professorIndex].deleted_at = new Date().toISOString();
     return new HttpResponse(null, { status: 204 });
   }),
 

@@ -47,6 +47,7 @@ const ENDPOINTS = {
   SCHOOLS: `${API_BASE_PATH}/catalog/schools`,    // ✅ Movido a catalog
   SCHOOL: `${API_BASE_PATH}/catalog/schools`,     // ✅ Movido a catalog
   COURSES: `${API_BASE_PATH}/catalog/courses`,
+  PROFESSORS: `${API_BASE_PATH}/catalog/professors`,
   RECYCLE_BIN: `${API_BASE_PATH}/recycle-bin`,
   RESTORE_ITEM: `${API_BASE_PATH}/recycle-bin/restore`,
   COURSES_ACTIVE: `${API_BASE_PATH}/catalog/courses/active`,
@@ -211,6 +212,11 @@ export const dataProvider: DataProvider = {
           if (isActiveFilter && isActiveFilter.value !== undefined) {
             url += `&is_active=${isActiveFilter.value}`;
           }
+
+          const facultyIdFilter = filters.find((f: any) => f.field === "faculty_id");
+          if (facultyIdFilter && facultyIdFilter.value !== undefined) {
+            url += `&faculty_id=${facultyIdFilter.value}`;
+          }
         }
 
         if (DEBUG_MODE) {
@@ -268,6 +274,33 @@ export const dataProvider: DataProvider = {
 
         const response = await apiRequest<PaginatedResponse<Course>>(
           `${ENDPOINTS.COURSES}?${searchParams.toString()}`
+        );
+
+        return {
+          data: response.data as any[],
+          total: response.total_count,
+        };
+      }
+
+      case "professors": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        // Construir URL con parámetros de paginación
+        const searchParams = new URLSearchParams();
+        searchParams.append("page", String(current));
+        searchParams.append("items_per_page", String(pageSize));
+
+        // Agregar filtro de búsqueda si existe
+        if (filters && Array.isArray(filters)) {
+          const searchFilter = filters.find((f: any) => f.field === "search");
+          if (searchFilter && searchFilter.value) {
+            searchParams.append("search", searchFilter.value);
+          }
+        }
+
+        const response = await apiRequest<PaginatedResponse<any>>(
+          `${ENDPOINTS.PROFESSORS}?${searchParams.toString()}`
         );
 
         return {
@@ -431,6 +464,17 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "professors": {
+        const response = await apiRequest<any>(
+          ENDPOINTS.PROFESSORS,
+          {
+            method: "POST",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported`);
     }
@@ -536,10 +580,29 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "professors": {
+        const response = await apiRequest<any>(
+          `${ENDPOINTS.PROFESSORS}/${id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
       case "soft-delete": {
         const type = variables["type"] as string;
-        // Normalizar la ruta: "user/uuid" → "user", "faculty" → "catalog/faculties"
-        const normalizedType = type === "user/uuid" ? "user" : type === "faculty" ? "catalog/faculties" : type;
+        // Normalizar la ruta: "user/uuid" → "user", "faculty" → "catalog/faculties", etc.
+        let normalizedType = type;
+        if (type === "user/uuid") {
+          normalizedType = "user";
+        } else if (type === "faculty") {
+          normalizedType = "catalog/faculties";
+        } else if (type === "catalog/professors") {
+          normalizedType = "catalog/professors";
+        }
+
         const response = await apiRequest<{ message: string }>(
           `${API_BASE_PATH}/${normalizedType}/soft-delete/${id}`,
           {
@@ -624,6 +687,16 @@ export const dataProvider: DataProvider = {
       case "schedule-times": {
         const response = await apiRequest<{ message: string }>(
           `${ENDPOINTS.SCHEDULE_TIMES}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "professors": {
+        const response = await apiRequest<{ message: string }>(
+          `${ENDPOINTS.PROFESSORS}/${id}`,
           {
             method: "DELETE",
           }

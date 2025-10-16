@@ -1,10 +1,11 @@
-import { 
-  Users, 
-  Building2, 
-  Clock, 
+import {
+  Users,
+  Building2,
+  Clock,
   ListIcon,
   CheckSquare,
   UserPlus,
+  UserCheck,
   Settings,
   Calendar,
   BookOpen,
@@ -17,6 +18,7 @@ export const iconMap: Record<string, React.ComponentType<{ className?: string }>
   Clock,
   CheckSquare,
   UserPlus,
+  UserCheck,
   Settings,
   Calendar,
   BookOpen,

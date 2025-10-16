@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,13 +13,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useApiDebug, createApiError, apiRequestWithDebug } from "@/hooks/use-api-debug";
-import { ErrorDebugPanel } from "@/components/ui/debug/error-debug-panel";
-import { toast } from "sonner";
 
 interface FacultyCreateFormProps {
   onSuccess?: () => void;
   onClose?: () => void;
+  onCreate?: (facultyData: { name: string; acronym: string; is_active: boolean }) => void;
+  isCreating?: boolean;
 }
 
 interface FormErrors {
@@ -30,18 +28,16 @@ interface FormErrors {
   submit?: string;
 }
 
-export function FacultyCreateForm({ onSuccess, onClose }: FacultyCreateFormProps) {
+export function FacultyCreateForm({ onSuccess, onClose, onCreate, isCreating = false }: FacultyCreateFormProps) {
   const [formData, setFormData] = useState({
     name: "",
     acronym: "",
     is_active: true,
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  // Hook para debug de API
-  const { error: apiError, setError: setApiError, clearError, isDevelopment } = useApiDebug();
+  const isSubmitting = isCreating;
 
   const validateForm = () => {
     const newErrors: FormErrors = {};
@@ -91,99 +87,17 @@ export function FacultyCreateForm({ onSuccess, onClose }: FacultyCreateFormProps
     setShowConfirmDialog(true);
   };
 
-  const handleConfirmSubmit = async () => {
+  const handleConfirmSubmit = () => {
     setShowConfirmDialog(false);
-    setIsSubmitting(true);
-    setErrors({});
-    clearError(); // Limpiar errores previos
 
-    try {
-      const token = localStorage.getItem('fica-access-token');
-      if (!token) {
-        const authError = createApiError(
-          'No se encontró el token de autenticación',
-          undefined,
-          'Unauthorized',
-          `${import.meta.env.VITE_API_URL}${import.meta.env.VITE_API_BASE_PATH}/faculty`,
-          'POST'
-        );
-        setApiError(authError);
-        setErrors({
-          submit: 'No se encontró el token de autenticación'
-        });
-        return;
-      }
+    const dataToSend = {
+      name: formData.name,
+      acronym: formData.acronym,
+      is_active: formData.is_active,
+    };
 
-      const url = `${import.meta.env.VITE_API_URL}${import.meta.env.VITE_API_BASE_PATH}/faculty`;
-
-      const data = await apiRequestWithDebug(
-        url,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            name: formData.name,
-            acronym: formData.acronym,
-            is_active: formData.is_active,
-          }),
-        },
-        (error) => {
-          // Callback para manejar errores
-          setApiError(error);
-          setErrors({
-            submit: error.message
-          });
-        }
-      );
-
-      console.log('Facultad creada exitosamente:', data);
-
-      // Mostrar toast de éxito
-      toast.success('Facultad creada exitosamente', {
-        description: `La facultad "${formData.name}" (${formData.acronym}) ha sido creada correctamente.`,
-        richColors: true,
-      });
-
-      // Limpiar formulario
-      setFormData({
-        name: "",
-        acronym: "",
-        is_active: true,
-      });
-
-      // Llamar al callback de éxito
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (error: any) {
-      console.error('Error al crear facultad:', error);
-
-      // Mostrar toast de error
-      toast.error('Error al crear facultad', {
-        description: error.message || 'Ocurrió un error al intentar crear la facultad.',
-        richColors: true,
-      });
-
-      // Si no es un error de API manejado, crear uno
-      if (!error.status) {
-        const networkError = createApiError(
-          error.message || 'Error de conexión',
-          undefined,
-          'Network Error',
-          `${import.meta.env.VITE_API_URL}${import.meta.env.VITE_API_BASE_PATH}/faculty`,
-          'POST'
-        );
-        setApiError(networkError);
-      }
-
-      setErrors({
-        submit: error.message || 'Error al crear la facultad'
-      });
-    } finally {
-      setIsSubmitting(false);
+    if (onCreate) {
+      onCreate(dataToSend);
     }
   };
 
@@ -253,23 +167,6 @@ export function FacultyCreateForm({ onSuccess, onClose }: FacultyCreateFormProps
             )}
           </div>
         </div>
-
-        {/* Error de envío */}
-        {errors.submit && (
-          <div className="p-3">
-            <p className="text-sm text-red-600">{errors.submit}</p>
-          </div>
-        )}
-
-        {/* Panel de debug de errores */}
-        {apiError && isDevelopment && (
-          <ErrorDebugPanel
-            error={apiError}
-            onDismiss={clearError}
-            title="Error al Crear Facultad"
-          />
-        )}
-
       </form>
 
       {/* Dialog de confirmación */}

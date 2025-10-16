@@ -105,6 +105,24 @@ async def seed_courses():
         return False
 
 
+async def seed_professors():
+    """Seed professors catalog."""
+    logger.info("Seeding professors catalog...")
+    try:
+        # Import and run the seeding
+        from src.app.core.db.database import local_session
+        from src.scripts.seed_professors import seed_professors
+
+        async with local_session() as session:
+            await seed_professors(session)
+
+        logger.info("Professors seeding completed")
+        return True
+    except Exception as e:
+        logger.error(f"Professors seeding failed: {e}")
+        return False
+
+
 async def wait_for_db(max_retries=60, delay=2):
     """Wait for database to be ready."""
     logger.info("Waiting for database to be ready...")
@@ -162,6 +180,11 @@ async def main():
     # Seed courses
     if not await seed_courses():
         logger.error("Failed to seed courses")
+        sys.exit(1)
+
+    # Seed professors
+    if not await seed_professors():
+        logger.error("Failed to seed professors")
         sys.exit(1)
 
     logger.info("Database initialization completed successfully!")
