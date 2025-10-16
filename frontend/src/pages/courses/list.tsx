@@ -179,15 +179,6 @@ export const CoursesList = () => {
     }
   }, [coursesError]);
 
-  // Debug: ver cuando cambian los is_active de los cursos
-  useEffect(() => {
-    if (coursesList.length > 0) {
-      console.log('📋 Estado is_active de cursos:',
-        coursesList.map(c => ({ id: c.id, code: c.course_code, is_active: c.is_active }))
-      );
-    }
-  }, [coursesList]);
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
