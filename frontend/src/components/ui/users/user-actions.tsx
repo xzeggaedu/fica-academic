@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MoreHorizontal, Eye, Edit, Trash2, Shield } from "lucide-react";
+import { MoreHorizontal, Eye, Edit, Trash2, Shield, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,6 +14,12 @@ import { UserEditSheet } from "./user-edit-sheet";
 import { UserDeleteDialog } from "./user-delete-dialog";
 import { UserPermissionsSheet } from "./user-permissions-sheet";
 import { UserRoleEnum } from "@/types/auth";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface UserActionsProps {
   userId: string;
@@ -21,18 +27,20 @@ interface UserActionsProps {
   userRole: string;
   onSuccess?: () => void;
   isCurrentUser?: boolean;
+  onDelete?: (userId: string, userName: string) => void;
+  isDeleting?: boolean;
 }
 
-export function UserActions({ userId, userName, userRole, onSuccess, isCurrentUser = false }: UserActionsProps) {
+export function UserActions({ userId, userName, userRole, onSuccess, isCurrentUser = false, onDelete, isDeleting = false }: UserActionsProps) {
   const [isViewSheetOpen, setIsViewSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isPermissionsSheetOpen, setIsPermissionsSheetOpen] = useState(false);
 
   // Check if user role should have permissions option
-  const canManagePermissions = userRole !== UserRoleEnum.ADMIN && 
-                                userRole !== UserRoleEnum.UNAUTHORIZED &&
-                                userRole !== UserRoleEnum.USER;
+  const canManagePermissions = userRole !== UserRoleEnum.ADMIN &&
+    userRole !== UserRoleEnum.UNAUTHORIZED &&
+    userRole !== UserRoleEnum.USER;
 
   const handleView = () => {
     setIsViewSheetOpen(true);
@@ -88,11 +96,19 @@ export function UserActions({ userId, userName, userRole, onSuccess, isCurrentUs
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={handleDelete}
-            className="text-red-600"
+            className="text-orange-600"
             disabled={isCurrentUser}
           >
-            <Trash2 className="mr-2 h-4 w-4" />
-            {isCurrentUser ? 'Eliminar (No puedes eliminarte a ti mismo)' : 'Eliminar'}
+            <Archive className="mr-2 h-4 w-4" />
+            {isCurrentUser ?
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p>Eliminar usuario</p>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>No puedes eliminar a ti mismo</p>
+                </TooltipContent>
+              </Tooltip> : <p>Eliminar usuario</p>}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -120,7 +136,8 @@ export function UserActions({ userId, userName, userRole, onSuccess, isCurrentUs
         userName={userName}
         isOpen={isDeleteDialogOpen}
         onClose={() => setIsDeleteDialogOpen(false)}
-        onSuccess={handleSuccess}
+        onDelete={onDelete}
+        isDeleting={isDeleting}
       />
 
       {/* Sheet para gestionar permisos */}

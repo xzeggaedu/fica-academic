@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from "react";
-import { useList, CanAccess, useGetIdentity } from "@refinedev/core";
+import React, { useState, useMemo, useEffect } from "react";
+import { useList, CanAccess, useGetIdentity, useCan, useUpdate, useInvalidate, useCreate } from "@refinedev/core";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { UserRoleEnum } from "../../types/auth";
 import {
   Table,
@@ -18,25 +19,124 @@ import { UserActions } from "../../components/ui/users/user-actions";
 import { UserCreateButton } from "../../components/ui/users/user-create-button";
 import { UserViewSheet } from "../../components/ui/users/user-view-sheet";
 import { getTableColumnClass } from "../../components/refine-ui/theme/theme-table";
+import { Unauthorized } from "../unauthorized";
+import { Clock } from "lucide-react";
 
 export const UserList = () => {
+  // Verificar permisos primero
+  const { data: canAccess } = useCan({
+    resource: "users",
+    action: "list",
+  });
+
   const { query, result } = useList({
     resource: "users",
+    queryOptions: {
+      enabled: canAccess?.can ?? false,
+    },
+    successNotification: false,
+    errorNotification: false,
   });
+
+  const users = result.data;
+
   const queryClient = useQueryClient();
   const { data: identity } = useGetIdentity<{ id: number; username: string }>();
 
-  // Función para refrescar datos directamente
-  const refreshData = async () => {
-    // Refetch todas las queries que contengan "users"
-    await queryClient.refetchQueries({
-      predicate: (query) => {
-        const queryKey = query.queryKey;
-        return queryKey.some(key =>
-          typeof key === 'string' && key.includes('users')
-        );
+  // Hooks para operaciones CRUD
+  const { mutate: softDeleteUser, mutation: deleteState } = useUpdate();
+  const { mutate: createUser, mutation: createState } = useCreate();
+
+  const invalidate = useInvalidate();
+  const isDeleting = deleteState.isPending;
+  const isCreating = createState.isPending;
+
+  // Función para manejar creación de usuario
+  const handleCreateUser = (
+    userData: {
+      name: string;
+      username: string;
+      email: string;
+      password: string;
+      profile_image_url: string;
+      role: string;
+    },
+    onSuccessCallback?: () => void
+  ) => {
+    createUser(
+      {
+        resource: "users",
+        values: userData,
+        successNotification: false,
+        errorNotification: false,
+      },
+      {
+        onSuccess: () => {
+          // invalidate({
+          //   resource: "users",
+          //   invalidates: ["all", "list"],
+          // });
+
+          toast.success('Usuario creado exitosamente', {
+            description: `El usuario "${userData.username}" ha sido creado correctamente.`,
+            richColors: true,
+          });
+
+          // Llamar al callback de éxito para cerrar el sheet
+          if (onSuccessCallback) {
+            onSuccessCallback();
+          }
+        },
+        onError: (error) => {
+          console.error("UserList - Create error:", error);
+          const errorMessage = error?.message || "Error desconocido al crear usuario";
+
+          toast.error('Error al crear usuario', {
+            description: errorMessage,
+            richColors: true,
+          });
+
+          // Si es error de autenticación, redirigir al login
+          if (errorMessage.includes("Sesión expirada")) {
+            setTimeout(() => {
+              window.location.href = "/login";
+            }, 2000);
+          }
+        },
       }
-    });
+    );
+  };
+
+  // Función para manejar eliminación de usuario (soft delete)
+  const handleDeleteUser = (userId: string, userName: string) => {
+    softDeleteUser(
+      {
+        resource: "soft-delete",
+        id: userId,
+        values: { type: "user/uuid" },
+        successNotification: false,
+      },
+      {
+        onSuccess: async () => {
+          invalidate({
+            resource: "users",
+            invalidates: ["all", "list"],
+          });
+
+          toast.success('Usuario movido a papelera', {
+            description: `El usuario "${userName}" ha sido movido a la papelera de reciclaje.`,
+            richColors: true,
+          });
+        },
+        onError: (error) => {
+          console.error("UserList - Soft delete error:", error);
+          toast.error('Error al mover a papelera', {
+            description: error.message,
+            richColors: true,
+          });
+        },
+      }
+    );
   };
 
   // Estados para filtros y columnas
@@ -46,15 +146,10 @@ export const UserList = () => {
   ]);
 
   // Estado para el sheet de visualización desde la fila
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedUserName, setSelectedUserName] = useState<string>("");
   const [isViewSheetOpen, setIsViewSheetOpen] = useState(false);
 
-  // Debug: Log para verificar los datos
-
-  // Debug: Log para verificar el formato de fecha
-  if (result.data && result.data.length > 0) {
-  }
 
   // Configuración de columnas disponibles
   const availableColumns = [
@@ -70,18 +165,19 @@ export const UserList = () => {
 
   // Filtrar datos basado en búsqueda
   const filteredData = useMemo(() => {
-    if (!result.data) return [];
+    if (!users) return [];
 
-    if (!searchValue.trim()) return result.data;
+    if (!searchValue.trim()) return users;
 
     const searchLower = searchValue.toLowerCase();
-    return result.data.filter((user: any) =>
+    console.log("users", users);
+    return users.filter((user: any) =>
       user.name?.toLowerCase().includes(searchLower) ||
       user.username?.toLowerCase().includes(searchLower) ||
       user.email?.toLowerCase().includes(searchLower) ||
       user.role?.toLowerCase().includes(searchLower)
     );
-  }, [result.data, searchValue]);
+  }, [users, searchValue]);
 
   const getRoleVariant = (role: string) => {
     switch (role) {
@@ -149,8 +245,7 @@ export const UserList = () => {
 
   // Función para manejar éxito de operaciones
   const handleSuccess = async () => {
-    // Refrescar datos directamente
-    await refreshData();
+    setIsViewSheetOpen(false);
   };
 
   // Función para manejar click en la fila
@@ -170,19 +265,15 @@ export const UserList = () => {
     <CanAccess
       resource="users"
       action="list"
-      fallback={
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-800 p-4">
-          <h1 className="text-4xl font-bold mb-4">Acceso Denegado</h1>
-          <p className="text-lg text-center mb-8">
-            No tienes los permisos necesarios para ver esta página.
-          </p>
-          <p className="text-md text-center text-gray-600">
-            Solo los administradores pueden gestionar usuarios.
-          </p>
-        </div>
-      }
+      fallback={<Unauthorized resourceName="usuarios" message="Solo los administradores pueden gestionar usuarios." />}
     >
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock className="h-6 w-6" />
+            <h1 className="text-2xl font-bold">Usuarios</h1>
+          </div>
+        </div>
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -192,7 +283,11 @@ export const UserList = () => {
                   Gestiona todos los usuarios del sistema
                 </CardDescription>
               </div>
-              <UserCreateButton onSuccess={handleSuccess} />
+              <UserCreateButton
+                onSuccess={handleSuccess}
+                onCreate={handleCreateUser}
+                isCreating={isCreating}
+              />
             </div>
           </CardHeader>
           <CardContent>
@@ -206,7 +301,7 @@ export const UserList = () => {
             />
 
             {/* Tabla */}
-            <div className="rounded-md border">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -217,7 +312,7 @@ export const UserList = () => {
                     {visibleColumns.includes("email") && <TableHead className={getTableColumnClass("email")}>Correo</TableHead>}
                     {visibleColumns.includes("role") && <TableHead className={getTableColumnClass("role")}>Rol</TableHead>}
                     {visibleColumns.includes("created_at") && <TableHead className={getTableColumnClass("date")}>Fecha de Creación</TableHead>}
-                    {visibleColumns.includes("actions") && <TableHead className={getTableColumnClass("actions")}></TableHead>}
+                    {visibleColumns.includes("actions") && <TableHead className={`${getTableColumnClass("actions")} w-[40px] max-w-[40px]`}></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -281,13 +376,15 @@ export const UserList = () => {
                           </TableCell>
                         )}
                         {visibleColumns.includes("actions") && (
-                          <TableCell className={getTableColumnClass("actions")} data-actions-cell onClick={(e) => e.stopPropagation()}>
+                          <TableCell className={`${getTableColumnClass("actions")} w-[40px] max-w-[40px]`} data-actions-cell onClick={(e) => e.stopPropagation()}>
                             <UserActions
                               userId={user.uuid}
                               userName={user.name}
                               userRole={user.role}
                               onSuccess={handleSuccess}
                               isCurrentUser={identity?.id === user.uuid}
+                              onDelete={handleDeleteUser}
+                              isDeleting={isDeleting}
                             />
                           </TableCell>
                         )}

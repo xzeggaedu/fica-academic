@@ -15,17 +15,17 @@ from ...core.exceptions.http_exceptions import (
 )
 from ...core.security import blacklist_token, get_password_hash, oauth2_scheme, verify_password
 from ...crud.crud_faculties import get_faculty_by_uuid
+from ...crud.crud_recycle_bin import create_recycle_bin_entry, find_recycle_bin_entry, mark_as_restored
 from ...crud.crud_schools import get_school_by_uuid
 from ...crud.crud_user_scope import create_faculty_scope, create_school_scope, delete_user_scopes, get_user_scopes
-from ...crud.crud_users import crud_users
+from ...crud.crud_users import crud_users, get_deleted_users, get_non_deleted_users, restore_user, soft_delete_user
 from ...models.role import UserRoleEnum
 from ...schemas.user import (
     UserCreate,
     UserCreateAdmin,
     UserCreateInternal,
-    UserPasswordUpdate,
+    UserPasswordUpdateAdmin,
     UserRead,
-    UserUpdate,
     UserUpdateAdmin,
 )
 from ...schemas.user_scope import UserScopeAssignment, UserScopeRead
@@ -35,7 +35,7 @@ router = APIRouter(tags=["users"])
 
 @router.get("/me", response_model=dict[str, Any])
 async def get_current_user_info(current_user: Annotated[dict, Depends(get_current_user)]) -> dict[str, Any]:
-    """Get current user information with RBAC claims.
+    """Get current user information with RBAC claims from JWT token.
 
     Returns
     -------
@@ -43,6 +43,30 @@ async def get_current_user_info(current_user: Annotated[dict, Depends(get_curren
         Dictionary containing current user information with RBAC claims.
     """
     return current_user
+
+
+@router.get("/me/profile", response_model=UserRead)
+async def get_current_user_profile(
+    current_user: Annotated[dict, Depends(get_current_user)], db: Annotated[AsyncSession, Depends(async_get_db)]
+) -> UserRead:
+    """Get current user profile with fresh data from database.
+
+    Returns
+    -------
+    UserRead
+        Current user profile with latest data from database.
+    """
+    user_uuid = current_user.get("user_uuid")
+
+    if not user_uuid:
+        raise UnauthorizedException("Invalid authentication token")
+
+    db_user = await crud_users.get(db=db, uuid=user_uuid, deleted=False, schema_to_select=UserRead)
+
+    if db_user is None:
+        raise NotFoundException("User not found")
+
+    return cast(UserRead, db_user)
 
 
 @router.post("/user", response_model=UserRead, status_code=201)
@@ -108,93 +132,82 @@ async def create_user_as_admin(
 async def read_users(
     request: Request,
     db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # ✅ Requiere admin
+    current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
     page: int = 1,
     items_per_page: int = 10,
+    include_deleted: bool = False,
 ) -> dict:
-    users_data = await crud_users.get_multi(
-        db=db,
-        offset=compute_offset(page, items_per_page),
-        limit=items_per_page,
-        is_deleted=False,
-    )
+    if include_deleted:
+        # Incluir usuarios eliminados
+        users_data = await crud_users.get_multi(
+            db=db,
+            offset=compute_offset(page, items_per_page),
+            limit=items_per_page,
+        )
+    else:
+        # Por defecto, solo usuarios no eliminados
+        users_data = await get_non_deleted_users(
+            db=db, offset=compute_offset(page, items_per_page), limit=items_per_page
+        )
 
     response: dict[str, Any] = paginated_response(crud_data=users_data, page=page, items_per_page=items_per_page)
     return response
 
 
-@router.get("/user/me/", response_model=UserRead)
-async def read_users_me(request: Request, current_user: Annotated[dict, Depends(get_current_user)]) -> dict:
-    return current_user
-
-
-@router.get("/user/{username}", response_model=UserRead)
-async def read_user(request: Request, username: str, db: Annotated[AsyncSession, Depends(async_get_db)]) -> UserRead:
-    db_user = await crud_users.get(db=db, username=username, is_deleted=False, schema_to_select=UserRead)
-    if db_user is None:
-        raise NotFoundException("User not found")
-
-    return cast(UserRead, db_user)
-
-
-@router.get("/user/uuid/{user_uuid}", response_model=UserRead)
+@router.get("/user/{user_uuid}", response_model=UserRead)
 async def read_user_by_uuid(
     request: Request,
     user_uuid: uuid_pkg.UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # ✅ Requiere admin
+    current_user: Annotated[
+        dict, Depends(get_current_user)
+    ],  # ✅ Usar get_current_user en lugar de get_current_superuser
 ) -> UserRead:
-    """Get user by UUID - Admin only"""
-    db_user = await crud_users.get(db=db, uuid=user_uuid, is_deleted=False, schema_to_select=UserRead)
-    if db_user is None:
-        raise NotFoundException("User not found")
+    """Get user by UUID - Admin can see all users, regular users can only see their own profile"""
+    # Verificar si el usuario es admin o está viendo su propio perfil
+    current_user_role = current_user.get("role")
+    current_user_uuid = current_user.get("user_uuid")
 
-    return cast(UserRead, db_user)
+    # Si es admin, puede ver cualquier perfil
+    if current_user_role == UserRoleEnum.ADMIN:
+        db_user = await crud_users.get(db=db, uuid=user_uuid, deleted=False, schema_to_select=UserRead)
+        if db_user is None:
+            raise NotFoundException("User not found")
+        return cast(UserRead, db_user)
 
+    # Si no es admin, solo puede ver su propio perfil
+    if current_user_uuid and str(current_user_uuid) == str(user_uuid):
+        db_user = await crud_users.get(db=db, uuid=user_uuid, deleted=False, schema_to_select=UserRead)
+        if db_user is None:
+            raise NotFoundException("User not found")
+        return cast(UserRead, db_user)
 
-@router.patch("/user/{username}")
-async def patch_user(
-    request: Request,
-    values: UserUpdate,
-    username: str,
-    current_user: Annotated[dict, Depends(get_current_user)],
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-) -> dict[str, str]:
-    db_user = await crud_users.get(db=db, username=username)
-    if db_user is None:
-        raise NotFoundException("User not found")
-
-    if isinstance(db_user, dict):
-        db_username = db_user["username"]
-        db_email = db_user["email"]
-    else:
-        db_username = db_user.username
-        db_email = db_user.email
-
-    if db_username != current_user["username"]:
-        raise ForbiddenException()
-
-    if values.email is not None and values.email != db_email:
-        if await crud_users.exists(db=db, email=values.email):
-            raise DuplicateValueException("Email is already registered")
-
-    if values.username is not None and values.username != db_username:
-        if await crud_users.exists(db=db, username=values.username):
-            raise DuplicateValueException("Username not available")
-
-    await crud_users.update(db=db, object=values, username=username)
-    return {"message": "User updated"}
+    # Si no es admin y no es su propio perfil, denegar acceso
+    raise ForbiddenException("You can only view your own profile")
 
 
-@router.patch("/user/uuid/{user_uuid}")
+@router.patch("/user/{user_uuid}")
 async def patch_user_by_uuid(
     request: Request,
     values: UserUpdateAdmin,
     user_uuid: uuid_pkg.UUID,
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # ✅ Requiere admin
+    current_user: Annotated[dict, Depends(get_current_user)],  # ✅ Usar get_current_user
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, str]:
-    """Update user by UUID including role - Admin only"""
+    """Update user by UUID - Admin can update all users, regular users can only update their own profile"""
+    # Verificar permisos
+    current_user_role = current_user.get("role")
+    current_user_uuid = current_user.get("user_uuid")
+
+    # Si no es admin, solo puede editar su propio perfil
+    if current_user_role != UserRoleEnum.ADMIN:
+        if not current_user_uuid or str(current_user_uuid) != str(user_uuid):
+            raise ForbiddenException("You can only edit your own profile")
+
+        # Los usuarios no admin no pueden cambiar su rol
+        if values.role is not None:
+            raise ForbiddenException("You cannot change your own role")
+
     db_user = await crud_users.get(db=db, uuid=user_uuid)
     if db_user is None:
         raise NotFoundException("User not found")
@@ -214,62 +227,78 @@ async def patch_user_by_uuid(
         if await crud_users.exists(db=db, username=values.username):
             raise DuplicateValueException("Username not available")
 
-    await crud_users.update(db=db, object=values, uuid=user_uuid)
-    return {"message": "User updated"}
-
-
-@router.patch("/user/uuid/{user_uuid}/password")
-async def update_user_password(
-    request: Request,
-    password_data: UserPasswordUpdate,
-    user_uuid: uuid_pkg.UUID,
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # ✅ Requiere admin
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-) -> dict[str, str]:
-    """Update user password by UUID - Admin only"""
+    # Verificar que el usuario existe
     db_user = await crud_users.get(db=db, uuid=user_uuid)
     if db_user is None:
         raise NotFoundException("User not found")
 
-    # Handle both dict and object responses
     if isinstance(db_user, dict):
-        hashed_password = db_user["hashed_password"]
+        db_username = db_user["username"]
+        db_email = db_user["email"]
     else:
-        hashed_password = db_user.hashed_password
+        db_username = db_user.username
+        db_email = db_user.email
 
-    # Verify current password
-    if not await verify_password(password_data.current_password, hashed_password):
-        raise UnauthorizedException("Current password is incorrect")
+    if values.email is not None and values.email != db_email:
+        if await crud_users.exists(db=db, email=values.email):
+            raise DuplicateValueException("Email is already registered")
+
+    if values.username is not None and values.username != db_username:
+        if await crud_users.exists(db=db, username=values.username):
+            raise DuplicateValueException("Username not available")
+
+    # Filtrar campos None y realizar la actualización
+    update_data = values.model_dump(exclude_none=True)
+    await crud_users.update(db=db, object=update_data, uuid=user_uuid)
+    await db.commit()
+
+    return {"message": "User updated"}
+
+
+@router.patch("/user/{user_uuid}/password")
+async def update_user_password(
+    request: Request,
+    password_data: UserPasswordUpdateAdmin,
+    user_uuid: uuid_pkg.UUID,
+    current_user: Annotated[dict, Depends(get_current_user)],  # Cambiado a get_current_user para permitir ambos casos
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> dict[str, str]:
+    """Update user password by UUID - Admin can change any password, users can only change their own"""
+    db_user = await crud_users.get(db=db, uuid=user_uuid)
+    if db_user is None:
+        raise NotFoundException("User not found")
+
+    current_user_role = current_user.get("role")
+    current_user_uuid = current_user.get("user_uuid")
+
+    # Verificar permisos: admin puede cambiar cualquier contraseña, usuario solo la suya
+    if current_user_role != UserRoleEnum.ADMIN:
+        if not current_user_uuid or str(current_user_uuid) != str(user_uuid):
+            raise ForbiddenException("You can only change your own password")
+
+    # Si se proporciona contraseña actual, verificar que sea correcta
+    if password_data.current_password:
+        # Handle both dict and object responses
+        if isinstance(db_user, dict):
+            hashed_password = db_user["hashed_password"]
+        else:
+            hashed_password = db_user.hashed_password
+
+        # Verify current password
+        if not await verify_password(password_data.current_password, hashed_password):
+            raise UnauthorizedException("Current password is incorrect")
 
     # Hash new password
     new_hashed_password = get_password_hash(password=password_data.new_password)
 
     # Update password
     await crud_users.update(db=db, object={"hashed_password": new_hashed_password}, uuid=user_uuid)
+    await db.commit()  # Asegurar que se persista
+
     return {"message": "Password updated successfully"}
 
 
-@router.delete("/user/{username}")
-async def erase_user(
-    request: Request,
-    username: str,
-    current_user: Annotated[dict, Depends(get_current_user)],
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-    token: str = Depends(oauth2_scheme),
-) -> dict[str, str]:
-    db_user = await crud_users.get(db=db, username=username, schema_to_select=UserRead)
-    if not db_user:
-        raise NotFoundException("User not found")
-
-    if username != current_user["username"]:
-        raise ForbiddenException()
-
-    await crud_users.delete(db=db, username=username)
-    await blacklist_token(token=token, db=db)
-    return {"message": "User deleted"}
-
-
-@router.delete("/user/uuid/{user_uuid}")
+@router.delete("/user/{user_uuid}")
 async def erase_user_by_uuid(
     request: Request,
     user_uuid: uuid_pkg.UUID,
@@ -288,11 +317,12 @@ async def erase_user_by_uuid(
     return {"message": "User deleted"}
 
 
-@router.delete("/db_user/{username}", dependencies=[Depends(get_current_superuser)])
+@router.delete("/db_user/{username}")
 async def erase_db_user(
     request: Request,
     username: str,
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
     token: str = Depends(oauth2_scheme),
 ) -> dict[str, str]:
     db_user = await crud_users.exists(db=db, username=username)
@@ -387,19 +417,26 @@ async def assign_user_scope(
         created_scopes.append(scope)
 
     elif user_role == UserRoleEnum.DIRECTOR:
-        # DIRECTOR: Must assign to ONE school
-        if assignment.school_id is None:
-            raise ForbiddenException("DIRECTOR role requires a school_id assignment")
-        if assignment.faculty_id is not None:
-            raise ForbiddenException("DIRECTOR role cannot be assigned to a faculty")
+        # DIRECTOR: Must have both school_id AND faculty_id
+        if assignment.school_id is None or assignment.faculty_id is None:
+            raise ForbiddenException("DIRECTOR role requires both school_id and faculty_id")
 
-        # Validate school exists
+        # Validate school exists and belongs to the specified faculty
         school = await get_school_by_uuid(db=db, school_id=assignment.school_id)
         if school is None:
             raise NotFoundException(f"School with id '{assignment.school_id}' not found")
 
-        # Create school scope
-        scope = await create_school_scope(db=db, user_uuid=user_uuid, school_id=assignment.school_id)
+        # Validate that school belongs to the specified faculty
+        school_faculty_id = school.get("fk_faculty") if isinstance(school, dict) else school.fk_faculty
+        if school_faculty_id != assignment.faculty_id:
+            raise ForbiddenException(
+                f"School '{assignment.school_id}' does not belong to faculty '{assignment.faculty_id}'"
+            )
+
+        # Create school scope with both school_id and faculty_id
+        scope = await create_school_scope(
+            db=db, user_uuid=user_uuid, school_id=assignment.school_id, faculty_id=assignment.faculty_id
+        )
         created_scopes.append(scope)
 
     # 5. Return created scopes
@@ -415,13 +452,13 @@ async def assign_user_scope(
     ]
 
 
-@router.get("/user/{user_uuid}/scope", response_model=list[UserScopeRead])
+@router.get("/user/{user_uuid}/scope", response_model=list[dict])
 async def get_user_scope_assignments(
     request: Request,
     user_uuid: uuid_pkg.UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
-) -> list[UserScopeRead]:
+) -> list[dict]:
     """Get all scope assignments for a user - Admin only.
 
     Args:
@@ -447,13 +484,152 @@ async def get_user_scope_assignments(
     # Get scopes
     scopes = await get_user_scopes(db=db, user_uuid=user_uuid)
 
-    return [
-        UserScopeRead(
-            id=scope.id,
-            fk_user=scope.fk_user,
-            fk_school=scope.fk_school,
-            fk_faculty=scope.fk_faculty,
-            assigned_at=scope.assigned_at,
+    result = []
+    for scope in scopes:
+        # Create a dict with all scope data
+        scope_data = {
+            "id": scope.id,
+            "fk_user": scope.fk_user,
+            "fk_school": scope.fk_school,
+            "fk_faculty": scope.fk_faculty,
+            "assigned_at": scope.assigned_at,
+        }
+
+        result.append(scope_data)
+
+    return result
+
+
+@router.patch("/user/soft-delete/{user_uuid}", response_model=UserRead)
+async def soft_delete_user_endpoint(
+    request: Request,
+    user_uuid: uuid_pkg.UUID,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    values: dict = None,
+) -> UserRead:
+    """Eliminar un usuario (soft delete) - Solo Admin.
+
+    Esto marcará el usuario como eliminado pero no lo removerá físicamente de la base de datos.
+    También crea un registro en RecycleBin para auditoría y posible restauración.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        user_uuid: UUID del usuario a eliminar
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+
+    Returns:
+    -------
+        Datos del usuario eliminado
+
+    Raises:
+    ------
+        NotFoundException: Si el usuario no se encuentra
+    """
+    # Verificar si el usuario existe
+    db_user = await crud_users.get(db=db, uuid=user_uuid, schema_to_select=UserRead)
+    if db_user is None:
+        raise NotFoundException(f"No se encontró el usuario con UUID '{user_uuid}'")
+
+    # Soft delete user
+    success = await soft_delete_user(db=db, user_uuid=user_uuid)
+    if not success:
+        raise NotFoundException(f"Error al eliminar el usuario con UUID '{user_uuid}'")
+
+    # Crear registro en RecycleBin
+    await create_recycle_bin_entry(
+        db=db,
+        entity_type="user",
+        entity_id=str(user_uuid),  # UUID como string
+        entity_display_name=f"{db_user['name']} ({db_user['email']})",
+        deleted_by_id=current_user["user_uuid"],
+        deleted_by_name=current_user["name"],
+        reason=None,  # Se puede agregar un parámetro opcional en el request
+        can_restore=True,
+    )
+
+    # Retrieve and return updated user
+    updated_user = await crud_users.get(db=db, uuid=user_uuid, schema_to_select=UserRead)
+    return cast(UserRead, updated_user)
+
+
+@router.patch("/user/restore/{user_uuid}", response_model=UserRead)
+async def restore_user_endpoint(
+    request: Request,
+    user_uuid: uuid_pkg.UUID,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    values: dict = None,
+) -> UserRead:
+    """Restaurar un usuario eliminado (soft delete) - Solo Admin.
+
+    Esto revertirá la eliminación del usuario y actualizará el registro en RecycleBin.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        user_uuid: UUID del usuario a restaurar
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+
+    Returns:
+    -------
+        Datos del usuario restaurado
+
+    Raises:
+    ------
+        NotFoundException: Si el usuario no se encuentra
+    """
+    # Verificar si el usuario existe
+    db_user = await crud_users.get(db=db, uuid=user_uuid, schema_to_select=UserRead)
+    if db_user is None:
+        raise NotFoundException(f"No se encontró el usuario con UUID '{user_uuid}'")
+
+    # Restore user
+    success = await restore_user(db=db, user_uuid=user_uuid)
+    if not success:
+        raise NotFoundException(f"Error al restaurar el usuario con UUID '{user_uuid}'")
+
+    # Buscar y actualizar registro en RecycleBin
+    recycle_bin_entry = await find_recycle_bin_entry(db=db, entity_type="user", entity_id=str(user_uuid))
+    if recycle_bin_entry:
+        await mark_as_restored(
+            db=db,
+            recycle_bin_id=recycle_bin_entry["id"],
+            restored_by_id=current_user["user_uuid"],
+            restored_by_name=current_user["name"],
         )
-        for scope in scopes
-    ]
+
+    # Retrieve and return updated user
+    updated_user = await crud_users.get(db=db, uuid=user_uuid, schema_to_select=UserRead)
+    return cast(UserRead, updated_user)
+
+
+@router.get("/users/deleted", response_model=PaginatedListResponse[UserRead])
+async def list_deleted_users(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    page: int = 1,
+    items_per_page: int = 10,
+) -> dict:
+    """Obtener lista paginada de usuarios eliminados (soft delete) - Solo Admin.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+        page: Número de página (default: 1)
+        items_per_page: Items por página (default: 10)
+
+    Returns:
+    -------
+        Lista paginada de usuarios eliminados
+    """
+    users_data = await get_deleted_users(db=db, offset=compute_offset(page, items_per_page), limit=items_per_page)
+
+    response: dict[str, Any] = paginated_response(crud_data=users_data, page=page, items_per_page=items_per_page)
+    return response

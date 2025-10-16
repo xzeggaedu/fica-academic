@@ -59,9 +59,9 @@ export const TaskList = () => {
                 <TableRow>
                   <TableHead>ID</TableHead>
                   <TableHead>Mensaje</TableHead>
-                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-center w-[100px]">Estado</TableHead>
                   <TableHead>Fecha de Creación</TableHead>
-                  <TableHead>Acciones</TableHead>
+                  <TableHead className="text-center w-[100px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

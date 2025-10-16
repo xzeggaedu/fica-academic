@@ -1,150 +1,91 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
+import { Archive } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/forms/input";
-import { Label } from "@/components/ui/forms/label";
 import { useGetIdentity } from "@refinedev/core";
-import { toast } from "sonner";
 
 interface UserDeleteDialogProps {
-  userId: number;
+  userId: string;
   userName: string;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  onDelete?: (userId: string, userName: string) => void;
+  isDeleting?: boolean;
 }
 
-export function UserDeleteDialog({ userId, userName, isOpen, onClose, onSuccess }: UserDeleteDialogProps) {
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [confirmationText, setConfirmationText] = useState("");
+export function UserDeleteDialog({
+  userId,
+  userName,
+  isOpen,
+  onClose,
+  onDelete,
+  isDeleting = false
+}: UserDeleteDialogProps) {
   const { data: currentUser } = useGetIdentity();
-
-  const requiredText = "eliminar usuario permanentemente";
-  const isConfirmationValid = confirmationText === requiredText;
   const isCurrentUser = currentUser?.id === userId;
 
-  const handleClose = () => {
-    setConfirmationText("");
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete(userId, userName);
+    }
     onClose();
   };
 
-  const handleDelete = async () => {
-    setIsDeleting(true);
-
-    try {
-      const token = localStorage.getItem("fica-access-token");
-
-      if (!token) {
-        throw new Error("No hay token de autenticación disponible");
-      }
-
-      const url = `http://localhost:8000/api/v1/user/uuid/${userId}`;
-
-
-      const response = await fetch(url, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Token expirado o inválido
-          localStorage.removeItem("fica-access-token");
-          localStorage.removeItem("fica-refresh-token");
-          throw new Error("Sesión expirada. Por favor, inicia sesión nuevamente.");
-        }
-
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      // Mostrar toast de éxito
-      toast.success('Usuario eliminado exitosamente', {
-        description: `El usuario "${userName}" ha sido eliminado correctamente.`,
-        richColors: true,
-      });
-
-      onClose();
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (err) {
-      console.error("UserDeleteDialog - Delete error:", err);
-
-      // Mostrar toast de error
-      const errorMessage = (err as Error).message;
-      toast.error('Error al eliminar usuario', {
-        description: errorMessage,
-        richColors: true,
-      });
-
-      // Si es error de autenticación, redirigir al login
-      if (errorMessage.includes("Sesión expirada")) {
-        window.location.href = "/login";
-      }
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   return (
-    <AlertDialog open={isOpen} onOpenChange={handleClose}>
-      <AlertDialogContent className="max-w-md">
+    <AlertDialog open={isOpen} onOpenChange={onClose}>
+      <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>¿Eliminar usuario?</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <Archive className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+            ¿Eliminar usuario?
+          </AlertDialogTitle>
+          <div className="text-sm text-muted-foreground space-y-3">
             {isCurrentUser ? (
-              <>
-                No puedes eliminar tu propia cuenta. Esta acción está restringida por seguridad.
-                <br />
-                <strong>Usuario actual: {userName}</strong>
-              </>
+              <div className="rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 p-3">
+                <div className="text-base text-red-800 dark:text-red-200">
+                  <strong>⚠️ No puedes eliminar tu propia cuenta</strong>
+                </div>
+                <div className="text-sm text-red-700 dark:text-red-300 mt-2">
+                  Esta acción está restringida por seguridad.
+                </div>
+                <div className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  Usuario actual: <strong>{userName}</strong>
+                </div>
+              </div>
             ) : (
               <>
-                Esta acción no se puede deshacer. Se eliminará permanentemente el usuario{" "}
-                <strong>{userName}</strong> del sistema.
+                <div className="text-base">
+                  El usuario <strong className="text-foreground">{userName}</strong> será movido a la papelera de reciclaje.
+                </div>
+                <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 p-3">
+                  <span className="text-sm flex text-blue-800 dark:text-blue-200 items-start">
+                    <span className="mt-1">💡</span> <span className="ml-2"><strong>Podrás restaurarla más tarde</strong> desde la papelera de reciclaje si lo necesitas.</span>
+                  </span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Este usuario no podrá iniciar sesión hasta que sea restaurado.
+                </div>
               </>
             )}
-          </AlertDialogDescription>
+          </div>
         </AlertDialogHeader>
 
-        {!isCurrentUser && (
-          <div className="py-4">
-            <Label htmlFor="confirmation-text" className="text-sm font-medium">
-              Para confirmar, escribe: <span className="font-mono text-red-600">eliminar usuario permanentemente</span>
-            </Label>
-            <Input
-              id="confirmation-text"
-              type="text"
-              placeholder="eliminar usuario permanentemente"
-              value={confirmationText}
-              onChange={(e) => setConfirmationText(e.target.value)}
-              className="mt-2"
-            />
-          </div>
-        )}
-
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleClose}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
           {!isCurrentUser && (
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={isDeleting || !isConfirmationValid}
-              className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              disabled={isDeleting}
+              className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {isDeleting ? "Eliminando..." : "Eliminar"}
+              {isDeleting ? 'Moviendo...' : 'Mover a papelera'}
             </AlertDialogAction>
           )}
         </AlertDialogFooter>

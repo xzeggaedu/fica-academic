@@ -6,16 +6,26 @@ from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.dependencies import get_current_superuser
+from ...api.dependencies import get_current_superuser, get_current_user
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import DuplicateValueException, NotFoundException
-from ...crud.crud_faculties import crud_faculties, faculty_acronym_exists, faculty_exists, get_faculty_by_uuid
-from ...schemas.faculty import FacultyCreate, FacultyRead, FacultyReadWithSchools, FacultyUpdate
+from ...crud.crud_faculties import (
+    crud_faculties,
+    faculty_acronym_exists,
+    faculty_exists,
+    get_deleted_faculties,
+    get_faculty_by_uuid,
+    get_non_deleted_faculties,
+    restore_faculty,
+    soft_delete_faculty,
+)
+from ...crud.crud_recycle_bin import create_recycle_bin_entry, find_recycle_bin_entry, mark_as_restored
+from ...schemas.faculty import FacultyCreate, FacultyRead, FacultyUpdate
 
-router = APIRouter(tags=["faculties"])
+router = APIRouter(prefix="/catalog/faculties", tags=["catalog-faculties"])
 
 
-@router.post("/faculty", response_model=FacultyRead, status_code=201)
+@router.post("", response_model=FacultyRead, status_code=201)
 async def create_faculty(
     request: Request,
     faculty: FacultyCreate,
@@ -58,16 +68,17 @@ async def create_faculty(
     return cast(FacultyRead, faculty_read)
 
 
-@router.get("/faculties", response_model=PaginatedListResponse[FacultyRead])
+@router.get("", response_model=PaginatedListResponse[FacultyRead])
 async def list_faculties(
     request: Request,
     db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
     page: int = 1,
     items_per_page: int = 10,
     is_active: bool | None = None,
+    include_deleted: bool = False,
 ) -> dict:
-    """Obtener lista paginada de facultades - Solo Admin.
+    """Obtener lista paginada de facultades - Accesible para todos los usuarios autenticados.
 
     Args:
     ----
@@ -77,31 +88,35 @@ async def list_faculties(
         page: Número de página (default: 1)
         items_per_page: Items por página (default: 10)
         is_active: Filtrar por estado activo (opcional)
+        include_deleted: Incluir facultades eliminadas (soft delete)
 
     Returns:
     -------
         Lista paginada de facultades
     """
-    filters = {}
-    if is_active is not None:
-        filters["is_active"] = is_active
-
-    faculties_data = await crud_faculties.get_multi(
-        db=db, offset=compute_offset(page, items_per_page), limit=items_per_page, **filters
-    )
+    if include_deleted:
+        # Si se solicitan eliminadas, usar get_deleted_faculties
+        faculties_data = await get_deleted_faculties(
+            db=db, offset=compute_offset(page, items_per_page), limit=items_per_page
+        )
+    else:
+        # Por defecto, solo facultades no eliminadas
+        faculties_data = await get_non_deleted_faculties(
+            db=db, offset=compute_offset(page, items_per_page), limit=items_per_page, is_active=is_active
+        )
 
     response: dict[str, Any] = paginated_response(crud_data=faculties_data, page=page, items_per_page=items_per_page)
     return response
 
 
-@router.get("/faculty/{faculty_id}", response_model=FacultyReadWithSchools)
+@router.get("/{faculty_id}", response_model=FacultyRead)
 async def get_faculty(
     request: Request,
     faculty_id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
-) -> FacultyReadWithSchools:
-    """Obtener una facultad específica por UUID con sus escuelas - Solo Admin.
+    current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
+) -> FacultyRead:
+    """Obtener una facultad específica por UUID con sus escuelas - Accesible para todos los usuarios autenticados.
 
     Args:
     ----
@@ -122,10 +137,10 @@ async def get_faculty(
     if faculty is None:
         raise NotFoundException(f"No se encontró la facultad con id '{faculty_id}'")
 
-    return cast(FacultyReadWithSchools, faculty)
+    return cast(FacultyRead, faculty)
 
 
-@router.patch("/faculty/{faculty_id}", response_model=FacultyRead)
+@router.patch("/{faculty_id}", response_model=FacultyRead)
 async def update_faculty(
     request: Request,
     faculty_id: int,
@@ -175,7 +190,7 @@ async def update_faculty(
     return cast(FacultyRead, updated_faculty)
 
 
-@router.delete("/faculty/{faculty_id}", status_code=204)
+@router.delete("/{faculty_id}", status_code=204)
 async def delete_faculty(
     request: Request,
     faculty_id: int,
@@ -204,3 +219,140 @@ async def delete_faculty(
 
     # Delete faculty (cascade will handle related records)
     await crud_faculties.delete(db=db, id=faculty_id)
+
+
+@router.patch("/soft-delete/{faculty_id}", response_model=FacultyRead)
+async def soft_delete_faculty_endpoint(
+    request: Request,
+    faculty_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    values: dict = None,
+) -> FacultyRead:
+    """Eliminar una facultad (soft delete) - Solo Admin.
+
+    Esto marcará la facultad como eliminada pero no la removerá físicamente de la base de datos.
+    También crea un registro en RecycleBin para auditoría y posible restauración.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        faculty_id: ID de la facultad a eliminar
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+
+    Returns:
+    -------
+        Datos de la facultad eliminada
+
+    Raises:
+    ------
+        NotFoundException: Si la facultad no se encuentra
+    """
+    # Verificar si la facultad existe
+    db_faculty = await get_faculty_by_uuid(db=db, faculty_id=faculty_id)
+    if db_faculty is None:
+        raise NotFoundException(f"No se encontró la facultad con id '{faculty_id}'")
+
+    # Soft delete faculty
+    success = await soft_delete_faculty(db=db, faculty_id=faculty_id)
+    if not success:
+        raise NotFoundException(f"Error al eliminar la facultad con id '{faculty_id}'")
+
+    # Crear registro en RecycleBin
+    await create_recycle_bin_entry(
+        db=db,
+        entity_type="faculty",
+        entity_id=str(faculty_id),
+        entity_display_name=f"{db_faculty['name']} ({db_faculty['acronym']})",
+        deleted_by_id=current_user["user_uuid"],
+        deleted_by_name=current_user["name"],
+        reason=None,  # Se puede agregar un parámetro opcional en el request
+        can_restore=True,
+    )
+
+    # Retrieve and return updated faculty
+    updated_faculty = await get_faculty_by_uuid(db=db, faculty_id=faculty_id)
+    return cast(FacultyRead, updated_faculty)
+
+
+@router.patch("/restore/{faculty_id}", response_model=FacultyRead)
+async def restore_faculty_endpoint(
+    request: Request,
+    faculty_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    values: dict = None,
+) -> FacultyRead:
+    """Restaurar una facultad eliminada (soft delete) - Solo Admin.
+
+    Esto revertirá la eliminación de la facultad y actualizará el registro en RecycleBin.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        faculty_id: ID de la facultad a restaurar
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+
+    Returns:
+    -------
+        Datos de la facultad restaurada
+
+    Raises:
+    ------
+        NotFoundException: Si la facultad no se encuentra
+    """
+    # Verificar si la facultad existe
+    db_faculty = await get_faculty_by_uuid(db=db, faculty_id=faculty_id)
+    if db_faculty is None:
+        raise NotFoundException(f"No se encontró la facultad con id '{faculty_id}'")
+
+    # Restore faculty
+    success = await restore_faculty(db=db, faculty_id=faculty_id)
+    if not success:
+        raise NotFoundException(f"Error al restaurar la facultad con id '{faculty_id}'")
+
+    # Buscar y actualizar registro en RecycleBin
+    recycle_bin_entry = await find_recycle_bin_entry(db=db, entity_type="faculty", entity_id=str(faculty_id))
+    if recycle_bin_entry:
+        await mark_as_restored(
+            db=db,
+            recycle_bin_id=recycle_bin_entry["id"],
+            restored_by_id=current_user["user_uuid"],
+            restored_by_name=current_user["name"],
+        )
+
+    # Retrieve and return updated faculty
+    updated_faculty = await get_faculty_by_uuid(db=db, faculty_id=faculty_id)
+    return cast(FacultyRead, updated_faculty)
+
+
+@router.get("/deleted", response_model=PaginatedListResponse[FacultyRead])
+async def list_deleted_faculties(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    page: int = 1,
+    items_per_page: int = 10,
+) -> dict:
+    """Obtener lista paginada de facultades eliminadas (soft delete) - Solo Admin.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+        page: Número de página (default: 1)
+        items_per_page: Items por página (default: 10)
+
+    Returns:
+    -------
+        Lista paginada de facultades eliminadas
+    """
+    faculties_data = await get_deleted_faculties(
+        db=db, offset=compute_offset(page, items_per_page), limit=items_per_page
+    )
+
+    response: dict[str, Any] = paginated_response(crud_data=faculties_data, page=page, items_per_page=items_per_page)
+    return response

@@ -3,7 +3,7 @@
 import uuid as uuid_pkg
 from datetime import UTC, datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,9 +15,10 @@ class UserScope(Base):
 
     Esta tabla implementa la asignación de alcance para los roles DIRECTOR y DECANO:
     - DECANO: Asignado a una Facultad (fk_faculty NOT NULL, fk_school NULL)
-    - DIRECTOR: Asignado a una o múltiples Escuelas (fk_school NOT NULL, fk_faculty NULL)
+    - DIRECTOR: Asignado a una Escuela (fk_school NOT NULL, fk_faculty NOT NULL)
 
-    La restricción CHECK asegura que solo uno de fk_school o fk_faculty puede ser NOT NULL.
+    Nota: Para DIRECTOR, fk_faculty debe contener el ID de la facultad padre de la escuela asignada.
+    La restricción CHECK asegura que al menos uno de fk_school o fk_faculty debe ser NOT NULL.
     """
 
     __tablename__ = "user_scope"
@@ -26,7 +27,9 @@ class UserScope(Base):
     id: Mapped[int] = mapped_column(autoincrement=True, primary_key=True)
 
     # Claves Foráneas
-    fk_user: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("user.uuid", ondelete="CASCADE"), nullable=False, index=True)
+    fk_user: Mapped[uuid_pkg.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("user.uuid", ondelete="CASCADE"), nullable=False, index=True
+    )
 
     fk_school: Mapped[int | None] = mapped_column(
         ForeignKey("school.id", ondelete="CASCADE"), nullable=True, index=True
@@ -41,11 +44,14 @@ class UserScope(Base):
         DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), nullable=False
     )
 
-    # Restricción CHECK: Solo uno de fk_school o fk_faculty puede ser NOT NULL
+    # Restricción CHECK:
+    # - DECANO: Solo fk_faculty puede ser NOT NULL
+    # - DIRECTOR: fk_school puede ser NOT NULL, fk_faculty puede ser NULL o NOT NULL
+    # - Al menos uno de fk_school o fk_faculty debe ser NOT NULL
     __table_args__ = (
         CheckConstraint(
-            "(fk_school IS NOT NULL AND fk_faculty IS NULL) OR (fk_school IS NULL AND fk_faculty IS NOT NULL)",
-            name="check_single_scope_assignment",
+            "(fk_school IS NOT NULL OR fk_faculty IS NOT NULL)",
+            name="check_at_least_one_scope",
         ),
     )
 

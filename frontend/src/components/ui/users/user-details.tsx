@@ -103,11 +103,14 @@ export function UserDetails({ data, isLoading, error }: UserDetailsProps) {
       <div className="space-y-6">
         <h3 className="text-lg font-semibold flex justify-between items-center">
           <span>Información del Usuario</span>
-          <span className="text-sm font-mono font-normal text-muted-foreground">ID: {record?.id}</span>
         </h3>
 
         <div className="space-y-4">
           <div className="space-y-3">
+          <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">ID de Usuario:</label>
+              <p className="text-sm">{record?.id}</p>
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">Nombre de Usuario</label>
               <p className="text-sm">{record?.username}</p>
@@ -118,14 +121,6 @@ export function UserDetails({ data, isLoading, error }: UserDetailsProps) {
               <p className="text-sm">{record?.email}</p>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Rol</label>
-              <div>
-                <Badge variant={getRoleVariant(record?.role)}>
-                  {getRoleLabel(record?.role)}
-                </Badge>
-              </div>
-            </div>
           </div>
 
 

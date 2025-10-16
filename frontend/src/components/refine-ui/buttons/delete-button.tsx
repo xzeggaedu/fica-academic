@@ -1,5 +1,5 @@
 import React from "react";
-import { useDeleteButton } from "@refinedev/core";
+import { useDelete } from "@refinedev/core";
 import { Button } from "../../ui/button";
 import { Trash2 } from "lucide-react";
 
@@ -8,6 +8,7 @@ interface DeleteButtonProps {
   resource?: string;
   hideText?: boolean;
   className?: string;
+  onSuccess?: () => void;
 }
 
 export const DeleteButton: React.FC<DeleteButtonProps> = ({
@@ -15,15 +16,32 @@ export const DeleteButton: React.FC<DeleteButtonProps> = ({
   resource,
   hideText = false,
   className,
+  onSuccess,
 }) => {
-  const { onClick, disabled } = useDeleteButton({ recordItemId, resource });
+  const { mutate: deleteOne, mutation } = useDelete();
+
+  const handleDelete = () => {
+    if (!recordItemId || !resource) return;
+
+    deleteOne(
+      {
+        resource,
+        id: recordItemId,
+      },
+      {
+        onSuccess: () => {
+          onSuccess?.();
+        },
+      }
+    );
+  };
 
   return (
     <Button
       variant="destructive"
       size="sm"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={handleDelete}
+      disabled={mutation.isPending}
       className={className}
     >
       <Trash2 className="h-4 w-4" />

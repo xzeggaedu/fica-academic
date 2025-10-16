@@ -31,6 +31,8 @@ class FacultyUpdate(BaseModel):
         str | None, Field(min_length=2, max_length=20, pattern=r"^[A-Z]+$", examples=["FC"], default=None)
     ]
     is_active: Annotated[bool | None, Field(examples=[True], default=None)]
+    deleted: Annotated[bool | None, Field(examples=[False], default=None)]
+    deleted_at: Annotated[datetime | None, Field(examples=[None], default=None)]
 
 
 class FacultyRead(BaseModel):
@@ -40,8 +42,10 @@ class FacultyRead(BaseModel):
     name: str
     acronym: str
     is_active: bool
+    deleted: bool
     created_at: datetime
     updated_at: datetime | None
+    deleted_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
 

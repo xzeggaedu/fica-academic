@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
-import { useList, CanAccess } from "@refinedev/core";
+import { useList, CanAccess, useCan, useUpdate, useInvalidate } from "@refinedev/core";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -10,18 +11,40 @@ import {
   TableRow,
 } from "../../components/ui/data/table";
 import { Badge } from "../../components/ui/badge";
+import { CheckCircle, Clock, XCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { TableFilters } from "../../components/ui/data/table-filters";
 import { FacultyActions } from "../../components/ui/faculties/faculty-actions";
 import { FacultyCreateButton } from "../../components/ui/faculties/faculty-create-button";
 import { FacultySchoolsSheet } from "../../components/ui/faculties/faculty-schools-sheet";
 import { getTableColumnClass } from "../../components/refine-ui/theme/theme-table";
+import { Unauthorized } from "../unauthorized";
 
 export const FacultyList = () => {
+  // Verificar permisos primero
+  const { data: canAccess } = useCan({
+    resource: "faculty",
+    action: "list",
+  });
+
   const { query, result } = useList({
     resource: "faculty",
+    sorters: [
+      {
+        field: "name",
+        order: "asc",
+      },
+    ],
+    queryOptions: {
+      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
+    },
   });
   const queryClient = useQueryClient();
+
+  // Hooks de Refine para soft delete
+  const { mutate: softDeleteFaculty, mutation } = useUpdate();
+  const isDeleting = mutation.isPending;
+  const invalidate = useInvalidate();
 
   // Función para refrescar datos directamente
   const refreshData = async () => {
@@ -101,6 +124,38 @@ export const FacultyList = () => {
     await refreshData();
   };
 
+  // Función para manejar eliminación de facultad (soft delete)
+  const handleDeleteFaculty = (facultyId: number, facultyName: string) => {
+    softDeleteFaculty(
+      {
+        resource: "soft-delete",
+        id: facultyId,
+        values: { type: "faculty" },
+        successNotification: false,
+      },
+      {
+        onSuccess: async () => {
+          invalidate({
+            resource: "faculty",
+            invalidates: ["all"],
+          });
+
+          toast.success('Facultad movida a papelera', {
+            description: `La facultad "${facultyName}" ha sido movida a la papelera de reciclaje.`,
+            richColors: true,
+          });
+        },
+        onError: (error) => {
+          console.error("Error deleting faculty:", error);
+          toast.error('Error al mover a papelera', {
+            description: error?.message || 'Error desconocido',
+            richColors: true,
+          });
+        },
+      }
+    );
+  };
+
   // Función para manejar click en la fila
   const handleRowClick = (faculty: any, event: React.MouseEvent) => {
     // Evitar abrir si se hizo click en la celda de acciones
@@ -119,26 +174,24 @@ export const FacultyList = () => {
     <CanAccess
       resource="faculty"
       action="list"
-      fallback={
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-800 p-4">
-          <h1 className="text-4xl font-bold mb-4">Acceso Denegado</h1>
-          <p className="text-lg text-center mb-8">
-            No tienes los permisos necesarios para ver esta página.
-          </p>
-          <p className="text-md text-center text-gray-600">
-            Solo los administradores pueden gestionar facultades.
-          </p>
-        </div>
-      }
+      fallback={<Unauthorized resourceName="facultades y escuelas" message="Solo los administradores pueden gestionar facultades y escuelas." />}
     >
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-start gap-2">
+            <Clock className="h-6 w-6 mt-1" />
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-bold">Facultades</h1>
+            </div>
+          </div>
+        </div>
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
               <div>
-                <CardTitle>Facultades</CardTitle>
+                <CardTitle>Lista de facultades y escuelas</CardTitle>
                 <CardDescription>
-                  Gestiona todas las facultades del sistema
+                  Aquí puedes ver y administrar el listado de facultades y sus respectivas escuelas.
                 </CardDescription>
               </div>
               <FacultyCreateButton onSuccess={handleSuccess} />
@@ -155,16 +208,16 @@ export const FacultyList = () => {
             />
 
             {/* Tabla */}
-            <div className="rounded-md border">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     {visibleColumns.includes("id") && <TableHead className={getTableColumnClass("id")}>ID</TableHead>}
                     {visibleColumns.includes("name") && <TableHead className={getTableColumnClass("name")}>Nombre</TableHead>}
                     {visibleColumns.includes("acronym") && <TableHead className={getTableColumnClass("acronym")}>Acrónimo</TableHead>}
-                    {visibleColumns.includes("is_active") && <TableHead className={getTableColumnClass("status")}>Estado</TableHead>}
+                    {visibleColumns.includes("is_active") && <TableHead className="text-center w-[50px]">Estado</TableHead>}
                     {visibleColumns.includes("created_at") && <TableHead className={getTableColumnClass("date")}>Fecha de Creación</TableHead>}
-                    {visibleColumns.includes("actions") && <TableHead className={getTableColumnClass("actions")}></TableHead>}
+                    {visibleColumns.includes("actions") && <TableHead className="text-center w-[100px] max-w-[30px]"></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -207,10 +260,14 @@ export const FacultyList = () => {
                           </TableCell>
                         )}
                         {visibleColumns.includes("is_active") && (
-                          <TableCell className={getTableColumnClass("status")}>
-                            <Badge variant={faculty.is_active ? "default" : "secondary"}>
-                              {faculty.is_active ? "Activa" : "Inactiva"}
-                            </Badge>
+                          <TableCell className="text-center w-[100px]">
+                            <div className="flex justify-center">
+                              {faculty.is_active ? (
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                              ) : (
+                                <XCircle className="h-5 w-5 text-red-600" />
+                              )}
+                            </div>
                           </TableCell>
                         )}
                         {visibleColumns.includes("created_at") && (
@@ -219,12 +276,14 @@ export const FacultyList = () => {
                           </TableCell>
                         )}
                         {visibleColumns.includes("actions") && (
-                          <TableCell className={getTableColumnClass("actions")} data-actions-cell onClick={(e) => e.stopPropagation()}>
+                          <TableCell className="text-center w-[30px] max-w-[30px]" data-actions-cell onClick={(e) => e.stopPropagation()}>
                             <FacultyActions
                               facultyId={faculty.id}
                               facultyName={faculty.name}
                               facultyAcronym={faculty.acronym}
                               onSuccess={handleSuccess}
+                              onDelete={handleDeleteFaculty}
+                              isDeleting={isDeleting}
                             />
                           </TableCell>
                         )}

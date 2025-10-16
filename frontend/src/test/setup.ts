@@ -1,9 +1,10 @@
 /**
  * Setup para Vitest
  * Este archivo se ejecuta antes de todas las pruebas
+ * Configuración basada en: https://mswjs.io/docs/integrations/node
  */
 
-import { afterAll, afterEach, beforeAll, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
 import { server } from '../mocks/server';
 import '@testing-library/jest-dom';
 
@@ -40,49 +41,73 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
-// Mock global para el mutate function
-const mockLoginMutate = vi.fn();
-const mockLogoutMutate = vi.fn();
-
-// Mock de Refine hooks que se usan en los componentes
+// Mock GLOBAL de Refine hooks con funciones reutilizables
+// Estos mocks se pueden sobrescribir en tests individuales
 vi.mock('@refinedev/core', async () => {
   const actual = await vi.importActual('@refinedev/core');
   return {
     ...actual,
-    useLogin: () => ({
-      mutate: mockLoginMutate,
+    // Hooks que devuelven valores por defecto
+    useCan: vi.fn(() => ({
+      data: { can: true },
       isLoading: false,
-    }),
-    useLogout: () => ({
-      mutate: mockLogoutMutate,
-      isLoading: false,
-    }),
-    useGetIdentity: () => ({
+    })),
+    useGetIdentity: vi.fn(() => ({
       data: {
-        id: 1,
+        id: '1',
         name: 'Admin User',
         username: 'admin',
         email: 'admin@example.com',
         role: 'admin',
       },
       isLoading: false,
-    }),
-    useLink: () => {
-      return ({ to }: { to: string }) => to;
-    },
-    useRefineOptions: () => ({
-      title: 'Test App',
-    }),
+    })),
+    useList: vi.fn(() => ({
+      query: {
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      },
+      result: {
+        data: [],
+        total: 0,
+      },
+    })),
+    useCreate: vi.fn(() => ({
+      mutate: vi.fn(),
+      mutation: { isPending: false },
+    })),
+    useUpdate: vi.fn(() => ({
+      mutate: vi.fn(),
+      mutation: { isPending: false },
+    })),
+    useDelete: vi.fn(() => ({
+      mutate: vi.fn(),
+      mutation: { isPending: false },
+    })),
+    useInvalidate: vi.fn(() => vi.fn()),
+    useLogin: vi.fn(() => ({
+      mutate: vi.fn(),
+      isLoading: false,
+    })),
+    useLogout: vi.fn(() => ({
+      mutate: vi.fn(),
+      isLoading: false,
+    })),
+    useLink: vi.fn(() => ({ to }: { to: string }) => to),
+    useRefineOptions: vi.fn(() => ({
+      title: 'FICA Academics Test',
+    })),
   };
 });
 
-// Exportar los mocks para que puedan ser accedidos en los tests
-export { mockLoginMutate, mockLogoutMutate };
-
-// Mock token por defecto para las pruebas
+// Configuración MSW según documentación oficial
 beforeAll(() => {
   // Establecer el servidor MSW antes de todas las pruebas
-  server.listen({ onUnhandledRequest: 'warn' });
+  server.listen({
+    onUnhandledRequest: 'warn'
+  });
 
   // Mock de token por defecto
   localStorageMock.getItem.mockImplementation((key: string) => {
@@ -93,13 +118,16 @@ beforeAll(() => {
   });
 });
 
+// Limpiar antes de cada prueba individual
+beforeEach(() => {
+  // Limpiar todos los mocks antes de cada test
+  vi.clearAllMocks();
+});
+
 // Limpiar después de cada prueba
 afterEach(() => {
   // Resetear los handlers a su estado inicial
   server.resetHandlers();
-
-  // Limpiar los mocks
-  vi.clearAllMocks();
 });
 
 // Cerrar el servidor después de todas las pruebas

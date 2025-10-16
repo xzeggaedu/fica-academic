@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { useOne, useUpdate } from "@refinedev/core";
 import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +13,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
 
 interface FacultyEditFormProps {
   facultyId: number;
@@ -30,58 +28,47 @@ interface FormErrors {
 }
 
 export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFormProps) {
+  // Refine hooks
+  const { result: faculty, query: facultyQuery } = useOne({
+    resource: "faculty",
+    id: facultyId,
+    queryOptions: {
+      enabled: !!facultyId,
+    },
+  });
+
+  const { mutate: updateFaculty, mutation: updateMutation } = useUpdate();
+
+  // Estados
   const [formData, setFormData] = useState({
     name: "",
     acronym: "",
     is_active: true,
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  // Cargar datos de la facultad
+  // Derivar estados de la query
+  const isLoading = facultyQuery.isLoading;
+  const error = facultyQuery.error?.message || null;
+
+  // Poblar formData cuando se cargan los datos de la facultad
   useEffect(() => {
-    const loadFacultyData = async () => {
-      try {
-        const token = localStorage.getItem('fica-access-token');
-        if (!token) {
-          throw new Error('No se encontró el token de autenticación');
-        }
-
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}${import.meta.env.VITE_API_BASE_PATH}/faculty/${facultyId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error('Error al cargar los datos de la facultad');
-        }
-
-        const data = await response.json();
-        setFormData({
-          name: data.name || "",
-          acronym: data.acronym || "",
-          is_active: data.is_active !== undefined ? data.is_active : true,
-        });
-      } catch (error) {
-        console.error('Error al cargar facultad:', error);
-        setErrors({
-          submit: error instanceof Error ? error.message : 'Error al cargar la facultad'
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (facultyId) {
-      loadFacultyData();
+    if (faculty) {
+      setFormData({
+        name: faculty.name || "",
+        acronym: faculty.acronym || "",
+        is_active: faculty.is_active !== undefined ? faculty.is_active : true,
+      });
     }
-  }, [facultyId]);
+  }, [faculty]);
+
+  // Manejar errores de carga
+  useEffect(() => {
+    if (error) {
+      setErrors({ submit: error });
+    }
+  }, [error]);
 
   const validateForm = () => {
     const newErrors: FormErrors = {};
@@ -131,67 +118,38 @@ export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFo
     setShowConfirmDialog(true);
   };
 
-  const handleConfirmSubmit = async () => {
+  const handleConfirmSubmit = () => {
     setShowConfirmDialog(false);
-    setIsSubmitting(true);
     setErrors({});
 
-    try {
-      const token = localStorage.getItem('fica-access-token');
-      if (!token) {
-        throw new Error('No se encontró el token de autenticación');
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}${import.meta.env.VITE_API_BASE_PATH}/faculty/${facultyId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            name: formData.name,
-            acronym: formData.acronym,
-            is_active: formData.is_active,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
-        throw new Error(errorData.detail || `Error ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('Facultad actualizada exitosamente:', data);
-
-      // Mostrar toast de éxito
-      toast.success('Facultad actualizada exitosamente', {
+    updateFaculty({
+      resource: "faculty",
+      id: facultyId,
+      values: {
+        name: formData.name,
+        acronym: formData.acronym,
+        is_active: formData.is_active,
+      },
+      successNotification: () => ({
+        message: 'Facultad actualizada exitosamente',
         description: `La facultad "${formData.name}" ha sido actualizada correctamente.`,
-        richColors: true,
-      });
-
-      // Llamar al callback de éxito
-      if (onSuccess) {
-        onSuccess();
+        type: 'success',
+      }),
+      errorNotification: (error) => ({
+        message: 'Error al actualizar facultad',
+        description: error?.message || 'Error desconocido',
+        type: 'error',
+      }),
+    }, {
+      onSuccess: () => {
+        if (onSuccess) {
+          onSuccess();
+        }
+      },
+      onError: (error) => {
+        setErrors({ submit: error?.message || 'Error al actualizar la facultad' });
       }
-    } catch (error) {
-      console.error('Error al actualizar facultad:', error);
-
-      // Mostrar toast de error
-      const errorMessage = error instanceof Error ? error.message : 'Error al actualizar la facultad';
-      toast.error('Error al actualizar facultad', {
-        description: errorMessage,
-        richColors: true,
-      });
-
-      setErrors({
-        submit: errorMessage
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   if (isLoading) {
@@ -225,7 +183,7 @@ export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFo
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
               className={`h-11 mt-3 ${errors.name ? 'border-red-500' : ''}`}
-              disabled={isSubmitting}
+              disabled={updateMutation.isPending}
             />
             {errors.name && (
               <p className="text-sm text-red-500">{errors.name}</p>
@@ -243,7 +201,7 @@ export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFo
               value={formData.acronym}
               onChange={(e) => handleChange('acronym', e.target.value.toUpperCase())}
               className={`h-11 mt-3 font-mono ${errors.acronym ? 'border-red-500' : ''}`}
-              disabled={isSubmitting}
+              disabled={updateMutation.isPending}
               maxLength={20}
             />
             {errors.acronym && (
@@ -259,7 +217,7 @@ export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFo
             <Select
               value={formData.is_active ? "true" : "false"}
               onValueChange={(value) => handleChange('is_active', value === "true")}
-              disabled={isSubmitting}
+              disabled={updateMutation.isPending}
             >
               <SelectTrigger id="is_active" className={`h-11 mt-3 ${errors.is_active ? 'border-red-500' : ''}`}>
                 <SelectValue />
@@ -295,8 +253,8 @@ export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFo
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSubmit}>
-              Confirmar
+            <AlertDialogAction onClick={handleConfirmSubmit} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? 'Actualizando...' : 'Confirmar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

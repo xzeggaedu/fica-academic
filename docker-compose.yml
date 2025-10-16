@@ -23,6 +23,8 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
+    networks:
+      - dev-network
 
   frontend:
     build:
@@ -61,6 +63,28 @@ services:
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - api
+    networks:
+      - dev-network
+
+  devtools:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.devtools
+    container_name: refine_devtools
+    ports:
+      - "5001:5001" # Puerto para DevTools
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    working_dir: /app
+    command: npm run devtools
+    environment:
+      - VITE_API_URL=http://localhost:3000
+      - VITE_API_BASE_PATH=/api/v1
+    networks:
+      - dev-network
+    depends_on:
+      - frontend
 
   worker:
     build:
@@ -75,6 +99,8 @@ services:
     volumes:
       - ./backend/src:/code/src
       - ./backend/src/.env:/code/.env
+    networks:
+      - dev-network
 
   db:
     image: postgres:13
@@ -90,6 +116,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - dev-network
 
   redis:
     image: redis:alpine
@@ -97,6 +125,8 @@ services:
       - redis-data:/data
     expose:
       - "6379"
+    networks:
+      - dev-network
 
   pgadmin:
     container_name: pgadmin4
@@ -110,6 +140,8 @@ services:
       - ./backend/src/.env
     depends_on:
       - db
+    networks:
+      - dev-network
 
   init_db:
     build:
@@ -124,8 +156,14 @@ services:
     volumes:
       - ./backend/src:/code/src
     restart: "no"
+    networks:
+      - dev-network
 
 volumes:
   postgres-data:
   redis-data:
   pgadmin-data:
+
+networks:
+  dev-network:
+    driver: bridge

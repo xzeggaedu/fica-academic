@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,7 +9,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
 
 interface ScheduleDeleteDialogProps {
   scheduleId: number;
@@ -17,7 +16,8 @@ interface ScheduleDeleteDialogProps {
   dayGroupName: string;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  onDelete?: (scheduleId: number, scheduleRange: string, dayGroupName: string) => void;
+  isDeleting?: boolean;
 }
 
 export function ScheduleDeleteDialog({
@@ -26,78 +26,17 @@ export function ScheduleDeleteDialog({
   dayGroupName,
   isOpen,
   onClose,
-  onSuccess,
+  onDelete,
+  isDeleting = false,
 }: ScheduleDeleteDialogProps) {
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    setError(null);
-
-    try {
-      const token = localStorage.getItem('fica-access-token');
-      if (!token) {
-        throw new Error('No se encontró el token de autenticación');
-      }
-
-      const response = await fetch(
-        `http://localhost:8000/api/v1/catalog/schedule-times/${scheduleId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
-        throw new Error(errorData.detail || `Error ${response.status}: ${response.statusText}`);
-      }
-
-      console.log('Horario eliminado exitosamente');
-
-      // Mostrar toast de éxito
-      toast.success('Horario eliminado exitosamente', {
-        description: `El horario "${dayGroupName} - ${scheduleRange}" ha sido eliminado correctamente.`,
-        richColors: true,
-      });
-
-      // Cerrar diálogo
-      onClose();
-
-      // Llamar al callback de éxito
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (error) {
-      console.error('Error al eliminar horario:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error al eliminar el horario';
-
-      // Mostrar toast de error
-      toast.error('Error al eliminar horario', {
-        description: errorMessage,
-        richColors: true,
-      });
-
-      setError(errorMessage);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleClose = () => {
-    if (!isDeleting) {
-      setError(null);
-      onClose();
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete(scheduleId, scheduleRange, dayGroupName);
     }
   };
 
   return (
-    <AlertDialog open={isOpen} onOpenChange={handleClose}>
+    <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Eliminar Horario</AlertDialogTitle>
@@ -110,12 +49,6 @@ export function ScheduleDeleteDialog({
             </p>
           </AlertDialogDescription>
         </AlertDialogHeader>
-
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{error}</p>
-          </div>
-        )}
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>

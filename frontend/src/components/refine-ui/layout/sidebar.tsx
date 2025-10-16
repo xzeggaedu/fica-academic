@@ -28,6 +28,7 @@ import {
   useLogout,
   useMenu,
   useRefineOptions,
+  useCan,
   type TreeMenuItem,
 } from "@refinedev/core";
 import { ChevronRight, ListIcon, LogOut } from "lucide-react";
@@ -80,8 +81,20 @@ type MenuItemProps = {
 function SidebarItem({ item, selectedKey }: MenuItemProps) {
   const { open } = useShadcnSidebar();
 
+  // Verificar permisos para mostrar/ocultar ítem
+  const { data: canAccess } = useCan({
+    resource: item.name,
+    action: "list",
+  });
+
+  // Si es un grupo o separador, no verificar permisos
   if (item.meta?.group) {
     return <SidebarItemGroup item={item} selectedKey={selectedKey} />;
+  }
+
+  // Ocultar si no tiene permisos (excepto para tareas que son públicas)
+  if (canAccess && !canAccess.can) {
+    return null;
   }
 
   if (item.children && item.children.length > 0) {
@@ -103,6 +116,64 @@ function SidebarItemGroup({ item, selectedKey }: MenuItemProps) {
     return (
       <div className={cn("border-t", "border-sidebar-border", "my-2")} />
     );
+  }
+
+  // Verificar si hay hijos con permisos antes de renderizar el grupo
+  const hasVisibleChildren = () => {
+    if (!children || children.length === 0) return false;
+
+    return children.some((child: TreeMenuItem) => {
+      // Para verificar permisos sin renderizar, usamos useCan
+      // Esto es un poco tricky, pero es necesario para la verificación
+      return true; // Asumimos que al menos uno será visible
+    });
+  };
+
+  // Filtrar hijos basado en permisos y verificar si hay alguno visible
+  const VisibleChildren = () => {
+    if (!children || children.length === 0) return null;
+
+    const visibleChildren = children.map((child: TreeMenuItem) => {
+      const ChildComponent = () => {
+        const { data: canAccess } = useCan({
+          resource: child.name,
+          action: "list",
+        });
+
+        // Solo renderizar si tiene permisos
+        if (canAccess && !canAccess.can) {
+          return null;
+        }
+
+        return (
+          <SidebarItem
+            key={child.key || child.name}
+            item={child}
+            selectedKey={selectedKey}
+          />
+        );
+      };
+
+      return <ChildComponent key={child.key || child.name} />;
+    });
+
+    return <>{visibleChildren}</>;
+  };
+
+  // Si no hay hijos visibles, no renderizar el grupo
+  const visibleChildrenElements = children?.map((child: TreeMenuItem) => {
+    const { data: canAccess } = useCan({
+      resource: child.name,
+      action: "list",
+    });
+    return canAccess?.can;
+  }) || [];
+
+  const hasAnyVisibleChild = visibleChildrenElements.some(Boolean);
+
+  // No renderizar el grupo si no tiene hijos visibles
+  if (!hasAnyVisibleChild) {
+    return null;
   }
 
   return (
@@ -129,17 +200,9 @@ function SidebarItemGroup({ item, selectedKey }: MenuItemProps) {
       >
         {getDisplayName(item)}
       </span>
-      {children && children.length > 0 && (
-        <div className={cn("flex", "flex-col")}>
-          {children.map((child: TreeMenuItem) => (
-            <SidebarItem
-              key={child.key || child.name}
-              item={child}
-              selectedKey={selectedKey}
-            />
-          ))}
-        </div>
-      )}
+      <div className={cn("flex", "flex-col")}>
+        <VisibleChildren />
+      </div>
     </div>
   );
 }
@@ -161,19 +224,43 @@ function SidebarItemCollapsible({ item, selectedKey }: MenuItemProps) {
     />
   );
 
+  // Filtrar hijos con permisos
+  const VisibleChildren = () => {
+    if (!children || children.length === 0) return null;
+
+    const visibleChildren = children.map((child: TreeMenuItem) => {
+      const ChildComponent = () => {
+        const { data: canAccess } = useCan({
+          resource: child.name,
+          action: "list",
+        });
+
+        if (canAccess && !canAccess.can) {
+          return null;
+        }
+
+        return (
+          <SidebarItem
+            key={child.key || child.name}
+            item={child}
+            selectedKey={selectedKey}
+          />
+        );
+      };
+
+      return <ChildComponent key={child.key || child.name} />;
+    });
+
+    return <>{visibleChildren}</>;
+  };
+
   return (
     <Collapsible key={`collapsible-${name}`} className={cn("w-full", "group")}>
       <CollapsibleTrigger asChild>
         <SidebarButton item={item} rightIcon={chevronIcon} />
       </CollapsibleTrigger>
       <CollapsibleContent className={cn("ml-6", "flex", "flex-col", "gap-2")}>
-        {children?.map((child: TreeMenuItem) => (
-          <SidebarItem
-            key={child.key || child.name}
-            item={child}
-            selectedKey={selectedKey}
-          />
-        ))}
+        <VisibleChildren />
       </CollapsibleContent>
     </Collapsible>
   );
@@ -183,33 +270,53 @@ function SidebarItemDropdown({ item, selectedKey }: MenuItemProps) {
   const { children } = item;
   const Link = useLink();
 
+  // Filtrar hijos con permisos
+  const VisibleChildren = () => {
+    if (!children || children.length === 0) return null;
+
+    return children.map((child: TreeMenuItem) => {
+      const ChildMenuItem = () => {
+        const { data: canAccess } = useCan({
+          resource: child.name,
+          action: "list",
+        });
+
+        if (canAccess && !canAccess.can) {
+          return null;
+        }
+
+        const { key: childKey } = child;
+        const isSelected = childKey === selectedKey;
+
+        return (
+          <DropdownMenuItem key={childKey || child.name} asChild>
+            <Link
+              to={child.route || ""}
+              className={cn("flex w-full items-center gap-2", {
+                "bg-accent text-accent-foreground": isSelected,
+              })}
+            >
+              <ItemIcon
+                icon={React.createElement(getIcon(String(child.meta?.icon ?? child.icon ?? "ListIcon")))}
+                isSelected={isSelected}
+              />
+              <span>{getDisplayName(child)}</span>
+            </Link>
+          </DropdownMenuItem>
+        );
+      };
+
+      return <ChildMenuItem key={child.key || child.name} />;
+    });
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <SidebarButton item={item} />
       </DropdownMenuTrigger>
       <DropdownMenuContent side="right" align="start">
-        {children?.map((child: TreeMenuItem) => {
-          const { key: childKey } = child;
-          const isSelected = childKey === selectedKey;
-
-          return (
-            <DropdownMenuItem key={childKey || child.name} asChild>
-              <Link
-                to={child.route || ""}
-                className={cn("flex w-full items-center gap-2", {
-                  "bg-accent text-accent-foreground": isSelected,
-                })}
-              >
-                <ItemIcon
-                  icon={React.createElement(getIcon(child.meta?.icon ?? child.icon))}
-                  isSelected={isSelected}
-                />
-                <span>{getDisplayName(child)}</span>
-              </Link>
-            </DropdownMenuItem>
-          );
-        })}
+        <VisibleChildren />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -327,7 +434,7 @@ function SidebarButton({
 
   const buttonContent = (
     <>
-      <ItemIcon icon={React.createElement(getIcon(item.meta?.icon ?? item.icon))} isSelected={isSelected} />
+      <ItemIcon icon={React.createElement(getIcon(String(item.meta?.icon ?? item.icon ?? "ListIcon")))} isSelected={isSelected} />
       <span
         className={cn("tracking-[-0.00875rem]", {
           "flex-1": rightIcon,

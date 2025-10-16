@@ -111,7 +111,9 @@ async def create_access_token_with_rbac(user_data: dict[str, Any], expires_delta
         "email": user_data["email"],  # User email
         "name": user_data["name"],  # User full name
         "role": user_data["role"],  # User role for RBAC
-        "is_deleted": user_data["is_deleted"],  # Account status
+        "is_deleted": user_data.get(
+            "deleted", user_data.get("is_deleted", False)
+        ),  # Account status (compatibilidad con ambos nombres)
     }
 
     if expires_delta:

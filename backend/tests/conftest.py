@@ -111,48 +111,50 @@ def sample_user_data():
 @pytest.fixture
 def sample_user_read():
     """Generate a sample UserRead object."""
+    from datetime import datetime
+
     from uuid6 import uuid7
 
     return UserRead(
-        id=1,
         uuid=uuid7(),
         name=fake.name(),
         username=fake.user_name(),
         email=fake.email(),
         profile_image_url=fake.image_url(),
         role=UserRoleEnum.UNAUTHORIZED,
-        created_at=fake.date_time(),
-        updated_at=fake.date_time(),
-        tier_id=None,
-        hashed_password="hashed_password_for_testing",
+        created_at=datetime.now(),
+        deleted=False,
+        deleted_at=None,
     )
 
 
 @pytest.fixture
 def sample_admin_user_read():
     """Generate a sample admin UserRead object."""
+    from datetime import datetime
+
     from uuid6 import uuid7
 
     return UserRead(
-        id=2,
         uuid=uuid7(),
         name=fake.name(),
         username=fake.user_name(),
         email=fake.email(),
         profile_image_url=fake.image_url(),
         role=UserRoleEnum.ADMIN,
-        created_at=fake.date_time(),
-        updated_at=fake.date_time(),
-        tier_id=None,
-        hashed_password="hashed_password_for_testing",
+        created_at=datetime.now(),
+        deleted=False,
+        deleted_at=None,
     )
 
 
 @pytest.fixture
 def current_user_dict():
     """Mock current user from auth dependency."""
+    from uuid6 import uuid7
+
     return {
-        "id": 1,
+        "user_uuid": str(uuid7()),
         "username": fake.user_name(),
         "email": fake.email(),
         "name": fake.name(),
@@ -163,8 +165,10 @@ def current_user_dict():
 @pytest.fixture
 def current_admin_user_dict():
     """Mock current admin user from auth dependency."""
+    from uuid6 import uuid7
+
     return {
-        "id": 2,
+        "user_uuid": str(uuid7()),
         "username": fake.user_name(),
         "email": fake.email(),
         "name": fake.name(),

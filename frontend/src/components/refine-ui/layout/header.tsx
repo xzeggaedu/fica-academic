@@ -15,8 +15,8 @@ import {
   useGetIdentity,
 } from "@refinedev/core";
 import { LogOutIcon, UserIcon } from "lucide-react";
-import { useState } from "react";
-import { UserViewSheet } from "@/components/ui/users/user-view-sheet";
+import React, { useState } from "react";
+import { MyProfileSheet } from "@/components/ui/users/my-profile-sheet";
 
 export const Header = () => {
   const { isMobile } = useSidebar();
@@ -166,14 +166,10 @@ const UserDropdown = () => {
       </DropdownMenu>
 
       {/* Sheet para ver perfil del usuario actual */}
-      {currentUser && (
-        <UserViewSheet
-          userId={currentUser.id}
-          userName={currentUser.name || "Usuario"}
-          isOpen={isProfileSheetOpen}
-          onClose={handleCloseProfile}
-        />
-      )}
+      <MyProfileSheet
+        isOpen={isProfileSheetOpen}
+        onClose={handleCloseProfile}
+      />
     </>
   );
 };

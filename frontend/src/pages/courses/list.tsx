@@ -1,6 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useList, useCreate, useUpdate, useDelete, useInvalidate } from "@refinedev/core";
-import { useQueryClient } from "@tanstack/react-query";
+import React, { useState, useEffect } from "react";
+import { useList, useCreate, useUpdate, useDelete, CanAccess, useCan, useInvalidate } from "@refinedev/core";
 import {
   Table,
   TableBody,
@@ -10,13 +9,13 @@ import {
   TableRow,
 } from "@/components/ui/data/table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, X, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Save, X, ChevronDown, Clock } from "lucide-react";
 import { TableFilters } from "@/components/ui/data/table-filters";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import {
@@ -45,10 +44,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Unauthorized } from "../unauthorized";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export const CoursesList = () => {
-  const queryClient = useQueryClient();
-  const invalidate = useInvalidate();
+  // Verificar permisos primero
+  const { data: canAccess } = useCan({
+    resource: "courses",
+    action: "list",
+  });
 
   // Estados para paginación y búsqueda
   const [currentPage, setCurrentPage] = useState(1);
@@ -71,7 +80,7 @@ export const CoursesList = () => {
     ? [{ field: "search", operator: "contains" as const, value: debouncedSearch }]
     : [];
 
-  const { query: coursesQuery, result: coursesResult } = useList({
+  const coursesResponse = useList({
     resource: "courses",
     pagination: {
       currentPage: currentPage,
@@ -79,32 +88,52 @@ export const CoursesList = () => {
       mode: "server",
     },
     filters: filters,
-    // disable default notifications
-    queryOptions: { meta: { notification: { success: false, error: false } } } as any,
+    queryOptions: {
+      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+      staleTime: 0,
+      gcTime: 0, // React Query v5: gcTime en lugar de cacheTime
+    },
+    successNotification: false,
+    errorNotification: false,
   });
+
+  const coursesLoading = coursesResponse.query.isLoading;
+  const coursesError = coursesResponse.query.isError;
+  const coursesList = coursesResponse.result?.data || [];
+  const total = coursesResponse.result?.total || 0;
 
   // Facultades y Escuelas con hooks de Refine
   const { query: facultiesQuery, result: facultiesResult } = useList<Faculty>({
     resource: "faculties",
     pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
     filters: [{ field: "is_active", operator: "eq", value: true }],
+    queryOptions: {
+      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
+    },
   });
   const { query: schoolsQuery, result: schoolsResult } = useList<School>({
     resource: "schools",
     pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
     filters: [{ field: "is_active", operator: "eq", value: true }],
+    queryOptions: {
+      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
+    },
+    successNotification: false,
+    errorNotification: false,
   });
 
-  // Hooks para operaciones CRUD
-  const { mutate: createCourse, mutation: createState } = useCreate({
-    successNotification: false,
-    errorNotification: false,
-  } as any);
-  const { mutate: updateCourse, mutation: updateState } = useUpdate({
-    successNotification: false,
-    errorNotification: false,
-  } as any);
+  // Hooks para operaciones CRUD con configuración correcta según documentación de Refine
+  const { mutate: createCourse, mutation: createState } = useCreate();
+  const { mutate: updateCourse, mutation: updateState } = useUpdate(
+    {
+      successNotification: false,
+      errorNotification: false,
+    }
+  );
   const { mutate: deleteCourse, mutation: deleteState } = useDelete();
+  const invalidate = useInvalidate();
 
   const creating = createState.isPending;
   const updating = updateState.isPending;
@@ -132,48 +161,32 @@ export const CoursesList = () => {
   const [editingSchools, setEditingSchools] = useState<number[]>([]);
   const [openSchoolsPopoverId, setOpenSchoolsPopoverId] = useState<number | null>(null);
 
-  // Función para refrescar datos
-  const refreshData = async () => {
-    await queryClient.refetchQueries({
-      predicate: (query) => {
-        const queryKey = query.queryKey;
-        return queryKey[0] === "default" &&
-               (queryKey[1] as any)?.resource === "courses";
-      },
-    });
-  };
-
+  // Estado para tracking de switches siendo actualizados
+  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
 
   // Calcular loading y error states
   const faculties = facultiesResult?.data || [];
   const schools = schoolsResult?.data || [];
   const facultiesLoading = facultiesQuery.isLoading;
   const schoolsLoading = schoolsQuery.isLoading;
-  const loading = coursesQuery.isLoading || facultiesLoading || schoolsLoading;
-  const courses = coursesResult?.data || [];
-  const total = coursesResult?.total || 0;
-
-  // Debug: ver qué datos tenemos
-  useEffect(() => {
-    console.log('Faculties data:', faculties);
-    console.log('Schools data:', schools);
-    console.log('Faculties loading:', facultiesLoading);
-    console.log('Schools loading:', schoolsLoading);
-  }, [faculties, schools, facultiesLoading, schoolsLoading]);
+  const loading = coursesLoading || facultiesLoading || schoolsLoading;
 
   useEffect(() => {
-    if (coursesQuery.isError) {
+    if (coursesError) {
       setError("Error al cargar los cursos");
     } else {
       setError(null);
     }
-  }, [coursesQuery.isError]);
+  }, [coursesError]);
 
-  // Forzar refetch al cambiar paginación o búsqueda (seguridad ante caché)
+  // Debug: ver cuando cambian los is_active de los cursos
   useEffect(() => {
-    console.log("Refetching courses", {currentPage, pageSize, debouncedSearch});
-    coursesQuery.refetch();
-  }, [currentPage, pageSize, debouncedSearch]);
+    if (coursesList.length > 0) {
+      console.log('📋 Estado is_active de cursos:',
+        coursesList.map(c => ({ id: c.id, code: c.course_code, is_active: c.is_active }))
+      );
+    }
+  }, [coursesList]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,6 +194,23 @@ export const CoursesList = () => {
     if (!newCourse.course_code || !newCourse.course_name || !newCourse.department_code) {
       toast.error("Error", {
         description: "Por favor complete todos los campos requeridos",
+        richColors: true,
+      });
+      return;
+    }
+
+    // Validación de espacios en códigos
+    if (newCourse.course_code.includes(' ')) {
+      toast.error("Error de validación", {
+        description: "El código del curso no puede contener espacios. Use guiones o puntos en su lugar.",
+        richColors: true,
+      });
+      return;
+    }
+
+    if (newCourse.department_code.includes(' ')) {
+      toast.error("Error de validación", {
+        description: "El código del departamento no puede contener espacios. Use guiones o puntos en su lugar.",
         richColors: true,
       });
       return;
@@ -219,9 +249,7 @@ export const CoursesList = () => {
             school_ids: [],
           });
           setSelectedSchools([]);
-
-          // Recargar lista
-          refreshData();
+          // Refine automáticamente invalida y refresca la lista
         },
         onError: (error: any) => {
           console.error("Error creating course:", error);
@@ -246,106 +274,24 @@ export const CoursesList = () => {
     setEditingSchools(course.schools?.map(cs => cs.school_id) || []);
   };
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditingField(null);
-    setEditForm({});
-    setEditingSchools([]);
-  };
-
-  const handleSaveEdit = async (id: number) => {
-    const updateData: CourseUpdate = {
-      ...editForm,
-      school_ids: editingSchools.length > 0 ? editingSchools : undefined,
-    };
-
-    updateCourse(
-      {
-        resource: "courses",
-        id,
-        values: updateData,
-      },
-      {
-        onSuccess: () => {
-          toast.success("Éxito", {
-            description: "Curso actualizado exitosamente",
-            richColors: true,
-          });
-          setEditingId(null);
-          setEditForm({});
-          setEditingSchools([]);
-          refreshData();
-        },
-        onError: (error: any) => {
-          console.error("Error updating course:", error);
-          toast.error("Error", {
-            description: "Error al actualizar el curso",
-            richColors: true,
-          });
-        },
-      }
-    );
-  };
-
-  // Actualizar cache local de la lista de cursos para evitar refresco manual
-  const updateCourseInCache = (updated: Course) => {
-    const queries = queryClient.getQueryCache().findAll();
-    queries.forEach((q: any) => {
-      const key = q.queryKey as any[];
-      const resource = (key?.[1] as any)?.resource;
-      if (resource === "courses") {
-        queryClient.setQueryData(key, (old: any) => {
-          if (!old) return old;
-          const currentList = Array.isArray(old.data) ? old.data : [];
-          const nextList = currentList.map((c: Course) => (c.id === updated.id ? updated : c));
-          return { ...old, data: nextList };
-        });
-      }
-    });
-  };
-
-  // Fallback: invalidar y refetchear cualquier query relacionada a courses/list
-  const hardRefreshCourses = () => {
-    const predicate = (q: any) => {
-      const keyStr = JSON.stringify(q.queryKey);
-      return keyStr.includes('"action":"list"') && keyStr.includes('"resource":"courses"');
-    };
-    queryClient.invalidateQueries({ predicate });
-    queryClient.refetchQueries({ predicate });
-  };
-
-  // Optimistic update helpers
-  const optimisticUpdateCourse = (id: number, partial: Partial<Course>) => {
-    const snapshots: { key: unknown; prev: unknown }[] = [];
-    const queries = queryClient.getQueryCache().findAll();
-    queries.forEach((q: any) => {
-      const key = q.queryKey as any[];
-      const resource = (key?.[1] as any)?.resource;
-      if (resource === "courses") {
-        const prev = queryClient.getQueryData(key);
-        snapshots.push({ key, prev });
-        queryClient.setQueryData(key, (old: any) => {
-          if (!old) return old;
-          const list = Array.isArray(old.data) ? old.data : [];
-          const next = list.map((c: Course) => (c.id === id ? { ...c, ...partial } : c));
-          return { ...old, data: next };
-        });
-      }
-    });
-    return snapshots;
-  };
-
-  const rollbackOptimistic = (snapshots: { key: unknown; prev: unknown }[]) => {
-    snapshots.forEach(({ key, prev }) => queryClient.setQueryData(key, prev));
-  };
-
   const saveSingleField = (
     id: number,
     field: keyof CourseUpdate,
     value: string | boolean | undefined
   ) => {
+    // Validación previa para campos de código
+    if (field === 'course_code' || field === 'department_code') {
+      if (typeof value === 'string' && value.includes(' ')) {
+        toast.error("Error de validación", {
+          description: `${field === 'course_code' ? 'El código del curso' : 'El código del departamento'} no puede contener espacios. Use guiones o puntos en su lugar.`,
+          richColors: true
+        });
+        return;
+      }
+    }
+
     // Guardar solo si hay cambios reales
-    const current = courses.find((c) => c.id === id);
+    const current = coursesList.find((c) => c.id === id);
     if (current) {
       const currentValue = (current as any)[field];
       if (currentValue === value) {
@@ -356,7 +302,6 @@ export const CoursesList = () => {
       }
     }
     const payload: CourseUpdate = { [field]: value } as CourseUpdate;
-    const snapshots = optimisticUpdateCourse(id, { [field]: value } as Partial<Course>);
     updateCourse(
       {
         resource: "courses",
@@ -364,28 +309,40 @@ export const CoursesList = () => {
         values: payload,
       },
       {
-        onSuccess: (resp: any) => {
-          const updated = (resp as any)?.data || (resp as any);
-          if (updated?.id) updateCourseInCache(updated as Course);
-          toast.success("Éxito", { description: "Asignatura actualizada", richColors: true, });
+        onSuccess: () => {
+          toast.success("Éxito", { description: "Asignatura actualizada", richColors: true });
           setEditingId(null);
           setEditingField(null);
           setEditForm({});
-          refreshData();
-          coursesQuery.refetch();
-          invalidate({ resource: "courses", invalidates: ["list"] });
-          hardRefreshCourses();
+          // Invalidar schools para refrescar datos relacionados
+          invalidate({ resource: "schools", invalidates: ["list"] });
+          // Refine automáticamente invalida y refresca la lista de courses
         },
         onError: (error: any) => {
-          rollbackOptimistic(snapshots);
           console.error("Error updating field:", error);
-          toast.error("Error", { description: "No se pudo actualizar", richColors: true, });
+
+          // Manejar errores específicos del backend
+          let errorMessage = "No se pudo actualizar";
+          if (error?.response?.data?.detail) {
+            if (error.response.data.detail.includes("espacios")) {
+              errorMessage = error.response.data.detail;
+            } else if (error.response.data.detail.includes("Ya existe")) {
+              errorMessage = error.response.data.detail;
+            } else {
+              errorMessage = error.response.data.detail;
+            }
+          }
+
+          toast.error("Error", { description: errorMessage, richColors: true });
         },
       }
     );
   };
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
+    // Agregar ID al set de toggles en proceso
+    setTogglingIds(prev => new Set(prev).add(id));
+
     updateCourse(
       {
         resource: "courses",
@@ -393,18 +350,30 @@ export const CoursesList = () => {
         values: { is_active: !currentStatus },
       },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           toast.success("Éxito", {
             description: `Curso ${!currentStatus ? "activado" : "desactivado"} exitosamente`,
             richColors: true,
           });
-          refreshData();
+          // Quitar ID del set
+          setTogglingIds(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+          // Refine automáticamente invalida y refresca la lista
         },
         onError: (error: any) => {
           console.error("Error toggling course status:", error);
           toast.error("Error", {
             description: "Error al cambiar el estado del curso",
             richColors: true,
+          });
+          // Quitar ID del set en caso de error también
+          setTogglingIds(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
           });
         },
       }
@@ -429,13 +398,13 @@ export const CoursesList = () => {
       },
       {
         onSuccess: () => {
-          toast.success("Éxito", {
-            description: `Asignatura "${name}" eliminada`,
+          toast.success("Asignatura movida a papelera", {
+            description: `La asignatura "${name}" ha sido movida a la papelera de reciclaje.`,
             richColors: true,
           });
           setDeleteDialogOpen(false);
           setCourseToDelete(null);
-          refreshData();
+          // Refine automáticamente invalida y refresca la lista
         },
         onError: (error: any) => {
           console.error("Error deleting course:", error);
@@ -459,7 +428,6 @@ export const CoursesList = () => {
       }
       grouped[facultyKey].push(school);
     });
-    console.log('Schools grouped by faculty:', grouped);
     return grouped;
   };
 
@@ -499,548 +467,565 @@ export const CoursesList = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Formulario de creación */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            Agregar Nueva Asignatura
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-end">
-              <div className="space-y-2">
-                <Label htmlFor="course_code">Código del Curso *</Label>
-                <Input
-                  id="course_code"
-                  value={newCourse.course_code}
-                  onChange={(e) =>
-                    setNewCourse({ ...newCourse, course_code: e.target.value.toUpperCase() })
-                  }
-                  placeholder="Ej: CS101"
-                  required
-                />
+    <CanAccess
+      resource="courses"
+      action="list"
+      fallback={<Unauthorized resourceName="asignaturas" message="Solo los administradores pueden gestionar asignaturas." />}
+    >
+      <div className="container mx-auto py-6 space-y-6">
+      <div className="flex items-center justify-between">
+          <div className="flex items-start gap-2">
+            <Clock className="h-6 w-6 mt-1" />
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-bold">Asignaturas</h1>
+            </div>
+          </div>
+        </div>
+        {/* Formulario de creación */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Agregar Nueva Asignatura
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-end">
+                <div className="space-y-2">
+                  <Label htmlFor="course_code">Código del Curso *</Label>
+                  <Input
+                    id="course_code"
+                    value={newCourse.course_code}
+                    onChange={(e) =>
+                      setNewCourse({ ...newCourse, course_code: e.target.value.toUpperCase() })
+                    }
+                    placeholder="Ej: CS101"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="course_name">Nombre del Curso *</Label>
+                  <Input
+                    id="course_name"
+                    value={newCourse.course_name}
+                    onChange={(e) =>
+                      setNewCourse({ ...newCourse, course_name: e.target.value })
+                    }
+                    placeholder="Ej: Introducción a la Programación"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="department_code">Código del Departamento *</Label>
+                  <Input
+                    id="department_code"
+                    value={newCourse.department_code}
+                    onChange={(e) =>
+                      setNewCourse({ ...newCourse, department_code: e.target.value.toUpperCase() })
+                    }
+                    placeholder="Ej: CS"
+                    required
+                  />
+                </div>
+
+                {/* Escuelas selector (col 4 en lg) */}
+                <div className="space-y-2">
+                  <Label>Escuelas *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between"
+                      >
+                        {selectedSchools.length > 0
+                          ? `${selectedSchools.length} escuelas seleccionadas`
+                          : "Seleccionar..."
+                        }
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Buscar escuelas..." />
+                        <CommandList>
+                          <CommandEmpty>No se encontraron escuelas.</CommandEmpty>
+                          {faculties.map(faculty => {
+                            const facultySchools = schoolsByFaculty[faculty.id] || [];
+                            if (facultySchools.length === 0) return null;
+
+                            return (
+                              <CommandGroup key={faculty.id} heading={faculty.name}>
+                                {facultySchools.map(school => (
+                                  <CommandItem
+                                    key={school.id}
+                                    value={`${school.name} ${school.acronym}`}
+                                    onSelect={() => {
+                                      if (selectedSchools.includes(school.id)) {
+                                        setSelectedSchools(selectedSchools.filter(id => id !== school.id));
+                                      } else {
+                                        setSelectedSchools([...selectedSchools, school.id]);
+                                      }
+                                    }}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={selectedSchools.includes(school.id)}
+                                      className="pointer-events-none"
+                                    />
+                                    <span className="flex-1">{school.name} ({school.acronym})</span>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            );
+                          })}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Botón submit (col 5 en lg) */}
+                <div className="space-y-2">
+                  <Label className="invisible lg:visible">&nbsp;</Label>
+                  <Button type="submit" disabled={creating} className="w-full">
+                    {creating ? "Creando..." : "Agregar Curso"}
+                  </Button>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="course_name">Nombre del Curso *</Label>
-                <Input
-                  id="course_name"
-                  value={newCourse.course_name}
-                  onChange={(e) =>
-                    setNewCourse({ ...newCourse, course_name: e.target.value })
-                  }
-                  placeholder="Ej: Introducción a la Programación"
-                  required
-                />
-              </div>
+              {/* Mostrar escuelas seleccionadas (debajo del grid en todas las resoluciones) */}
+              {selectedSchools.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedSchools.map(schoolId => {
+                    const school = schools.find(s => s.id === schoolId);
+                    if (!school) return null;
 
-              <div className="space-y-2">
-                <Label htmlFor="department_code">Código del Departamento *</Label>
-                <Input
-                  id="department_code"
-                  value={newCourse.department_code}
-                  onChange={(e) =>
-                    setNewCourse({ ...newCourse, department_code: e.target.value.toUpperCase() })
-                  }
-                  placeholder="Ej: CS"
-                  required
-                />
-              </div>
+                    return (
+                      <div
+                        key={schoolId}
+                        className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded-md text-sm"
+                      >
+                        <span>{school.acronym}</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSchools(selectedSchools.filter(id => id !== schoolId))}
+                          className="ml-1 text-blue-600 hover:text-blue-800"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </form>
+          </CardContent>
+        </Card>
 
-              {/* Escuelas selector (col 4 en lg) */}
-              <div className="space-y-2">
-                <Label>Escuelas *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="w-full justify-between"
-                    >
-                      {selectedSchools.length > 0
-                        ? `${selectedSchools.length} escuelas seleccionadas`
-                        : "Seleccionar..."
-                      }
-                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput placeholder="Buscar escuelas..." />
-                      <CommandList>
-                        <CommandEmpty>No se encontraron escuelas.</CommandEmpty>
-                        {faculties.map(faculty => {
-                          const facultySchools = schoolsByFaculty[faculty.id] || [];
-                          if (facultySchools.length === 0) return null;
+        {/* Tabla de cursos */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Lista de Asignaturas ({total})</CardTitle>
+            <CardDescription>
+              Aquí puedes ver y administrar el listado de asignaturas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {/* Filtros y selector de columnas */}
+            <TableFilters
+              searchValue={searchValue}
+              onSearchChange={setSearchValue}
+              searchPlaceholder="Buscar por código, nombre o departamento..."
+              availableColumns={availableColumns}
+              visibleColumns={visibleColumns}
+              onVisibleColumnsChange={setVisibleColumns}
+            />
 
-                          return (
-                            <CommandGroup key={faculty.id} heading={faculty.name}>
-                              {facultySchools.map(school => (
-                                <CommandItem
-                                  key={school.id}
-                                  value={`${school.name} ${school.acronym}`}
-                                  onSelect={() => {
-                                    if (selectedSchools.includes(school.id)) {
-                                      setSelectedSchools(selectedSchools.filter(id => id !== school.id));
-                                    } else {
-                                      setSelectedSchools([...selectedSchools, school.id]);
-                                    }
-                                  }}
-                                  className="flex items-center space-x-2"
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {visibleColumns.includes("id") && <TableHead className={getTableColumnClass("id")}>ID</TableHead>}
+                    {visibleColumns.includes("course_code") && <TableHead>Código</TableHead>}
+                    {visibleColumns.includes("course_name") && <TableHead>Nombre del Curso</TableHead>}
+                    {visibleColumns.includes("department_code") && <TableHead>Departamento</TableHead>}
+                    {visibleColumns.includes("schools") && <TableHead>Escuelas</TableHead>}
+                    {visibleColumns.includes("is_active") && <TableHead className="text-center w-[100px]">Estado</TableHead>}
+                    {visibleColumns.includes("actions") && <TableHead className="text-center w-[100px]">Acciones</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {coursesList.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                        {debouncedSearch ? "No se encontraron cursos" : "No hay cursos registrados"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    coursesList.map((course: Course) => (
+                      <TableRow key={course.id}>
+                        {/* ID */}
+                        {visibleColumns.includes("id") && (
+                          <TableCell className={getTableColumnClass("id")}>{course.id}</TableCell>
+                        )}
+
+                        {/* Código del Curso */}
+                        {visibleColumns.includes("course_code") && (
+                          <TableCell>
+                            {editingId === course.id && (!editingField || editingField === 'course_code') ? (
+                              <Input
+                                value={editForm.course_code || ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, course_code: e.target.value.toUpperCase() })
+                                }
+                                onBlur={() => saveSingleField(course.id, 'course_code', editForm.course_code)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    saveSingleField(course.id, 'course_code', editForm.course_code);
+                                  }
+                                }}
+                                className="w-32"
+                              />
+                            ) : (
+                              <span
+                                className="font-mono font-semibold cursor-pointer hover:underline"
+                                onClick={() => handleEdit(course, 'course_code')}
+                              >
+                                {course.course_code}
+                              </span>
+                            )}
+                          </TableCell>
+                        )}
+
+                        {/* Nombre del Curso */}
+                        {visibleColumns.includes("course_name") && (
+                          <TableCell>
+                            {editingId === course.id && (!editingField || editingField === 'course_name') ? (
+                              <Input
+                                value={editForm.course_name || ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, course_name: e.target.value })
+                                }
+                                onBlur={() => saveSingleField(course.id, 'course_name', editForm.course_name)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    saveSingleField(course.id, 'course_name', editForm.course_name);
+                                  }
+                                }}
+                                className="w-64"
+                              />
+                            ) : (
+                              <span
+                                className="cursor-pointer hover:underline"
+                                onClick={() => handleEdit(course, 'course_name')}
+                              >
+                                {course.course_name}
+                              </span>
+                            )}
+                          </TableCell>
+                        )}
+
+                        {/* Departamento */}
+                        {visibleColumns.includes("department_code") && (
+                          <TableCell>
+                            {editingId === course.id && (!editingField || editingField === 'department_code') ? (
+                              <Input
+                                value={editForm.department_code || ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, department_code: e.target.value.toUpperCase() })
+                                }
+                                onBlur={() => saveSingleField(course.id, 'department_code', editForm.department_code)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    saveSingleField(course.id, 'department_code', editForm.department_code);
+                                  }
+                                }}
+                                className="w-24"
+                              />
+                            ) : (
+                              <span
+                                className="font-mono cursor-pointer hover:underline"
+                                onClick={() => handleEdit(course, 'department_code')}
+                              >
+                                {course.department_code}
+                              </span>
+                            )}
+                          </TableCell>
+                        )}
+
+                        {/* Escuelas */}
+                        {visibleColumns.includes("schools") && (
+                          <TableCell>
+                            {editingId === course.id && (!editingField || editingField === 'schools') ? (
+                              <Popover
+                                open={openSchoolsPopoverId === course.id}
+                                onOpenChange={(open) => {
+                                  setOpenSchoolsPopoverId(open ? course.id : null);
+                                  if (!open && editingId === course.id && (!editingField || editingField === 'schools')) {
+                                    setEditingId(null);
+                                    setEditingField(null);
+                                    setEditingSchools([]);
+                                  }
+                                }}
+                              >
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" size="sm" className="w-full justify-between">
+                                    {editingSchools.length > 0
+                                      ? `${editingSchools.length} escuelas`
+                                      : "Seleccionar..."}
+                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 p-0">
+                                  <Command>
+                                    <CommandInput placeholder="Buscar escuelas..." />
+                                    <CommandList>
+                                      <CommandEmpty>No se encontraron escuelas.</CommandEmpty>
+                                      {faculties.map(faculty => {
+                                        const facultySchools = schoolsByFaculty[faculty.id] || [];
+                                        if (facultySchools.length === 0) return null;
+
+                                        return (
+                                          <CommandGroup key={faculty.id} heading={faculty.name}>
+                                            {facultySchools.map(school => (
+                                              <CommandItem
+                                                key={school.id}
+                                                value={`${school.name} ${school.acronym}`}
+                                                onSelect={() => {
+                                                  const next = editingSchools.includes(school.id)
+                                                    ? editingSchools.filter(id => id !== school.id)
+                                                    : [...editingSchools, school.id];
+                                                  setEditingSchools(next);
+                                                  // Guardar solo si cambió la selección
+                                                  const currentIds = (course.schools || []).map((cs) => cs.school_id).sort();
+                                                  const nextSorted = [...next].sort();
+                                                  const same = currentIds.length === nextSorted.length && currentIds.every((v, i) => v === nextSorted[i]);
+                                                  if (same) return;
+                                                  // Actualizar escuelas
+                                                  updateCourse(
+                                                    {
+                                                      resource: "courses",
+                                                      id: course.id,
+                                                      values: { school_ids: next },
+                                                    },
+                                                    {
+                                                      onSuccess: () => {
+                                                        toast.success("Éxito", {
+                                                          description: "Escuelas actualizadas",
+                                                          richColors: true,
+                                                        });
+                                                        // Refine automáticamente invalida y refresca la lista
+                                                      },
+                                                      onError: (error: any) => {
+                                                        console.error("Error updating course schools:", error);
+                                                        toast.error("Error", {
+                                                          description: "No se pudieron actualizar las escuelas",
+                                                          richColors: true,
+                                                        });
+                                                        // Revertir cambio en UI
+                                                        setEditingSchools(course.schools?.map((cs) => cs.school_id) || []);
+                                                      },
+                                                    }
+                                                  );
+                                                }}
+                                                className="flex items-center space-x-2"
+                                              >
+                                                <Checkbox
+                                                  checked={editingSchools.includes(school.id)}
+                                                  className="pointer-events-none"
+                                                />
+                                                <span className="flex-1">{school.name} ({school.acronym})</span>
+                                              </CommandItem>
+                                            ))}
+                                          </CommandGroup>
+                                        );
+                                      })}
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            ) : (
+                              <div
+                                className="flex flex-wrap gap-1 cursor-pointer"
+                                onClick={() => {
+                                  handleEdit(course, 'schools');
+                                  setEditingSchools(course.schools?.map((cs) => cs.school_id) || []);
+                                  setOpenSchoolsPopoverId(course.id);
+                                }}
+                              >
+                                {course.schools && course.schools.length > 0 ? (
+                                  course.schools.map((cs) => {
+                                    const school = schools.find(s => s.id === cs.school_id);
+                                    return school ? (
+                                      <Badge key={cs.id} variant="secondary" className="text-xs">
+                                        {school.acronym}
+                                      </Badge>
+                                    ) : null;
+                                  })
+                                ) : (
+                                  <span className="text-gray-400 text-sm">Sin escuelas</span>
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
+                        )}
+
+                        {/* Estado */}
+                        {visibleColumns.includes("is_active") && (
+                          <TableCell className="text-center">
+                            <Switch
+                              checked={course.is_active}
+                              onCheckedChange={() => handleToggleActive(course.id, course.is_active)}
+                              disabled={editingId === course.id || togglingIds.has(course.id) || updating}
+                            />
+                          </TableCell>
+                        )}
+
+                        {/* Acciones */}
+                        {visibleColumns.includes("actions") && (
+                          <TableCell className="text-center">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => openDeleteDialog(course.id, course.course_name)}
+                                  className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
                                 >
-                                  <Checkbox
-                                    checked={selectedSchools.includes(school.id)}
-                                    className="pointer-events-none"
-                                  />
-                                  <span className="flex-1">{school.name} ({school.acronym})</span>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          );
-                        })}
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Eliminar</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableCell>
+                        )}
 
-              {/* Botón submit (col 5 en lg) */}
-              <div className="space-y-2">
-                <Label className="invisible lg:visible">&nbsp;</Label>
-                <Button type="submit" disabled={creating} className="w-full">
-                  {creating ? "Creando..." : "Agregar Curso"}
-                </Button>
-              </div>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
 
-            {/* Mostrar escuelas seleccionadas (debajo del grid en todas las resoluciones) */}
-            {selectedSchools.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {selectedSchools.map(schoolId => {
-                  const school = schools.find(s => s.id === schoolId);
-                  if (!school) return null;
+            {/* Paginación */}
+            {(() => {
+              const totalPages = Math.max(1, Math.ceil(total / pageSize));
+              const canPrev = currentPage > 1;
+              const canNext = currentPage < totalPages;
 
-                  return (
-                    <div
-                      key={schoolId}
-                      className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded-md text-sm"
-                    >
-                      <span>{school.acronym}</span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSchools(selectedSchools.filter(id => id !== schoolId))}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </form>
-        </CardContent>
-      </Card>
+              // Calcular ventana de páginas (máx 5)
+              const windowSize = 5;
+              const half = Math.floor(windowSize / 2);
+              let start = Math.max(1, currentPage - half);
+              let end = Math.min(totalPages, start + windowSize - 1);
+              if (end - start + 1 < windowSize) {
+                start = Math.max(1, end - windowSize + 1);
+              }
+              const pages = [] as number[];
+              for (let p = start; p <= end; p++) pages.push(p);
 
-      {/* Tabla de cursos */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Asignaturas ({total})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Filtros y selector de columnas */}
-          <TableFilters
-            searchValue={searchValue}
-            onSearchChange={setSearchValue}
-            searchPlaceholder="Buscar por código, nombre o departamento..."
-            availableColumns={availableColumns}
-            visibleColumns={visibleColumns}
-            onVisibleColumnsChange={setVisibleColumns}
-          />
-
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {visibleColumns.includes("id") && <TableHead className={getTableColumnClass("id")}>ID</TableHead>}
-                  {visibleColumns.includes("course_code") && <TableHead>Código</TableHead>}
-                  {visibleColumns.includes("course_name") && <TableHead>Nombre del Curso</TableHead>}
-                  {visibleColumns.includes("department_code") && <TableHead>Departamento</TableHead>}
-                  {visibleColumns.includes("schools") && <TableHead>Escuelas</TableHead>}
-                  {visibleColumns.includes("is_active") && <TableHead>Estado</TableHead>}
-                  {visibleColumns.includes("actions") && <TableHead>Acciones</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {courses.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-gray-500 py-8">
-                      {debouncedSearch ? "No se encontraron cursos" : "No hay cursos registrados"}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  courses.map((course: Course) => (
-                    <TableRow key={course.id}>
-                      {/* ID */}
-                      {visibleColumns.includes("id") && (
-                        <TableCell className={getTableColumnClass("id")}>{course.id}</TableCell>
-                      )}
-
-                      {/* Código del Curso */}
-                      {visibleColumns.includes("course_code") && (
-                        <TableCell>
-                          {editingId === course.id && (!editingField || editingField === 'course_code') ? (
-                            <Input
-                              value={editForm.course_code || ""}
-                              onChange={(e) =>
-                                setEditForm({ ...editForm, course_code: e.target.value.toUpperCase() })
-                              }
-                              onBlur={() => saveSingleField(course.id, 'course_code', editForm.course_code)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  saveSingleField(course.id, 'course_code', editForm.course_code);
-                                }
-                              }}
-                              className="w-32"
-                            />
-                          ) : (
-                            <span
-                              className="font-mono font-semibold cursor-pointer hover:underline"
-                              onClick={() => handleEdit(course, 'course_code')}
-                            >
-                              {course.course_code}
-                            </span>
-                          )}
-                        </TableCell>
-                      )}
-
-                      {/* Nombre del Curso */}
-                      {visibleColumns.includes("course_name") && (
-                        <TableCell>
-                          {editingId === course.id && (!editingField || editingField === 'course_name') ? (
-                            <Input
-                              value={editForm.course_name || ""}
-                              onChange={(e) =>
-                                setEditForm({ ...editForm, course_name: e.target.value })
-                              }
-                              onBlur={() => saveSingleField(course.id, 'course_name', editForm.course_name)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  saveSingleField(course.id, 'course_name', editForm.course_name);
-                                }
-                              }}
-                              className="w-64"
-                            />
-                          ) : (
-                            <span
-                              className="cursor-pointer hover:underline"
-                              onClick={() => handleEdit(course, 'course_name')}
-                            >
-                              {course.course_name}
-                            </span>
-                          )}
-                        </TableCell>
-                      )}
-
-                      {/* Departamento */}
-                      {visibleColumns.includes("department_code") && (
-                        <TableCell>
-                          {editingId === course.id && (!editingField || editingField === 'department_code') ? (
-                            <Input
-                              value={editForm.department_code || ""}
-                              onChange={(e) =>
-                                setEditForm({ ...editForm, department_code: e.target.value.toUpperCase() })
-                              }
-                              onBlur={() => saveSingleField(course.id, 'department_code', editForm.department_code)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  saveSingleField(course.id, 'department_code', editForm.department_code);
-                                }
-                              }}
-                              className="w-24"
-                            />
-                          ) : (
-                            <span
-                              className="font-mono cursor-pointer hover:underline"
-                              onClick={() => handleEdit(course, 'department_code')}
-                            >
-                              {course.department_code}
-                            </span>
-                          )}
-                        </TableCell>
-                      )}
-
-                      {/* Escuelas */}
-                      {visibleColumns.includes("schools") && (
-                        <TableCell>
-                          {editingId === course.id && (!editingField || editingField === 'schools') ? (
-                            <Popover
-                              open={openSchoolsPopoverId === course.id}
-                              onOpenChange={(open) => {
-                                setOpenSchoolsPopoverId(open ? course.id : null);
-                                if (!open && editingId === course.id && (!editingField || editingField === 'schools')) {
-                                  setEditingId(null);
-                                  setEditingField(null);
-                                  setEditingSchools([]);
-                                }
-                              }}
-                            >
-                              <PopoverTrigger asChild>
-                                <Button variant="outline" size="sm" className="w-full justify-between">
-                                  {editingSchools.length > 0
-                                    ? `${editingSchools.length} escuelas`
-                                    : "Seleccionar..."}
-                                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80 p-0">
-                                <Command>
-                                  <CommandInput placeholder="Buscar escuelas..." />
-                                  <CommandList>
-                                    <CommandEmpty>No se encontraron escuelas.</CommandEmpty>
-                                    {faculties.map(faculty => {
-                                      const facultySchools = schoolsByFaculty[faculty.id] || [];
-                                      if (facultySchools.length === 0) return null;
-
-                                      return (
-                                        <CommandGroup key={faculty.id} heading={faculty.name}>
-                                          {facultySchools.map(school => (
-                                            <CommandItem
-                                              key={school.id}
-                                              value={`${school.name} ${school.acronym}`}
-                                              onSelect={() => {
-                                                const next = editingSchools.includes(school.id)
-                                                  ? editingSchools.filter(id => id !== school.id)
-                                                  : [...editingSchools, school.id];
-                                                setEditingSchools(next);
-                                                // Guardar solo si cambió la selección
-                                                const currentIds = (course.schools || []).map((cs) => cs.school_id).sort();
-                                                const nextSorted = [...next].sort();
-                                                const same = currentIds.length === nextSorted.length && currentIds.every((v, i) => v === nextSorted[i]);
-                                                if (same) return;
-                                                // Optimistic update for schools
-                                                const snapshots = optimisticUpdateCourse(course.id, { schools: next.map((sid) => ({ id: sid, school_id: sid })) as any });
-                                                updateCourse(
-                                                  {
-                                                    resource: "courses",
-                                                    id: course.id,
-                                                    values: { school_ids: next },
-                                                  },
-                                                  {
-                                                    onSuccess: (resp: any) => {
-                                                      const updated = (resp as any)?.data || (resp as any);
-                                                      if (updated?.id) updateCourseInCache(updated as Course);
-                                                      toast.success("Éxito", {
-                                                        description: "Escuelas actualizadas",
-                                                        richColors: true,
-                                                      });
-                                                      // Mantener popover abierto para más selecciones
-                                                      refreshData();
-                                                      coursesQuery.refetch();
-                                                      invalidate({ resource: "courses", invalidates: ["list"] });
-                                                      hardRefreshCourses();
-                                                    },
-                                                    onError: (error: any) => {
-                                                      rollbackOptimistic(snapshots as any);
-                                                      console.error("Error updating course schools:", error);
-                                                      toast.error("Error", {
-                                                        description: "No se pudieron actualizar las escuelas",
-                                                        richColors: true,
-                                                      });
-                                                    },
-                                                  }
-                                                );
-                                              }}
-                                              className="flex items-center space-x-2"
-                                            >
-                                              <Checkbox
-                                                checked={editingSchools.includes(school.id)}
-                                                className="pointer-events-none"
-                                              />
-                                              <span className="flex-1">{school.name} ({school.acronym})</span>
-                                            </CommandItem>
-                                          ))}
-                                        </CommandGroup>
-                                      );
-                                    })}
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                          ) : (
-                            <div
-                              className="flex flex-wrap gap-1 cursor-pointer"
-                              onClick={() => {
-                                handleEdit(course, 'schools');
-                                setEditingSchools(course.schools?.map((cs) => cs.school_id) || []);
-                                setOpenSchoolsPopoverId(course.id);
-                              }}
-                            >
-                              {course.schools && course.schools.length > 0 ? (
-                                course.schools.map((cs) => {
-                                  const school = schools.find(s => s.id === cs.school_id);
-                                  return school ? (
-                                    <Badge key={cs.id} variant="secondary" className="text-xs">
-                                      {school.acronym}
-                                    </Badge>
-                                  ) : null;
-                                })
-                              ) : (
-                                <span className="text-gray-400 text-sm">Sin escuelas</span>
-                              )}
-                            </div>
-                          )}
-                        </TableCell>
-                      )}
-
-                      {/* Estado */}
-                      {visibleColumns.includes("is_active") && (
-                        <TableCell>
-                          <Switch
-                            checked={course.is_active}
-                            onCheckedChange={() => handleToggleActive(course.id, course.is_active)}
-                            disabled={editingId === course.id}
-                          />
-                        </TableCell>
-                      )}
-
-                      {/* Acciones */}
-                      {visibleColumns.includes("actions") && (
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => openDeleteDialog(course.id, course.course_name)}
-                              disabled={deleting}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Paginación */}
-          {(() => {
-            const totalPages = Math.max(1, Math.ceil(total / pageSize));
-            const canPrev = currentPage > 1;
-            const canNext = currentPage < totalPages;
-
-            // Calcular ventana de páginas (máx 5)
-            const windowSize = 5;
-            const half = Math.floor(windowSize / 2);
-            let start = Math.max(1, currentPage - half);
-            let end = Math.min(totalPages, start + windowSize - 1);
-            if (end - start + 1 < windowSize) {
-              start = Math.max(1, end - windowSize + 1);
-            }
-            const pages = [] as number[];
-            for (let p = start; p <= end; p++) pages.push(p);
-
-            return (
-              <Pagination className="mt-4">
-                <PaginationContent>
-                  <PaginationItem  className="mr-4">
-                    <PaginationLink
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (canPrev) setCurrentPage((p) => p - 1);
-                      }}
-                      aria-label="Ir a la página anterior"
-                      className={!canPrev ? "pointer-events-none opacity-50" : undefined}
-                    >
-                      Anterior
-                    </PaginationLink>
-                  </PaginationItem>
-
-                  {start > 1 && (
-                    <>
-                      <PaginationItem>
-                        <PaginationLink
-                          href="#"
-                          onClick={(e) => { e.preventDefault(); setCurrentPage(1); }}
-                        >1</PaginationLink>
-                      </PaginationItem>
-                      <PaginationItem>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    </>
-                  )}
-
-                  {pages.map((p) => (
-                    <PaginationItem key={p}>
+              return (
+                <Pagination className="mt-4">
+                  <PaginationContent>
+                    <PaginationItem className="mr-4">
                       <PaginationLink
                         href="#"
-                        isActive={p === currentPage}
-                        onClick={(e) => { e.preventDefault(); setCurrentPage(p); }}
-                      >{p}</PaginationLink>
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (canPrev) setCurrentPage((p) => p - 1);
+                        }}
+                        aria-label="Ir a la página anterior"
+                        className={!canPrev ? "pointer-events-none opacity-50" : undefined}
+                      >
+                        Anterior
+                      </PaginationLink>
                     </PaginationItem>
-                  ))}
 
-                  {end < totalPages && (
-                    <>
-                      <PaginationItem>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                      <PaginationItem>
+                    {start > 1 && (
+                      <>
+                        <PaginationItem>
+                          <PaginationLink
+                            href="#"
+                            onClick={(e) => { e.preventDefault(); setCurrentPage(1); }}
+                          >1</PaginationLink>
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      </>
+                    )}
+
+                    {pages.map((p) => (
+                      <PaginationItem key={p}>
                         <PaginationLink
                           href="#"
-                          onClick={(e) => { e.preventDefault(); setCurrentPage(totalPages); }}
-                        >{totalPages}</PaginationLink>
+                          isActive={p === currentPage}
+                          onClick={(e) => { e.preventDefault(); setCurrentPage(p); }}
+                        >{p}</PaginationLink>
                       </PaginationItem>
-                    </>
-                  )}
+                    ))}
 
-                  <PaginationItem className="ml-4">
-                    <PaginationLink
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (canNext) setCurrentPage((p) => p + 1);
-                      }}
-                      aria-label="Ir a la página siguiente"
-                      className={!canNext ? "pointer-events-none opacity-50" : undefined}
-                    >
-                      Siguiente
-                    </PaginationLink>
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            );
-          })()}
-        </CardContent>
-      </Card>
+                    {end < totalPages && (
+                      <>
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationLink
+                            href="#"
+                            onClick={(e) => { e.preventDefault(); setCurrentPage(totalPages); }}
+                          >{totalPages}</PaginationLink>
+                        </PaginationItem>
+                      </>
+                    )}
 
-      {/* Confirm delete dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open) { setDeleteDialogOpen(false); setCourseToDelete(null); } }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar asignatura</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Seguro que deseas eliminar "{courseToDelete?.name}"? Esta acción no se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
-              {deleting ? 'Eliminando...' : 'Eliminar'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+                    <PaginationItem className="ml-4">
+                      <PaginationLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (canNext) setCurrentPage((p) => p + 1);
+                        }}
+                        aria-label="Ir a la página siguiente"
+                        className={!canNext ? "pointer-events-none opacity-50" : undefined}
+                      >
+                        Siguiente
+                      </PaginationLink>
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              );
+            })()}
+          </CardContent>
+        </Card>
+
+        {/* Confirm delete dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open) { setDeleteDialogOpen(false); setCourseToDelete(null); } }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Eliminar asignatura</AlertDialogTitle>
+              <AlertDialogDescription>
+                ¿Seguro que deseas eliminar "{courseToDelete?.name}"? Esta acción no se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
+                {deleting ? 'Eliminando...' : 'Eliminar'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </CanAccess>
   );
 };

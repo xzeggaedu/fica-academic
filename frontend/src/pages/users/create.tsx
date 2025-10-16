@@ -9,7 +9,7 @@ import { Label } from "../../components/ui/forms/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/forms/select";
 
 export const UserCreate = () => {
-  const { saveButtonProps, formLoading, register, formState: { errors } } = useForm();
+  const { saveButtonProps, register, formState: { errors } } = useForm();
 
   const roleOptions = [
     { value: UserRoleEnum.UNAUTHORIZED, label: "No Autorizado" },
@@ -59,7 +59,7 @@ export const UserCreate = () => {
                     placeholder="Ingrese el nombre completo"
                   />
                   {errors?.name && (
-                    <p className="text-sm text-red-600">{errors.name?.message}</p>
+                    <p className="text-sm text-red-600">{String(errors.name?.message || '')}</p>
                   )}
                 </div>
 
@@ -80,7 +80,7 @@ export const UserCreate = () => {
                     placeholder="Ingrese el nombre de usuario"
                   />
                   {errors?.username && (
-                    <p className="text-sm text-red-600">{errors.username?.message}</p>
+                    <p className="text-sm text-red-600">{String(errors.username?.message || '')}</p>
                   )}
                 </div>
               </div>
@@ -99,9 +99,9 @@ export const UserCreate = () => {
                   type="email"
                   placeholder="Ingrese el correo electrónico"
                 />
-                {errors?.email && (
-                  <p className="text-sm text-red-600">{errors.email?.message}</p>
-                )}
+                  {errors?.email && (
+                    <p className="text-sm text-red-600">{String(errors.email?.message || '')}</p>
+                  )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -121,7 +121,7 @@ export const UserCreate = () => {
                     placeholder="Ingrese la contraseña"
                   />
                   {errors?.password && (
-                    <p className="text-sm text-red-600">{errors.password?.message}</p>
+                    <p className="text-sm text-red-600">{String(errors.password?.message || '')}</p>
                   )}
                 </div>
 
@@ -140,7 +140,7 @@ export const UserCreate = () => {
                     </SelectContent>
                   </Select>
                   {errors?.role && (
-                    <p className="text-sm text-red-600">{errors.role?.message}</p>
+                    <p className="text-sm text-red-600">{String(errors.role?.message || '')}</p>
                   )}
                 </div>
               </div>
