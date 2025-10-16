@@ -103,7 +103,7 @@ export function FacultySchoolsSheet({
     }
 
     createSchool({
-      resource: "school",
+      resource: "schools",
       values: {
         name: newSchool.name,
         acronym: newSchool.acronym.toUpperCase(),
@@ -165,7 +165,7 @@ export function FacultySchoolsSheet({
     }
 
     updateSchool({
-      resource: "school",
+      resource: "schools",
       id: schoolId,
       values: {
         name: editData.name,
@@ -204,7 +204,7 @@ export function FacultySchoolsSheet({
     if (!schoolToDelete) return;
 
     deleteSchool({
-      resource: "school",
+      resource: "schools",
       id: schoolToDelete.id,
       successNotification: () => ({
         message: 'Escuela eliminada exitosamente',

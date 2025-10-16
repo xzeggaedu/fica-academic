@@ -1,0 +1,1 @@
+export { ProfessorList } from "./list";
