@@ -34,16 +34,7 @@ import {
 import { Checkbox } from "@/components/ui/forms/checkbox";
 import type { Course, CourseCreate, CourseUpdate, Faculty, School } from "@/types/api";
 import { getTableColumnClass } from "@/components/refine-ui/theme/theme-table";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Unauthorized } from "../unauthorized";
 import {
   Tooltip,
@@ -132,12 +123,12 @@ export const CoursesList = () => {
       errorNotification: false,
     }
   );
-  const { mutate: deleteCourse, mutation: deleteState } = useDelete();
+  const { mutate: softDeleteCourse, mutation: softDeleteState } = useUpdate();
   const invalidate = useInvalidate();
 
   const creating = createState.isPending;
   const updating = updateState.isPending;
-  const deleting = deleteState.isPending;
+  const deleting = softDeleteState.isPending;
 
   // Estados locales
   const [error, setError] = useState<string | null>(null);
@@ -382,25 +373,30 @@ export const CoursesList = () => {
   const handleConfirmDelete = () => {
     if (!courseToDelete) return;
     const { id, name } = courseToDelete;
-    deleteCourse(
+    softDeleteCourse(
       {
-        resource: "courses",
+        resource: "soft-delete",
         id,
+        values: { type: "catalog/courses" },
+        successNotification: false,
       },
       {
         onSuccess: () => {
+          invalidate({
+            resource: "courses",
+            invalidates: ["list"],
+          });
           toast.success("Asignatura movida a papelera", {
             description: `La asignatura "${name}" ha sido movida a la papelera de reciclaje.`,
             richColors: true,
           });
           setDeleteDialogOpen(false);
           setCourseToDelete(null);
-          // Refine automáticamente invalida y refresca la lista
         },
         onError: (error: any) => {
           console.error("Error deleting course:", error);
-          toast.error("Error", {
-            description: "Error al eliminar la asignatura",
+          toast.error("Error al mover a papelera", {
+            description: error?.message || "Error desconocido",
             richColors: true,
           });
         },
@@ -1000,22 +996,18 @@ export const CoursesList = () => {
         </Card>
 
         {/* Confirm delete dialog */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open) { setDeleteDialogOpen(false); setCourseToDelete(null); } }}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Eliminar asignatura</AlertDialogTitle>
-              <AlertDialogDescription>
-                ¿Seguro que deseas eliminar "{courseToDelete?.name}"? Esta acción no se puede deshacer.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
-                {deleting ? 'Eliminando...' : 'Eliminar'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <DeleteConfirmDialog
+          entityType="asignatura"
+          entityName={courseToDelete?.name || ""}
+          isOpen={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false);
+            setCourseToDelete(null);
+          }}
+          onConfirm={handleConfirmDelete}
+          isDeleting={deleting}
+          gender="f"
+        />
       </div>
     </CanAccess>
   );

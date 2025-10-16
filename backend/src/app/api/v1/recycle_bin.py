@@ -167,8 +167,13 @@ async def restore_from_recycle_bin(
 
         restore_success = await restore_professor(db=db, id=int(entity_id))
     elif entity_type == "course":
-        # TODO: Implementar restore para courses cuando esté disponible
-        raise NotFoundException("Restauración de cursos aún no implementada")
+        from ...crud.crud_catalog_course import restore_course
+
+        restore_success = await restore_course(db=db, course_id=int(entity_id))
+    elif entity_type == "schedule-time":
+        from ...crud.crud_catalog_schedule_time import restore_schedule_time
+
+        restore_success = await restore_schedule_time(db=db, schedule_time_id=int(entity_id))
     else:
         raise NotFoundException(f"Tipo de entidad '{entity_type}' no soportado para restauración")
 

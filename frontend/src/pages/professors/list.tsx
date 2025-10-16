@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { TableFilters } from "../../components/ui/data/table-filters";
 import { Unauthorized } from "../unauthorized";
 import { Button } from "../../components/ui/button";
-import { ProfessorDeleteDialog } from "../../components/ui/professors/professor-delete-dialog";
+import { DeleteConfirmDialog } from "../../components/ui/delete-confirm-dialog";
 import { Eye, Pencil, Trash2, Search, Plus, Settings2, CheckCircle, XCircle, MoreHorizontal, ChevronDown } from "lucide-react";
 import { Input } from "../../components/ui/forms/input";
 import {
@@ -693,13 +693,14 @@ export const ProfessorList = () => {
 
                 {/* Diálogo de eliminación */}
                 {selectedProfessor && (
-                    <ProfessorDeleteDialog
-                        professorId={selectedProfessor.id}
-                        professorName={selectedProfessor.name}
+                    <DeleteConfirmDialog
+                        entityType="profesor"
+                        entityName={selectedProfessor.name}
                         isOpen={deleteDialogOpen}
                         onClose={() => setDeleteDialogOpen(false)}
-                        onDelete={handleDeleteProfessor}
+                        onConfirm={() => handleDeleteProfessor(selectedProfessor.id, selectedProfessor.name)}
                         isDeleting={isDeleting}
+                        gender="m"
                     />
                 )}
 

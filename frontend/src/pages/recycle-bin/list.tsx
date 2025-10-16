@@ -148,9 +148,12 @@ export const RecycleBinList = () => {
                 return <Users className="h-4 w-4" />;
             case 'faculty':
                 return <Building2 className="h-4 w-4" />;
+            case 'professor':
+                return <Users className="h-4 w-4" />;
             case 'course':
                 return <BookOpen className="h-4 w-4" />;
             case 'schedule':
+            case 'schedule-time':
                 return <Calendar className="h-4 w-4" />;
             default:
                 return <Archive className="h-4 w-4" />;
@@ -164,9 +167,12 @@ export const RecycleBinList = () => {
                 return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
             case 'faculty':
                 return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+            case 'professor':
+                return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300';
             case 'course':
                 return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300';
             case 'schedule':
+            case 'schedule-time':
                 return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
             default:
                 return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
@@ -401,6 +407,7 @@ export const RecycleBinList = () => {
                                         {entityTypeFilter === "" ? "Todos los tipos" :
                                          entityTypeFilter === "user" ? "Usuarios" :
                                          entityTypeFilter === "faculty" ? "Facultades" :
+                                         entityTypeFilter === "professor" ? "Profesores" :
                                          entityTypeFilter === "course" ? "Cursos" :
                                          entityTypeFilter === "schedule" ? "Horarios" : "Todos los tipos"}
                                         <ChevronDown className="ml-2 h-4 w-4" />
@@ -415,6 +422,9 @@ export const RecycleBinList = () => {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => setEntityTypeFilter("faculty")}>
                                         Facultades
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setEntityTypeFilter("professor")}>
+                                        Profesores
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => setEntityTypeFilter("course")}>
                                         Cursos
