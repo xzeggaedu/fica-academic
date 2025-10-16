@@ -6,17 +6,17 @@ from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.dependencies import get_current_superuser
+from ...api.dependencies import get_current_superuser, get_current_user
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import DuplicateValueException, NotFoundException
 from ...crud.crud_faculties import get_faculty_by_uuid
 from ...crud.crud_schools import crud_schools, get_school_by_uuid, school_acronym_exists, school_exists
 from ...schemas.school import SchoolCreate, SchoolRead, SchoolUpdate
 
-router = APIRouter(tags=["schools"])
+router = APIRouter(prefix="/catalog/schools", tags=["catalog-schools"])
 
 
-@router.post("/school", response_model=SchoolRead, status_code=201)
+@router.post("", response_model=SchoolRead, status_code=201)
 async def create_school(
     request: Request,
     school: SchoolCreate,
@@ -65,17 +65,17 @@ async def create_school(
     return cast(SchoolRead, school_read)
 
 
-@router.get("/schools", response_model=PaginatedListResponse[SchoolRead])
+@router.get("", response_model=PaginatedListResponse[SchoolRead])
 async def list_schools(
     request: Request,
     db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
     page: int = 1,
     items_per_page: int = 10,
     faculty_id: int | None = None,
     is_active: bool | None = None,
 ) -> dict:
-    """Obtener lista paginada de escuelas - Solo Admin.
+    """Obtener lista paginada de escuelas - Accesible para todos los usuarios autenticados.
 
     Args:
     ----
@@ -105,14 +105,14 @@ async def list_schools(
     return response
 
 
-@router.get("/school/{school_id}", response_model=SchoolRead)
+@router.get("/{school_id}", response_model=SchoolRead)
 async def get_school(
     request: Request,
     school_id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
 ) -> SchoolRead:
-    """Obtener una escuela específica por UUID con su facultad - Solo Admin.
+    """Obtener una escuela específica por UUID con su facultad - Accesible para todos los usuarios autenticados.
 
     Args:
     ----
@@ -136,7 +136,7 @@ async def get_school(
     return cast(SchoolRead, school)
 
 
-@router.patch("/school/{school_id}", response_model=SchoolRead)
+@router.patch("/{school_id}", response_model=SchoolRead)
 async def update_school(
     request: Request,
     school_id: int,
@@ -193,7 +193,7 @@ async def update_school(
     return cast(SchoolRead, updated_school)
 
 
-@router.delete("/school/{school_id}", status_code=204)
+@router.delete("/{school_id}", status_code=204)
 async def delete_school(
     request: Request,
     school_id: int,

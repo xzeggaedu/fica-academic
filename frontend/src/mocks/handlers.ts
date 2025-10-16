@@ -222,15 +222,15 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  // ==================== FACULTY ENDPOINTS ====================
+  // ==================== FACULTY ENDPOINTS (CATALOG) ====================
 
   // List faculties
-  http.get(`${API_URL}/api/v1/faculties`, () => {
+  http.get(`${API_URL}/api/v1/catalog/faculties`, () => {
     return HttpResponse.json(mockFaculties);
   }),
 
   // Get faculty by ID
-  http.get(`${API_URL}/api/v1/faculties/:id`, ({ params }) => {
+  http.get(`${API_URL}/api/v1/catalog/faculties/:id`, ({ params }) => {
     const { id } = params;
     const faculty = mockFaculties.find((f) => f.id === Number(id));
 
@@ -245,7 +245,7 @@ export const handlers = [
   }),
 
   // Create faculty
-  http.post(`${API_URL}/api/v1/faculties`, async ({ request }) => {
+  http.post(`${API_URL}/api/v1/catalog/faculties`, async ({ request }) => {
     const body = await request.json() as Record<string, any>;
     const newFaculty = {
       id: mockFaculties.length + 1,
@@ -259,7 +259,7 @@ export const handlers = [
   }),
 
   // Update faculty
-  http.patch(`${API_URL}/api/v1/faculties/:id`, async ({ params, request }) => {
+  http.patch(`${API_URL}/api/v1/catalog/faculties/:id`, async ({ params, request }) => {
     const { id } = params;
     const body = await request.json() as Record<string, any>;
     const facultyIndex = mockFaculties.findIndex((f) => f.id === Number(id));
@@ -281,7 +281,7 @@ export const handlers = [
   }),
 
   // Delete faculty
-  http.delete(`${API_URL}/api/v1/faculties/:id`, ({ params }) => {
+  http.delete(`${API_URL}/api/v1/catalog/faculties/:id`, ({ params }) => {
     const { id } = params;
     const facultyIndex = mockFaculties.findIndex((f) => f.id === Number(id));
 
@@ -296,10 +296,10 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  // ==================== SCHOOL ENDPOINTS ====================
+  // ==================== SCHOOL ENDPOINTS (CATALOG) ====================
 
   // List schools (with optional faculty filter)
-  http.get(`${API_URL}/api/v1/schools`, ({ request }) => {
+  http.get(`${API_URL}/api/v1/catalog/schools`, ({ request }) => {
     const url = new URL(request.url);
     const facultyId = url.searchParams.get('fk_faculty') || url.searchParams.get('faculty_id');
 
@@ -314,7 +314,7 @@ export const handlers = [
   }),
 
   // Get school by ID
-  http.get(`${API_URL}/api/v1/schools/:id`, ({ params }) => {
+  http.get(`${API_URL}/api/v1/catalog/schools/:id`, ({ params }) => {
     const { id } = params;
     const school = mockSchools.find((s) => s.id === Number(id));
 
@@ -329,7 +329,7 @@ export const handlers = [
   }),
 
   // Create school
-  http.post(`${API_URL}/api/v1/schools`, async ({ request }) => {
+  http.post(`${API_URL}/api/v1/catalog/schools`, async ({ request }) => {
     const body = await request.json() as Record<string, any>;
     const newSchool = {
       id: mockSchools.length + 1,
@@ -343,7 +343,7 @@ export const handlers = [
   }),
 
   // Update school
-  http.patch(`${API_URL}/api/v1/schools/:id`, async ({ params, request }) => {
+  http.patch(`${API_URL}/api/v1/catalog/schools/:id`, async ({ params, request }) => {
     const { id } = params;
     const body = await request.json() as Record<string, any>;
     const schoolIndex = mockSchools.findIndex((s) => s.id === Number(id));
@@ -365,7 +365,7 @@ export const handlers = [
   }),
 
   // Delete school
-  http.delete(`${API_URL}/api/v1/schools/:id`, ({ params }) => {
+  http.delete(`${API_URL}/api/v1/catalog/schools/:id`, ({ params }) => {
     const { id } = params;
     const schoolIndex = mockSchools.findIndex((s) => s.id === Number(id));
 

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.dependencies import get_current_superuser
+from ...api.dependencies import get_current_superuser, get_current_user
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import DuplicateValueException, NotFoundException
 from ...crud.crud_faculties import (
@@ -22,10 +22,10 @@ from ...crud.crud_faculties import (
 from ...crud.crud_recycle_bin import create_recycle_bin_entry, find_recycle_bin_entry, mark_as_restored
 from ...schemas.faculty import FacultyCreate, FacultyRead, FacultyUpdate
 
-router = APIRouter(tags=["faculties"])
+router = APIRouter(prefix="/catalog/faculties", tags=["catalog-faculties"])
 
 
-@router.post("/faculty", response_model=FacultyRead, status_code=201)
+@router.post("", response_model=FacultyRead, status_code=201)
 async def create_faculty(
     request: Request,
     faculty: FacultyCreate,
@@ -68,17 +68,17 @@ async def create_faculty(
     return cast(FacultyRead, faculty_read)
 
 
-@router.get("/faculties", response_model=PaginatedListResponse[FacultyRead])
+@router.get("", response_model=PaginatedListResponse[FacultyRead])
 async def list_faculties(
     request: Request,
     db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
     page: int = 1,
     items_per_page: int = 10,
     is_active: bool | None = None,
     include_deleted: bool = False,
 ) -> dict:
-    """Obtener lista paginada de facultades - Solo Admin.
+    """Obtener lista paginada de facultades - Accesible para todos los usuarios autenticados.
 
     Args:
     ----
@@ -109,14 +109,14 @@ async def list_faculties(
     return response
 
 
-@router.get("/faculty/{faculty_id}", response_model=FacultyRead)
+@router.get("/{faculty_id}", response_model=FacultyRead)
 async def get_faculty(
     request: Request,
     faculty_id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
 ) -> FacultyRead:
-    """Obtener una facultad específica por UUID con sus escuelas - Solo Admin.
+    """Obtener una facultad específica por UUID con sus escuelas - Accesible para todos los usuarios autenticados.
 
     Args:
     ----
@@ -140,7 +140,7 @@ async def get_faculty(
     return cast(FacultyRead, faculty)
 
 
-@router.patch("/faculty/{faculty_id}", response_model=FacultyRead)
+@router.patch("/{faculty_id}", response_model=FacultyRead)
 async def update_faculty(
     request: Request,
     faculty_id: int,
@@ -190,7 +190,7 @@ async def update_faculty(
     return cast(FacultyRead, updated_faculty)
 
 
-@router.delete("/faculty/{faculty_id}", status_code=204)
+@router.delete("/{faculty_id}", status_code=204)
 async def delete_faculty(
     request: Request,
     faculty_id: int,
@@ -221,7 +221,7 @@ async def delete_faculty(
     await crud_faculties.delete(db=db, id=faculty_id)
 
 
-@router.patch("/faculty/soft-delete/{faculty_id}", response_model=FacultyRead)
+@router.patch("/soft-delete/{faculty_id}", response_model=FacultyRead)
 async def soft_delete_faculty_endpoint(
     request: Request,
     faculty_id: int,
@@ -276,7 +276,7 @@ async def soft_delete_faculty_endpoint(
     return cast(FacultyRead, updated_faculty)
 
 
-@router.patch("/faculty/restore/{faculty_id}", response_model=FacultyRead)
+@router.patch("/restore/{faculty_id}", response_model=FacultyRead)
 async def restore_faculty_endpoint(
     request: Request,
     faculty_id: int,
@@ -328,7 +328,7 @@ async def restore_faculty_endpoint(
     return cast(FacultyRead, updated_faculty)
 
 
-@router.get("/faculties/deleted", response_model=PaginatedListResponse[FacultyRead])
+@router.get("/deleted", response_model=PaginatedListResponse[FacultyRead])
 async def list_deleted_faculties(
     request: Request,
     db: Annotated[AsyncSession, Depends(async_get_db)],

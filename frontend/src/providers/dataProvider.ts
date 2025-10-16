@@ -37,15 +37,15 @@ const DEBUG_MODE = import.meta.env.VITE_DEBUG_MODE === "true";
 // API Endpoints
 const ENDPOINTS = {
   USERS: `${API_BASE_PATH}/users`,
-  USER: `${API_BASE_PATH}/user/uuid`,  // ✅ Correcto: /user/uuid/{user_uuid}
+  USER: `${API_BASE_PATH}/user`,  // ✅ Simplificado: /user/{user_uuid}
   USER_ADMIN: `${API_BASE_PATH}/user/admin`,  // ✅ Endpoint para crear usuarios como admin
-  USER_SOFT_DELETE: `${API_BASE_PATH}/user/uuid`,  // Para soft delete: /user/uuid/{user_uuid}/soft-delete
+  USER_SOFT_DELETE: `${API_BASE_PATH}/user`,  // Para soft delete: /user/soft-delete/{user_uuid}
   ME: `${API_BASE_PATH}/me`,
   TASKS: `${API_BASE_PATH}/tasks/task`,
-  FACULTIES: `${API_BASE_PATH}/faculties`,
-  FACULTY: `${API_BASE_PATH}/faculty`,
-  SCHOOLS: `${API_BASE_PATH}/schools`,
-  SCHOOL: `${API_BASE_PATH}/school`,
+  FACULTIES: `${API_BASE_PATH}/catalog/faculties`,  // ✅ Movido a catalog
+  FACULTY: `${API_BASE_PATH}/catalog/faculties`,    // ✅ Movido a catalog
+  SCHOOLS: `${API_BASE_PATH}/catalog/schools`,    // ✅ Movido a catalog
+  SCHOOL: `${API_BASE_PATH}/catalog/schools`,     // ✅ Movido a catalog
   COURSES: `${API_BASE_PATH}/catalog/courses`,
   RECYCLE_BIN: `${API_BASE_PATH}/recycle-bin`,
   RESTORE_ITEM: `${API_BASE_PATH}/recycle-bin/restore`,
@@ -460,7 +460,7 @@ export const dataProvider: DataProvider = {
         if (id && id.toString().includes('/password')) {
           const userId = id.toString().replace('/password', '');
           const response = await apiRequest<{ message: string }>(
-            `${API_BASE_PATH}/user/uuid/${userId}/password`,
+            `${API_BASE_PATH}/user/${userId}/password`,
             {
               method: meta?.method || "PATCH",
               body: JSON.stringify(variables),
@@ -537,8 +537,11 @@ export const dataProvider: DataProvider = {
       }
 
       case "soft-delete": {
+        const type = variables["type"] as string;
+        // Normalizar la ruta: "user/uuid" → "user", "faculty" → "catalog/faculties"
+        const normalizedType = type === "user/uuid" ? "user" : type === "faculty" ? "catalog/faculties" : type;
         const response = await apiRequest<{ message: string }>(
-          `${API_BASE_PATH}/${variables["type"]}/soft-delete/${id}`,
+          `${API_BASE_PATH}/${normalizedType}/soft-delete/${id}`,
           {
             method: "PATCH",
             body: JSON.stringify(variables as UserUpdate),

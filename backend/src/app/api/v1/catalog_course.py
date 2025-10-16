@@ -1,12 +1,12 @@
 """Endpoints de API para el catálogo de asignaturas."""
 
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastcrud.paginated import PaginatedListResponse, compute_offset
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.dependencies import get_current_superuser
+from ...api.dependencies import get_current_superuser, get_current_user
 from ...core.db.database import async_get_db
 from ...crud.crud_catalog_course import (
     create_course_with_schools,
@@ -29,15 +29,15 @@ router = APIRouter(prefix="/catalog/courses", tags=["catalog-courses"])
     "",
     response_model=CatalogCourseRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(get_current_superuser)],
 )
 async def create_course(
     course_data: CatalogCourseCreate,
-    db: AsyncSession = Depends(async_get_db),
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
 ) -> CatalogCourseRead:
     """Crear un nuevo curso en el catálogo.
 
-    Requiere permisos de superusuario.
+    Solo administradores.
     """
     # Verificar si el código del curso ya existe
     existing_course = await crud_catalog_course.get(db=db, course_code=course_data.course_code)
@@ -55,17 +55,17 @@ async def create_course(
 @router.get(
     "",
     response_model=PaginatedListResponse[CatalogCourseRead],
-    dependencies=[Depends(get_current_superuser)],
 )
 async def read_courses(
-    db: AsyncSession = Depends(async_get_db),
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
     page: int = 1,
     items_per_page: int = 50,
     search: str | None = None,
 ) -> dict[str, Any]:
     """Obtener lista paginada de cursos con búsqueda.
 
-    Requiere permisos de superusuario.
+    Accesible para todos los usuarios autenticados.
     """
     from sqlalchemy import func, or_, select
     from sqlalchemy.orm import selectinload
@@ -118,14 +118,14 @@ async def read_courses(
 @router.get(
     "/active",
     response_model=list[CatalogCourseRead],
-    dependencies=[Depends(get_current_superuser)],
 )
 async def read_active_courses(
-    db: AsyncSession = Depends(async_get_db),
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
 ) -> list[CatalogCourseRead]:
     """Obtener todos los cursos activos sin paginación.
 
-    Útil para formularios y selects. Requiere permisos de superusuario.
+    Útil para formularios y selects. Accesible para todos los usuarios autenticados.
     """
     courses = await get_active_courses(db)
     return [CatalogCourseRead.model_validate(course) for course in courses]
@@ -134,15 +134,15 @@ async def read_active_courses(
 @router.get(
     "/{course_id}",
     response_model=CatalogCourseRead,
-    dependencies=[Depends(get_current_superuser)],
 )
 async def read_course(
     course_id: int,
-    db: AsyncSession = Depends(async_get_db),
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
 ) -> CatalogCourseRead:
     """Obtener un curso por su ID.
 
-    Requiere permisos de superusuario.
+    Accesible para todos los usuarios autenticados.
     """
     course = await get_course_with_schools(db, course_id)
 
@@ -155,16 +155,16 @@ async def read_course(
 @router.patch(
     "/{course_id}",
     response_model=CatalogCourseRead,
-    dependencies=[Depends(get_current_superuser)],
 )
 async def update_course(
     course_id: int,
     course_data: CatalogCourseUpdate,
-    db: AsyncSession = Depends(async_get_db),
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
 ) -> CatalogCourseRead:
     """Actualizar un curso existente.
 
-    Requiere permisos de superusuario.
+    Solo administradores.
     """
     # Si se está actualizando el código, verificar que no exista otro curso con ese código
     if course_data.course_code:
@@ -187,15 +187,15 @@ async def update_course(
 @router.delete(
     "/{course_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(get_current_superuser)],
 )
 async def delete_course(
     course_id: int,
-    db: AsyncSession = Depends(async_get_db),
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
 ) -> None:
     """Eliminar un curso del catálogo.
 
-    Requiere permisos de superusuario.
+    Solo administradores.
     """
     course = await crud_catalog_course.get(db=db, id=course_id)
 
