@@ -229,3 +229,30 @@ class TestCourseNameValidation:
         course = CatalogCourseBase(course_code="CS101", course_name="Programación 101 - Nivel 1", department_code="CS")
 
         assert course.course_name == "Programación 101 - Nivel 1"
+
+
+class TestCatalogCourseSoftDelete:
+    """Pruebas para soft-delete de cursos."""
+
+    def test_update_schema_accepts_deleted_fields(self):
+        """Prueba que el schema CatalogCourseUpdate acepta campos deleted y deleted_at."""
+        from datetime import datetime
+
+        update_data = CatalogCourseUpdate(deleted=True, deleted_at=datetime.now())
+
+        assert update_data.deleted is True
+        assert update_data.deleted_at is not None
+
+    def test_update_schema_deleted_optional(self):
+        """Prueba que deleted sea opcional en CatalogCourseUpdate."""
+        update_data = CatalogCourseUpdate(course_name="Nuevo Nombre")
+
+        assert update_data.deleted is None
+        assert update_data.deleted_at is None
+
+    def test_update_schema_restore_fields(self):
+        """Prueba que el schema permita restaurar (deleted=False, deleted_at=None)."""
+        update_data = CatalogCourseUpdate(deleted=False, deleted_at=None)
+
+        assert update_data.deleted is False
+        assert update_data.deleted_at is None

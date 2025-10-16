@@ -1,20 +1,24 @@
 """Endpoints de API para el catálogo de asignaturas."""
 
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastcrud.paginated import PaginatedListResponse, compute_offset
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_current_superuser, get_current_user
 from ...core.db.database import async_get_db
+from ...core.exceptions.http_exceptions import NotFoundException
 from ...crud.crud_catalog_course import (
     create_course_with_schools,
     crud_catalog_course,
     get_active_courses,
     get_course_with_schools,
+    restore_course,
+    soft_delete_course,
     update_course_with_schools,
 )
+from ...crud.crud_recycle_bin import create_recycle_bin_entry, find_recycle_bin_entry, mark_as_restored
 from ...models.catalog_course import CatalogCourse
 from ...schemas.catalog_course import (
     CatalogCourseCreate,
@@ -57,11 +61,14 @@ async def create_course(
     response_model=PaginatedListResponse[CatalogCourseRead],
 )
 async def read_courses(
+    request: Request,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
     page: int = 1,
     items_per_page: int = 50,
     search: str | None = None,
+    is_active: bool | None = None,
+    include_deleted: bool = False,
 ) -> dict[str, Any]:
     """Obtener lista paginada de cursos con búsqueda.
 
@@ -72,6 +79,12 @@ async def read_courses(
 
     # Construir query base con relaciones cargadas
     query = select(CatalogCourse).options(selectinload(CatalogCourse.schools))
+
+    # Filtrar por deleted (None se trata como False)
+    if include_deleted:
+        query = query.where(CatalogCourse.deleted.is_(True))
+    else:
+        query = query.where((CatalogCourse.deleted.is_(False)) | (CatalogCourse.deleted.is_(None)))
 
     # Aplicar filtro de búsqueda si se proporciona
     if search:
@@ -84,7 +97,9 @@ async def read_courses(
             )
         )
 
-    # No filtrar por is_active - mostrar todos los cursos para gestión completa
+    # Filtrar por is_active si se proporciona
+    if is_active is not None:
+        query = query.where(CatalogCourse.is_active == is_active)
 
     # Contar total de registros
     count_query = select(func.count()).select_from(query.subquery())
@@ -193,7 +208,7 @@ async def delete_course(
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
 ) -> None:
-    """Eliminar un curso del catálogo.
+    """Eliminar un curso del catálogo (hard delete).
 
     Solo administradores.
     """
@@ -203,3 +218,110 @@ async def delete_course(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Curso no encontrado")
 
     await crud_catalog_course.delete(db=db, id=course_id)
+
+
+@router.patch("/soft-delete/{course_id}", response_model=CatalogCourseRead)
+async def soft_delete_course_endpoint(
+    request: Request,
+    course_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    values: dict = None,
+) -> CatalogCourseRead:
+    """Eliminar un curso (soft delete) - Solo Admin.
+
+    Esto marcará el curso como eliminado pero no lo removerá físicamente de la base de datos.
+    También crea un registro en RecycleBin para auditoría y posible restauración.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        course_id: ID del curso a eliminar
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+
+    Returns:
+    -------
+        Datos del curso eliminado
+
+    Raises:
+    ------
+        NotFoundException: Si el curso no se encuentra
+    """
+    # Verificar si el curso existe
+    db_course = await get_course_with_schools(db=db, course_id=course_id)
+    if db_course is None:
+        raise NotFoundException(f"No se encontró el curso con id '{course_id}'")
+
+    # Soft delete course
+    success = await soft_delete_course(db=db, course_id=course_id)
+    if not success:
+        raise NotFoundException(f"Error al eliminar el curso con id '{course_id}'")
+
+    # Crear registro en RecycleBin
+    await create_recycle_bin_entry(
+        db=db,
+        entity_type="course",
+        entity_id=str(course_id),
+        entity_display_name=f"{db_course.course_name} ({db_course.course_code})",
+        deleted_by_id=current_user["user_uuid"],
+        deleted_by_name=current_user["name"],
+        reason=None,
+        can_restore=True,
+    )
+
+    # Retrieve and return updated course
+    updated_course = await get_course_with_schools(db=db, course_id=course_id)
+    return cast(CatalogCourseRead, CatalogCourseRead.model_validate(updated_course))
+
+
+@router.patch("/restore/{course_id}", response_model=CatalogCourseRead)
+async def restore_course_endpoint(
+    request: Request,
+    course_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    values: dict = None,
+) -> CatalogCourseRead:
+    """Restaurar un curso eliminado (soft delete) - Solo Admin.
+
+    Esto revertirá la eliminación del curso y actualizará el registro en RecycleBin.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        course_id: ID del curso a restaurar
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+
+    Returns:
+    -------
+        Datos del curso restaurado
+
+    Raises:
+    ------
+        NotFoundException: Si el curso no se encuentra
+    """
+    # Verificar si el curso existe
+    db_course = await get_course_with_schools(db=db, course_id=course_id)
+    if db_course is None:
+        raise NotFoundException(f"No se encontró el curso con id '{course_id}'")
+
+    # Restore course
+    success = await restore_course(db=db, course_id=course_id)
+    if not success:
+        raise NotFoundException(f"Error al restaurar el curso con id '{course_id}'")
+
+    # Buscar y actualizar registro en RecycleBin
+    recycle_bin_entry = await find_recycle_bin_entry(db=db, entity_type="course", entity_id=str(course_id))
+    if recycle_bin_entry:
+        await mark_as_restored(
+            db=db,
+            recycle_bin_id=recycle_bin_entry["id"],
+            restored_by_id=current_user["user_uuid"],
+            restored_by_name=current_user["name"],
+        )
+
+    # Retrieve and return updated course
+    updated_course = await get_course_with_schools(db=db, course_id=course_id)
+    return cast(CatalogCourseRead, CatalogCourseRead.model_validate(updated_course))

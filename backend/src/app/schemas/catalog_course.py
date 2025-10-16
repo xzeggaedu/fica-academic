@@ -41,6 +41,8 @@ class CatalogCourseUpdate(BaseModel):
     course_name: str | None = Field(None, min_length=1, max_length=255)
     department_code: str | None = Field(None, min_length=1, max_length=20)
     is_active: bool | None = None
+    deleted: bool | None = None
+    deleted_at: datetime | None = None
     school_ids: list[int] | None = Field(None, description="Lista de IDs de escuelas asociadas al curso")
 
     @field_validator("course_code")
@@ -84,8 +86,10 @@ class CatalogCourseRead(CatalogCourseBase):
     """Schema para leer un curso."""
 
     id: int
+    deleted: bool
     created_at: datetime
     updated_at: datetime
+    deleted_at: datetime | None
     schools: list[CourseSchoolRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}

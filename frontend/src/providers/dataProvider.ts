@@ -601,6 +601,10 @@ export const dataProvider: DataProvider = {
           normalizedType = "catalog/faculties";
         } else if (type === "catalog/professors") {
           normalizedType = "catalog/professors";
+        } else if (type === "catalog/courses") {
+          normalizedType = "catalog/courses";
+        } else if (type === "catalog/schedule-times") {
+          normalizedType = "catalog/schedule-times";
         }
 
         const response = await apiRequest<{ message: string }>(

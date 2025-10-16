@@ -1,8 +1,8 @@
 """API endpoints para el catálogo de horarios."""
 
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,8 +14,13 @@ from ...crud.crud_catalog_schedule_time import (
     create_schedule_time_with_auto_fields,
     crud_catalog_schedule_time,
     get_active_schedule_times,
+    get_deleted_schedule_times,
+    get_non_deleted_schedule_times,
+    restore_schedule_time,
+    soft_delete_schedule_time,
     toggle_schedule_time_status,
 )
+from ...crud.crud_recycle_bin import create_recycle_bin_entry, find_recycle_bin_entry, mark_as_restored
 from ...schemas.catalog_schedule_time import (
     CatalogScheduleTimeCreate,
     CatalogScheduleTimeRead,
@@ -28,15 +33,23 @@ router = APIRouter(prefix="/catalog/schedule-times", tags=["catalog-schedule-tim
 
 @router.get("", response_model=PaginatedListResponse[CatalogScheduleTimeRead])
 async def read_schedule_times(
+    request: Request,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
     page: int = 1,
     items_per_page: int = 50,
+    is_active: bool | None = None,
+    include_deleted: bool = False,
 ):
     """Obtener lista paginada de horarios - Accesible para todos los usuarios autenticados."""
-    schedule_times_data = await crud_catalog_schedule_time.get_multi(
-        db=db, offset=compute_offset(page, items_per_page), limit=items_per_page
-    )
+    if include_deleted:
+        schedule_times_data = await get_deleted_schedule_times(
+            db=db, offset=compute_offset(page, items_per_page), limit=items_per_page
+        )
+    else:
+        schedule_times_data = await get_non_deleted_schedule_times(
+            db=db, offset=compute_offset(page, items_per_page), limit=items_per_page, is_active=is_active
+        )
 
     response: dict[str, Any] = paginated_response(
         crud_data=schedule_times_data, page=page, items_per_page=items_per_page
@@ -181,13 +194,122 @@ async def delete_schedule_time(
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
 ):
-    """Eliminar un horario (soft delete) - Solo administradores."""
+    """Eliminar un horario (hard delete) - Solo administradores."""
     # Verificar que el horario existe
     existing_schedule_time = await crud_catalog_schedule_time.get(db=db, id=schedule_time_id)
     if existing_schedule_time is None:
         raise NotFoundException("Horario no encontrado")
 
-    # Soft delete: marcar como inactivo
-    await crud_catalog_schedule_time.update(db=db, object={"is_active": False}, id=schedule_time_id)
+    # Hard delete
+    await crud_catalog_schedule_time.delete(db=db, id=schedule_time_id)
 
     return {"message": "Horario eliminado correctamente"}
+
+
+@router.patch("/soft-delete/{schedule_time_id}", response_model=CatalogScheduleTimeRead)
+async def soft_delete_schedule_time_endpoint(
+    request: Request,
+    schedule_time_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    values: dict = None,
+) -> CatalogScheduleTimeRead:
+    """Eliminar un horario (soft delete) - Solo Admin.
+
+    Esto marcará el horario como eliminado pero no lo removerá físicamente de la base de datos.
+    También crea un registro en RecycleBin para auditoría y posible restauración.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        schedule_time_id: ID del horario a eliminar
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+
+    Returns:
+    -------
+        Datos del horario eliminado
+
+    Raises:
+    ------
+        NotFoundException: Si el horario no se encuentra
+    """
+    # Verificar si el horario existe
+    db_schedule_time = await crud_catalog_schedule_time.get(db=db, id=schedule_time_id)
+    if db_schedule_time is None:
+        raise NotFoundException(f"No se encontró el horario con id '{schedule_time_id}'")
+
+    # Soft delete schedule time
+    success = await soft_delete_schedule_time(db=db, schedule_time_id=schedule_time_id)
+    if not success:
+        raise NotFoundException(f"Error al eliminar el horario con id '{schedule_time_id}'")
+
+    # Crear registro en RecycleBin
+    await create_recycle_bin_entry(
+        db=db,
+        entity_type="schedule-time",
+        entity_id=str(schedule_time_id),
+        entity_display_name=f"{db_schedule_time['day_group_name']}: {db_schedule_time['range_text']}",
+        deleted_by_id=current_user["user_uuid"],
+        deleted_by_name=current_user["name"],
+        reason=None,
+        can_restore=True,
+    )
+
+    # Retrieve and return updated schedule time
+    updated_schedule_time = await crud_catalog_schedule_time.get(db=db, id=schedule_time_id)
+    return cast(CatalogScheduleTimeRead, updated_schedule_time)
+
+
+@router.patch("/restore/{schedule_time_id}", response_model=CatalogScheduleTimeRead)
+async def restore_schedule_time_endpoint(
+    request: Request,
+    schedule_time_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
+    values: dict = None,
+) -> CatalogScheduleTimeRead:
+    """Restaurar un horario eliminado (soft delete) - Solo Admin.
+
+    Esto revertirá la eliminación del horario y actualizará el registro en RecycleBin.
+
+    Args:
+    ----
+        request: Objeto request de FastAPI
+        schedule_time_id: ID del horario a restaurar
+        db: Sesión de base de datos
+        current_user: Usuario admin autenticado actual
+
+    Returns:
+    -------
+        Datos del horario restaurado
+
+    Raises:
+    ------
+        NotFoundException: Si el horario no se encuentra
+    """
+    # Verificar si el horario existe
+    db_schedule_time = await crud_catalog_schedule_time.get(db=db, id=schedule_time_id)
+    if db_schedule_time is None:
+        raise NotFoundException(f"No se encontró el horario con id '{schedule_time_id}'")
+
+    # Restore schedule time
+    success = await restore_schedule_time(db=db, schedule_time_id=schedule_time_id)
+    if not success:
+        raise NotFoundException(f"Error al restaurar el horario con id '{schedule_time_id}'")
+
+    # Buscar y actualizar registro en RecycleBin
+    recycle_bin_entry = await find_recycle_bin_entry(
+        db=db, entity_type="schedule-time", entity_id=str(schedule_time_id)
+    )
+    if recycle_bin_entry:
+        await mark_as_restored(
+            db=db,
+            recycle_bin_id=recycle_bin_entry["id"],
+            restored_by_id=current_user["user_uuid"],
+            restored_by_name=current_user["name"],
+        )
+
+    # Retrieve and return updated schedule time
+    updated_schedule_time = await crud_catalog_schedule_time.get(db=db, id=schedule_time_id)
+    return cast(CatalogScheduleTimeRead, updated_schedule_time)
