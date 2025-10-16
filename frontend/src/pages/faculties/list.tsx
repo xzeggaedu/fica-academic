@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useList, CanAccess, useCan, useUpdate, useInvalidate } from "@refinedev/core";
-import { useQueryClient } from "@tanstack/react-query";
+import { useList, CanAccess, useCan, useUpdate, useCreate, useInvalidate } from "@refinedev/core";
 import { toast } from "sonner";
 import {
   Table,
@@ -39,23 +38,48 @@ export const FacultyList = () => {
       enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
     },
   });
-  const queryClient = useQueryClient();
 
-  // Hooks de Refine para soft delete
-  const { mutate: softDeleteFaculty, mutation } = useUpdate();
-  const isDeleting = mutation.isPending;
+  // Hooks de Refine para CRUD
+  const { mutate: softDeleteFaculty, mutation: deleteState } = useUpdate();
+  const { mutate: createFaculty, mutation: createState } = useCreate();
   const invalidate = useInvalidate();
+  const isDeleting = deleteState.isPending;
+  const isCreating = createState.isPending;
 
-  // Función para refrescar datos directamente
-  const refreshData = async () => {
-    await queryClient.refetchQueries({
-      predicate: (query) => {
-        const queryKey = query.queryKey;
-        return queryKey.some(key =>
-          typeof key === 'string' && key.includes('faculty')
-        );
+  // Función para manejar creación de facultad
+  const handleCreateFaculty = (
+    facultyData: { name: string; acronym: string; is_active: boolean },
+    onSuccessCallback?: () => void
+  ) => {
+    createFaculty(
+      {
+        resource: "faculty",
+        values: facultyData,
+        successNotification: false,
+        errorNotification: false,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Facultad creada exitosamente', {
+            description: `La facultad "${facultyData.name}" ha sido creada correctamente.`,
+            richColors: true,
+          });
+
+          if (onSuccessCallback) {
+            onSuccessCallback();
+          }
+        },
+        onError: (error) => {
+          console.error("FacultyList - Create error:", error);
+          const errorMessage = error?.message || "Error desconocido al crear facultad";
+
+          toast.error('Error al crear facultad', {
+            description: errorMessage,
+            richColors: true,
+          });
+        },
       }
-    });
+    );
   };
 
   // Estados para filtros y columnas
@@ -120,8 +144,8 @@ export const FacultyList = () => {
   };
 
   // Función para manejar éxito de operaciones
-  const handleSuccess = async () => {
-    await refreshData();
+  const handleSuccess = () => {
+    // Refine invalida automáticamente
   };
 
   // Función para manejar eliminación de facultad (soft delete)
@@ -134,10 +158,10 @@ export const FacultyList = () => {
         successNotification: false,
       },
       {
-        onSuccess: async () => {
+        onSuccess: () => {
           invalidate({
             resource: "faculty",
-            invalidates: ["all"],
+            invalidates: ["list"],
           });
 
           toast.success('Facultad movida a papelera', {
@@ -194,7 +218,11 @@ export const FacultyList = () => {
                   Aquí puedes ver y administrar el listado de facultades y sus respectivas escuelas.
                 </CardDescription>
               </div>
-              <FacultyCreateButton onSuccess={handleSuccess} />
+              <FacultyCreateButton
+                onSuccess={handleSuccess}
+                onCreate={handleCreateFaculty}
+                isCreating={isCreating}
+              />
             </div>
           </CardHeader>
           <CardContent>

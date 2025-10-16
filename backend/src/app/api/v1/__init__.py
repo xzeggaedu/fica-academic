@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from .catalog_course import router as catalog_course_router
+from .catalog_professor import router as catalog_professor_router
 from .catalog_schedule_time import router as catalog_schedule_time_router
 from .faculties import router as faculties_router
 from .login import router as login_router
@@ -19,4 +20,5 @@ router.include_router(faculties_router)
 router.include_router(schools_router)
 router.include_router(catalog_schedule_time_router)
 router.include_router(catalog_course_router)
+router.include_router(catalog_professor_router)
 router.include_router(recycle_bin_router)

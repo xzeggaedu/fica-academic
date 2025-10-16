@@ -35,6 +35,7 @@ import {
 } from "./pages/faculties";
 import { CoursesList } from "./pages/courses";
 import { ScheduleTimesList } from "./pages/schedule-times";
+import { ProfessorList } from "./pages/professors";
 import { RecycleBinList } from "./pages/recycle-bin";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
@@ -126,6 +127,15 @@ function App() {
                       },
                     },
                     {
+                      name: "professors",
+                      list: "/configuration/professors",
+                      meta: {
+                        label: "Profesores",
+                        parent: "configuration",
+                        icon: "UserCheck",
+                      },
+                    },
+                    {
                       name: "recycle-bin",
                       list: "/recycle-bin",
                       meta: {
@@ -180,6 +190,7 @@ function App() {
                       <Route path="/configuration">
                         <Route path="schedule-times" element={<ScheduleTimesList />} />
                         <Route path="courses" element={<CoursesList />} />
+                        <Route path="professors" element={<ProfessorList />} />
                       </Route>
                       <Route path="/recycle-bin">
                         <Route index element={<RecycleBinList />} />

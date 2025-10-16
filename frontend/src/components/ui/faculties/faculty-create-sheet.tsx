@@ -15,14 +15,16 @@ interface FacultyCreateSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  onCreate?: (facultyData: { name: string; acronym: string; is_active: boolean }) => void;
+  isCreating?: boolean;
 }
 
-export function FacultyCreateSheet({ isOpen, onClose, onSuccess }: FacultyCreateSheetProps) {
+export function FacultyCreateSheet({ isOpen, onClose, onSuccess, onCreate, isCreating = false }: FacultyCreateSheetProps) {
   const handleSuccess = () => {
-    onClose();
     if (onSuccess) {
       onSuccess();
     }
+    onClose();
   };
 
   return (
@@ -42,7 +44,13 @@ export function FacultyCreateSheet({ isOpen, onClose, onSuccess }: FacultyCreate
           {/* Scrollable content */}
           <div className="h-full overflow-y-auto py-0 px-6">
             <div className="py-2">
-              <FacultyCreateForm onSuccess={handleSuccess} onClose={onClose} />
+              <FacultyCreateForm
+                key={isOpen ? 'open' : 'closed'}
+                onSuccess={handleSuccess}
+                onClose={onClose}
+                onCreate={onCreate}
+                isCreating={isCreating}
+              />
             </div>
           </div>
 
@@ -52,10 +60,10 @@ export function FacultyCreateSheet({ isOpen, onClose, onSuccess }: FacultyCreate
 
         <SheetFooter className="flex-shrink-0 flex flex-row justify-end gap-3">
           <SheetClose asChild>
-            <Button variant="outline">Cancelar</Button>
+            <Button variant="outline" disabled={isCreating}>Cancelar</Button>
           </SheetClose>
-          <Button form="faculty-create-form" type="submit">
-            Crear Facultad
+          <Button form="faculty-create-form" type="submit" disabled={isCreating}>
+            {isCreating ? 'Creando...' : 'Crear Facultad'}
           </Button>
         </SheetFooter>
       </SheetContent>
