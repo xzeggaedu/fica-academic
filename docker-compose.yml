@@ -11,9 +11,10 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - redis
-      - init_db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
       - ./backend/src:/code/src
       - ./backend/src/.env:/code/.env
@@ -151,6 +152,8 @@ services:
       - ./backend/src/.env
     depends_on:
       db:
+        condition: service_healthy
+      api:
         condition: service_healthy
     command: python -m src.scripts.init_db
     volumes:
