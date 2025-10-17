@@ -141,6 +141,7 @@ services:
       - ./backend/src/.env
     depends_on:
       - db
+      - api
     networks:
       - dev-network
 

@@ -209,12 +209,7 @@ export function ScheduleTimesList() {
       mode: "server",
     },
     queryOptions: {
-      // Habilitar siempre la carga; la autorización se maneja a nivel de ruta/proveedor
       enabled: true,
-      refetchOnWindowFocus: true,
-      refetchOnMount: true,
-      staleTime: 0,
-      gcTime: 0,
     },
     successNotification: false,
     errorNotification: false,

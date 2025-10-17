@@ -154,6 +154,64 @@ export const accessControlProvider: AccessControlProvider = {
               return { can: false, reason: "Acción no permitida" };
           }
 
+        case "professors":
+          switch (action) {
+            case "list":
+            case "show":
+            case "create":
+            case "edit":
+            case "delete":
+              // Solo administradores pueden gestionar profesores
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "Solo los administradores pueden gestionar profesores",
+              };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
+        case "coordinations":
+          switch (action) {
+            case "list":
+            case "show":
+            case "create":
+            case "edit":
+            case "delete":
+              // Solo administradores pueden gestionar coordinaciones
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "Solo los administradores pueden gestionar coordinaciones",
+              };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
+        case "recycle-bin":
+          switch (action) {
+            case "list":
+            case "show":
+            case "delete":
+              // Solo administradores pueden gestionar la papelera
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "Solo los administradores pueden gestionar la papelera",
+              };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
         default:
           // Para otros recursos, permitir acceso básico a usuarios autenticados
           if (action === "list" || action === "show") {

@@ -94,11 +94,7 @@ export const RecycleBinList = () => {
             },
         ],
         queryOptions: {
-            enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
-            refetchOnWindowFocus: true,
-            refetchOnMount: true,
-            staleTime: 0,
-            gcTime: 0,
+            enabled: canAccess?.can ?? false,
         },
         successNotification: false,
         errorNotification: false,

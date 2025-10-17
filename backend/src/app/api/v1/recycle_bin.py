@@ -174,6 +174,10 @@ async def restore_from_recycle_bin(
         from ...crud.crud_catalog_schedule_time import restore_schedule_time
 
         restore_success = await restore_schedule_time(db=db, schedule_time_id=int(entity_id))
+    elif entity_type == "coordination":
+        from ...crud.crud_catalog_coordination import restore_coordination
+
+        restore_success = await restore_coordination(db=db, coordination_id=int(entity_id))
     else:
         raise NotFoundException(f"Tipo de entidad '{entity_type}' no soportado para restauración")
 
@@ -251,10 +255,19 @@ async def mark_as_permanently_deleted(
         await hard_delete_professor(db=db, id=int(entity_id))
         # hard_delete_professor ya hace commit internamente
     elif entity_type == "course":
-        from ...crud.crud_catalog_courses import crud_courses
+        from ...crud.crud_catalog_course import crud_catalog_course
 
-        await crud_courses.delete(db=db, id=int(entity_id))
+        await crud_catalog_course.delete(db=db, id=int(entity_id))
         await db.commit()
+    elif entity_type == "schedule-time":
+        from ...crud.crud_catalog_schedule_time import crud_catalog_schedule_time
+
+        await crud_catalog_schedule_time.delete(db=db, id=int(entity_id))
+        await db.commit()
+    elif entity_type == "coordination":
+        from ...crud.crud_catalog_coordination import hard_delete_coordination
+
+        await hard_delete_coordination(db=db, coordination_id=int(entity_id))
     # Agregar más tipos de entidades aquí según sea necesario
 
     # Marcar como que no se puede restaurar en RecycleBin (mantener historial)
