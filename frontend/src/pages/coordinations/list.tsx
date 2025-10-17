@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useList, CanAccess, useCan, useUpdate, useInvalidate, useCreate } from "@refinedev/core";
 import { toast } from "sonner";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../../components/ui/pagination";
@@ -12,11 +12,10 @@ import {
 } from "../../components/ui/data/table";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { TableFilters } from "../../components/ui/data/table-filters";
 import { Unauthorized } from "../unauthorized";
 import { Button } from "../../components/ui/button";
 import { DeleteConfirmDialog } from "../../components/ui/delete-confirm-dialog";
-import { Eye, Pencil, Trash2, Search, Plus, Settings2, CheckCircle, XCircle, MoreHorizontal, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, Search, Plus, Settings2, CheckCircle, XCircle, MoreHorizontal, ChevronDown } from "lucide-react";
 import { Input } from "../../components/ui/forms/input";
 import {
     DropdownMenu,
@@ -27,32 +26,38 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
-import { ProfessorFormSheet } from "../../components/ui/professors/professor-form-sheet";
+import { CoordinationFormSheet } from "../../components/ui/coordinations/coordination-form-sheet";
+
+interface Coordination {
+    id: number;
+    code: string;
+    name: string;
+    description: string | null;
+    faculty_id: number;
+    coordinator_professor_id: number | null;
+    is_active: boolean;
+    deleted: boolean;
+    deleted_at: string | null;
+    created_at: string;
+    updated_at: string | null;
+}
+
+interface Faculty {
+    id: number;
+    name: string;
+    acronym: string;
+}
 
 interface Professor {
     id: number;
     professor_id: string;
     professor_name: string;
-    institutional_email: string | null;
-    personal_email: string | null;
-    phone_number: string | null;
-    professor_category: string | null;
-    academic_title: string | null;
-    doctorates: number;
-    masters: number;
-    is_bilingual: boolean;
-    is_paid: boolean;
-    is_active: boolean;
-    deleted: boolean;
-    deleted_at: string | null;
-    created_at: string;
-    updated_at: string;
 }
 
-export const ProfessorList = () => {
+export const CoordinationList = () => {
     // Verificar permisos primero
     const { data: canAccess } = useCan({
-        resource: "professors",
+        resource: "coordinations",
         action: "list",
     });
 
@@ -77,8 +82,8 @@ export const ProfessorList = () => {
         ? [{ field: "search", operator: "contains" as const, value: debouncedSearch }]
         : [];
 
-    const { query, result } = useList<Professor>({
-        resource: "professors",
+    const { query, result } = useList<Coordination>({
+        resource: "coordinations",
         pagination: {
             currentPage: currentPage,
             pageSize: pageSize,
@@ -92,42 +97,71 @@ export const ProfessorList = () => {
         errorNotification: false,
     });
 
-    const professors = result.data || [];
+    const coordinations = result.data || [];
     const total = result.total || 0;
     const isLoading = query.isLoading;
 
+    // Cargar facultades para mostrar nombres
+    const { result: facultiesResult } = useList<Faculty>({
+        resource: "faculties",
+        pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
+        queryOptions: { enabled: canAccess?.can ?? false },
+    });
+
+    // Cargar profesores para mostrar nombres
+    const { result: professorsResult } = useList<Professor>({
+        resource: "professors",
+        pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
+        queryOptions: { enabled: canAccess?.can ?? false },
+    });
+
+    const faculties = facultiesResult?.data || [];
+    const professors = professorsResult?.data || [];
+
+    // Helpers para obtener nombres
+    const getFacultyName = (facultyId: number) => {
+        const faculty = faculties.find(f => f.id === facultyId);
+        return faculty ? `${faculty.acronym} - ${faculty.name}` : `ID: ${facultyId}`;
+    };
+
+    const getProfessorName = (professorId: number | null) => {
+        if (!professorId) return "Sin coordinador";
+        const professor = professors.find(p => p.id === professorId);
+        return professor ? professor.professor_name : `ID: ${professorId}`;
+    };
+
     // Hooks para operaciones CRUD
-    const { mutate: softDeleteProfessor, mutation: deleteState } = useUpdate();
-    const { mutate: createProfessor, mutation: createState } = useCreate();
-    const { mutate: updateProfessor, mutation: updateState } = useUpdate();
+    const { mutate: softDeleteCoordination, mutation: deleteState } = useUpdate();
+    const { mutate: createCoordination, mutation: createState } = useCreate();
+    const { mutate: updateCoordination, mutation: updateState } = useUpdate();
     const invalidate = useInvalidate();
     const isDeleting = deleteState.isPending;
     const isCreating = createState.isPending;
     const isUpdating = updateState.isPending;
 
-    // Función para manejar eliminación de profesor (soft delete)
-    const handleDeleteProfessor = (professorId: number, professorName: string) => {
-        softDeleteProfessor(
+    // Función para manejar eliminación de coordinación (soft delete)
+    const handleDeleteCoordination = (coordinationId: number, coordinationName: string) => {
+        softDeleteCoordination(
             {
                 resource: "soft-delete",
-                id: professorId,
-                values: { type: "catalog/professors" },
+                id: coordinationId,
+                values: { type: "catalog/coordinations" },
                 successNotification: false,
             },
             {
                 onSuccess: () => {
                     invalidate({
-                        resource: "professors",
+                        resource: "coordinations",
                         invalidates: ["list"],
                     });
 
-                    toast.success('Profesor movido a papelera', {
-                        description: `El profesor "${professorName}" ha sido movido a la papelera de reciclaje.`,
+                    toast.success('Coordinación movida a papelera', {
+                        description: `La coordinación "${coordinationName}" ha sido movida a la papelera de reciclaje.`,
                         richColors: true,
                     });
                 },
                 onError: (error) => {
-                    console.error("ProfessorList - Soft delete error:", error);
+                    console.error("CoordinationList - Soft delete error:", error);
                     toast.error('Error al mover a papelera', {
                         description: error.message,
                         richColors: true,
@@ -137,19 +171,19 @@ export const ProfessorList = () => {
         );
     };
 
-    // Función para manejar creación de profesor
-    const handleCreateProfessor = (professorData: any, onSuccessCallback?: () => void) => {
-        createProfessor(
+    // Función para manejar creación de coordinación
+    const handleCreateCoordination = (coordinationData: any, onSuccessCallback?: () => void) => {
+        createCoordination(
             {
-                resource: "professors",
-                values: professorData,
+                resource: "coordinations",
+                values: coordinationData,
                 successNotification: false,
                 errorNotification: false,
             },
             {
                 onSuccess: () => {
-                    toast.success('Profesor creado exitosamente', {
-                        description: `El profesor "${professorData.professor_name}" ha sido creado correctamente.`,
+                    toast.success('Coordinación creada exitosamente', {
+                        description: `La coordinación "${coordinationData.name}" ha sido creada correctamente.`,
                         richColors: true,
                     });
                     if (onSuccessCallback) {
@@ -157,9 +191,9 @@ export const ProfessorList = () => {
                     }
                 },
                 onError: (error) => {
-                    console.error("ProfessorList - Create error:", error);
-                    const errorMessage = error?.message || "Error desconocido al crear profesor";
-                    toast.error('Error al crear profesor', {
+                    console.error("CoordinationList - Create error:", error);
+                    const errorMessage = error?.message || "Error desconocido al crear coordinación";
+                    toast.error('Error al crear coordinación', {
                         description: errorMessage,
                         richColors: true,
                     });
@@ -168,20 +202,20 @@ export const ProfessorList = () => {
         );
     };
 
-    // Función para manejar actualización de profesor
-    const handleUpdateProfessor = (professorId: number, professorData: any, onSuccessCallback?: () => void) => {
-        updateProfessor(
+    // Función para manejar actualización de coordinación
+    const handleUpdateCoordination = (coordinationId: number, coordinationData: any, onSuccessCallback?: () => void) => {
+        updateCoordination(
             {
-                resource: "professors",
-                id: professorId,
-                values: professorData,
+                resource: "coordinations",
+                id: coordinationId,
+                values: coordinationData,
                 successNotification: false,
                 errorNotification: false,
             },
             {
                 onSuccess: () => {
-                    toast.success('Profesor actualizado exitosamente', {
-                        description: `El profesor "${professorData.professor_name}" ha sido actualizado correctamente.`,
+                    toast.success('Coordinación actualizada exitosamente', {
+                        description: `La coordinación "${coordinationData.name}" ha sido actualizada correctamente.`,
                         richColors: true,
                     });
                     if (onSuccessCallback) {
@@ -189,9 +223,9 @@ export const ProfessorList = () => {
                     }
                 },
                 onError: (error) => {
-                    console.error("ProfessorList - Update error:", error);
-                    const errorMessage = error?.message || "Error desconocido al actualizar profesor";
-                    toast.error('Error al actualizar profesor', {
+                    console.error("CoordinationList - Update error:", error);
+                    const errorMessage = error?.message || "Error desconocido al actualizar coordinación";
+                    toast.error('Error al actualizar coordinación', {
                         description: errorMessage,
                         richColors: true,
                     });
@@ -202,40 +236,28 @@ export const ProfessorList = () => {
 
     // Función para abrir el sheet en modo crear
     const handleOpenCreateSheet = () => {
-        setEditingProfessor(null);
+        setEditingCoordination(null);
         setFormData({
-            professor_id: "",
-            professor_name: "",
-            institutional_email: "",
-            personal_email: "",
-            phone_number: "",
-            professor_category: "",
-            academic_title: "",
-            doctorates: 0,
-            masters: 0,
-            is_bilingual: false,
-            is_paid: true,
+            code: "",
+            name: "",
+            description: "",
+            faculty_id: null,
+            coordinator_professor_id: null,
             is_active: true,
         });
         setSheetOpen(true);
     };
 
     // Función para abrir el sheet en modo editar
-    const handleOpenEditSheet = (professor: Professor) => {
-        setEditingProfessor(professor);
+    const handleOpenEditSheet = (coordination: Coordination) => {
+        setEditingCoordination(coordination);
         setFormData({
-            professor_id: professor.professor_id,
-            professor_name: professor.professor_name,
-            institutional_email: professor.institutional_email || "",
-            personal_email: professor.personal_email || "",
-            phone_number: professor.phone_number || "",
-            professor_category: professor.professor_category || "",
-            academic_title: professor.academic_title || "",
-            doctorates: professor.doctorates || 0,
-            masters: professor.masters || 0,
-            is_bilingual: professor.is_bilingual || false,
-            is_paid: professor.is_paid || true,
-            is_active: professor.is_active || true,
+            code: coordination.code,
+            name: coordination.name,
+            description: coordination.description || "",
+            faculty_id: coordination.faculty_id,
+            coordinator_professor_id: coordination.coordinator_professor_id,
+            is_active: coordination.is_active,
         });
         setSheetOpen(true);
     };
@@ -243,41 +265,30 @@ export const ProfessorList = () => {
     // Función para cerrar el sheet
     const handleCloseSheet = () => {
         setSheetOpen(false);
-        setEditingProfessor(null);
+        setEditingCoordination(null);
     };
 
     // Estados para el diálogo de eliminación
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [selectedProfessor, setSelectedProfessor] = useState<{ id: number; name: string } | null>(null);
+    const [selectedCoordination, setSelectedCoordination] = useState<{ id: number; name: string } | null>(null);
 
     // Estados para el sheet de crear/editar
     const [sheetOpen, setSheetOpen] = useState(false);
-    const [editingProfessor, setEditingProfessor] = useState<Professor | null>(null);
+    const [editingCoordination, setEditingCoordination] = useState<Coordination | null>(null);
     const [formData, setFormData] = useState({
-        professor_id: "",
-        professor_name: "",
-        institutional_email: "",
-        personal_email: "",
-        phone_number: "",
-        professor_category: "",
-        academic_title: "",
-        doctorates: 0,
-        masters: 0,
-        is_bilingual: false,
-        is_paid: true,
+        code: "",
+        name: "",
+        description: "",
+        faculty_id: null as number | null,
+        coordinator_professor_id: null as number | null,
         is_active: true,
     });
 
     const [visibleColumns, setVisibleColumns] = useState({
-        professor_id: true,
-        professor_name: true,
-        institutional_email: true,
-        professor_category: true,
-        academic_title: true,
-        doctorates: true,
-        masters: true,
-        is_bilingual: true,
-        is_paid: true,
+        code: true,
+        name: true,
+        faculty: true,
+        coordinator: true,
         is_active: true,
     });
 
@@ -287,13 +298,13 @@ export const ProfessorList = () => {
     }
 
     return (
-        <CanAccess resource="professors" action="list" fallback={<Unauthorized />}>
+        <CanAccess resource="coordinations" action="list" fallback={<Unauthorized />}>
             <div className="space-y-6 p-6">
                 {/* Header */}
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Profesores</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Coordinaciones</h1>
                     <p className="text-muted-foreground">
-                        Gestiona el catálogo de profesores de la institución
+                        Gestiona el catálogo de coordinaciones y cátedras de la institución
                     </p>
                 </div>
 
@@ -302,16 +313,16 @@ export const ProfessorList = () => {
                     <CardHeader>
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <CardTitle>Lista de Profesores</CardTitle>
+                                <CardTitle>Lista de Coordinaciones</CardTitle>
                                 <CardDescription>
-                                    {total} profesor(es) en total
+                                    {total} coordinación(es) en total
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
                                 {/* Botón Crear */}
                                 <Button onClick={handleOpenCreateSheet}>
                                     <Plus className="mr-2 h-4 w-4" />
-                                    Crear Profesor
+                                    Crear Coordinación
                                 </Button>
                             </div>
                         </div>
@@ -324,7 +335,7 @@ export const ProfessorList = () => {
                             <div className="relative w-full sm:w-96">
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
-                                    placeholder="Buscar por código, nombre, email o categoría..."
+                                    placeholder="Buscar por código o nombre..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="pl-10"
@@ -342,76 +353,36 @@ export const ProfessorList = () => {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-48">
                                     <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.professor_id}
+                                        checked={visibleColumns.code}
                                         onCheckedChange={(checked) =>
-                                            setVisibleColumns((prev) => ({ ...prev, professor_id: checked }))
+                                            setVisibleColumns((prev) => ({ ...prev, code: checked }))
                                         }
                                     >
                                         Código
                                     </DropdownMenuCheckboxItem>
                                     <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.professor_name}
+                                        checked={visibleColumns.name}
                                         onCheckedChange={(checked) =>
-                                            setVisibleColumns((prev) => ({ ...prev, professor_name: checked }))
+                                            setVisibleColumns((prev) => ({ ...prev, name: checked }))
                                         }
                                     >
                                         Nombre
                                     </DropdownMenuCheckboxItem>
                                     <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.institutional_email}
+                                        checked={visibleColumns.faculty}
                                         onCheckedChange={(checked) =>
-                                            setVisibleColumns((prev) => ({ ...prev, institutional_email: checked }))
+                                            setVisibleColumns((prev) => ({ ...prev, faculty: checked }))
                                         }
                                     >
-                                        Email Institucional
+                                        Facultad
                                     </DropdownMenuCheckboxItem>
                                     <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.professor_category}
+                                        checked={visibleColumns.coordinator}
                                         onCheckedChange={(checked) =>
-                                            setVisibleColumns((prev) => ({ ...prev, professor_category: checked }))
+                                            setVisibleColumns((prev) => ({ ...prev, coordinator: checked }))
                                         }
                                     >
-                                        Categoría
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.academic_title}
-                                        onCheckedChange={(checked) =>
-                                            setVisibleColumns((prev) => ({ ...prev, academic_title: checked }))
-                                        }
-                                    >
-                                        Título
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.doctorates}
-                                        onCheckedChange={(checked) =>
-                                            setVisibleColumns((prev) => ({ ...prev, doctorates: checked }))
-                                        }
-                                    >
-                                        Doctorados
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.masters}
-                                        onCheckedChange={(checked) =>
-                                            setVisibleColumns((prev) => ({ ...prev, masters: checked }))
-                                        }
-                                    >
-                                        Maestrías
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.is_bilingual}
-                                        onCheckedChange={(checked) =>
-                                            setVisibleColumns((prev) => ({ ...prev, is_bilingual: checked }))
-                                        }
-                                    >
-                                        Bilingüe
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.is_paid}
-                                        onCheckedChange={(checked) =>
-                                            setVisibleColumns((prev) => ({ ...prev, is_paid: checked }))
-                                        }
-                                    >
-                                        En Nómina
+                                        Coordinador
                                     </DropdownMenuCheckboxItem>
                                     <DropdownMenuCheckboxItem
                                         checked={visibleColumns.is_active}
@@ -430,32 +401,17 @@ export const ProfessorList = () => {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        {visibleColumns.professor_id && (
+                                        {visibleColumns.code && (
                                             <TableHead className="w-[120px]">Código</TableHead>
                                         )}
-                                        {visibleColumns.professor_name && (
+                                        {visibleColumns.name && (
                                             <TableHead className="w-[250px]">Nombre</TableHead>
                                         )}
-                                        {visibleColumns.institutional_email && (
-                                            <TableHead className="w-[250px]">Email Institucional</TableHead>
+                                        {visibleColumns.faculty && (
+                                            <TableHead className="w-[200px]">Facultad</TableHead>
                                         )}
-                                        {visibleColumns.professor_category && (
-                                            <TableHead className="w-[120px]">Categoría</TableHead>
-                                        )}
-                                        {visibleColumns.academic_title && (
-                                            <TableHead className="w-[100px]">Título</TableHead>
-                                        )}
-                                        {visibleColumns.doctorates && (
-                                            <TableHead className="w-[100px] text-center">Doctorados</TableHead>
-                                        )}
-                                        {visibleColumns.masters && (
-                                            <TableHead className="w-[100px] text-center">Maestrías</TableHead>
-                                        )}
-                                        {visibleColumns.is_bilingual && (
-                                            <TableHead className="w-[100px] text-center">Bilingüe</TableHead>
-                                        )}
-                                        {visibleColumns.is_paid && (
-                                            <TableHead className="w-[100px] text-center">Nómina</TableHead>
+                                        {visibleColumns.coordinator && (
+                                            <TableHead className="w-[200px]">Coordinador</TableHead>
                                         )}
                                         {visibleColumns.is_active && (
                                             <TableHead className="text-center w-[100px]">Estado</TableHead>
@@ -470,85 +426,57 @@ export const ProfessorList = () => {
                                                 colSpan={Object.values(visibleColumns).filter(Boolean).length + 1}
                                                 className="text-center py-8"
                                             >
-                                                Cargando profesores...
+                                                Cargando coordinaciones...
                                             </TableCell>
                                         </TableRow>
-                                    ) : professors.length === 0 ? (
+                                    ) : coordinations.length === 0 ? (
                                         <TableRow>
                                             <TableCell
                                                 colSpan={Object.values(visibleColumns).filter(Boolean).length + 1}
                                                 className="text-center py-8"
                                             >
-                                                No se encontraron profesores
+                                                No se encontraron coordinaciones
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        professors.map((professor) => (
-                                            <TableRow key={professor.id}>
-                                                {visibleColumns.professor_id && (
+                                        coordinations.map((coordination) => (
+                                            <TableRow key={coordination.id}>
+                                                {visibleColumns.code && (
                                                     <TableCell>
-                                                        <span className="font-mono text-sm">{professor.professor_id}</span>
+                                                        <span className="font-mono text-sm font-semibold">{coordination.code}</span>
                                                     </TableCell>
                                                 )}
-                                                {visibleColumns.professor_name && (
+                                                {visibleColumns.name && (
                                                     <TableCell>
-                                                        <div className="font-medium">{professor.professor_name}</div>
-                                                    </TableCell>
-                                                )}
-                                                {visibleColumns.institutional_email && (
-                                                    <TableCell>
-                                                        {professor.institutional_email || (
-                                                            <span className="text-muted-foreground">—</span>
+                                                        <div className="font-medium">{coordination.name}</div>
+                                                        {coordination.description && (
+                                                            <div className="text-xs text-muted-foreground truncate max-w-[250px]">
+                                                                {coordination.description}
+                                                            </div>
                                                         )}
                                                     </TableCell>
                                                 )}
-                                                {visibleColumns.professor_category && (
+                                                {visibleColumns.faculty && (
                                                     <TableCell>
-                                                        {professor.professor_category ? (
-                                                            <Badge variant="outline">{professor.professor_category}</Badge>
+                                                        <Badge variant="outline">
+                                                            {getFacultyName(coordination.faculty_id)}
+                                                        </Badge>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.coordinator && (
+                                                    <TableCell>
+                                                        {coordination.coordinator_professor_id ? (
+                                                            <span className="text-sm">
+                                                                {getProfessorName(coordination.coordinator_professor_id)}
+                                                            </span>
                                                         ) : (
-                                                            <span className="text-muted-foreground">—</span>
-                                                        )}
-                                                    </TableCell>
-                                                )}
-                                                {visibleColumns.academic_title && (
-                                                    <TableCell>
-                                                        {professor.academic_title || (
-                                                            <span className="text-muted-foreground">—</span>
-                                                        )}
-                                                    </TableCell>
-                                                )}
-                                                {visibleColumns.doctorates && (
-                                                    <TableCell className="text-center">
-                                                        {professor.doctorates}
-                                                    </TableCell>
-                                                )}
-                                                {visibleColumns.masters && (
-                                                    <TableCell className="text-center">
-                                                        {professor.masters}
-                                                    </TableCell>
-                                                )}
-                                                {visibleColumns.is_bilingual && (
-                                                    <TableCell className="text-center">
-                                                        {professor.is_bilingual ? (
-                                                            <CheckCircle className="h-5 w-5 text-green-500 mx-auto" />
-                                                        ) : (
-                                                            <XCircle className="h-5 w-5 text-red-500 mx-auto" />
-                                                        )}
-                                                    </TableCell>
-                                                )}
-                                                {visibleColumns.is_paid && (
-                                                    <TableCell className="text-center">
-                                                        {professor.is_paid ? (
-                                                            <CheckCircle className="h-5 w-5 text-green-500 mx-auto" />
-                                                        ) : (
-                                                            <XCircle className="h-5 w-5 text-red-500 mx-auto" />
+                                                            <span className="text-muted-foreground text-sm">Sin coordinador</span>
                                                         )}
                                                     </TableCell>
                                                 )}
                                                 {visibleColumns.is_active && (
                                                     <TableCell className="text-center w-[100px]">
-                                                        {professor.is_active ? (
+                                                        {coordination.is_active ? (
                                                             <CheckCircle className="h-5 w-5 text-green-500 mx-auto" />
                                                         ) : (
                                                             <XCircle className="h-5 w-5 text-red-500 mx-auto" />
@@ -566,7 +494,7 @@ export const ProfessorList = () => {
                                                         <DropdownMenuContent align="end">
                                                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                                                             <DropdownMenuSeparator />
-                                                            <DropdownMenuItem onClick={() => handleOpenEditSheet(professor)}>
+                                                            <DropdownMenuItem onClick={() => handleOpenEditSheet(coordination)}>
                                                                 <Pencil className="mr-2 h-4 w-4" />
                                                                 Editar
                                                             </DropdownMenuItem>
@@ -574,7 +502,7 @@ export const ProfessorList = () => {
                                                             <DropdownMenuItem
                                                                 className="text-destructive"
                                                                 onClick={() => {
-                                                                    setSelectedProfessor({ id: professor.id, name: professor.professor_name });
+                                                                    setSelectedCoordination({ id: coordination.id, name: coordination.name });
                                                                     setDeleteDialogOpen(true);
                                                                 }}
                                                             >
@@ -614,7 +542,7 @@ export const ProfessorList = () => {
                             return (
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4">
                                     <div className="text-sm text-muted-foreground">
-                                        Mostrando {professors.length} de {total} profesores
+                                        Mostrando {coordinations.length} de {total} coordinaciones
                                     </div>
                                     <Pagination>
                                         <PaginationContent>
@@ -690,30 +618,30 @@ export const ProfessorList = () => {
                 </Card>
 
                 {/* Diálogo de eliminación */}
-                {selectedProfessor && (
+                {selectedCoordination && (
                     <DeleteConfirmDialog
-                        entityType="profesor"
-                        entityName={selectedProfessor.name}
+                        entityType="coordinación"
+                        entityName={selectedCoordination.name}
                         isOpen={deleteDialogOpen}
                         onClose={() => setDeleteDialogOpen(false)}
-                        onConfirm={() => handleDeleteProfessor(selectedProfessor.id, selectedProfessor.name)}
+                        onConfirm={() => handleDeleteCoordination(selectedCoordination.id, selectedCoordination.name)}
                         isDeleting={isDeleting}
-                        gender="m"
+                        gender="f"
                     />
                 )}
 
-                {/* Sheet de crear/editar profesor */}
-                <ProfessorFormSheet
+                {/* Sheet de crear/editar coordinación */}
+                <CoordinationFormSheet
                     isOpen={sheetOpen}
                     onClose={handleCloseSheet}
-                    editingProfessor={editingProfessor}
+                    editingCoordination={editingCoordination}
                     formData={formData}
                     onFormChange={setFormData}
                     onSubmit={() => {
-                        if (editingProfessor) {
-                            handleUpdateProfessor(editingProfessor.id, formData, handleCloseSheet);
+                        if (editingCoordination) {
+                            handleUpdateCoordination(editingCoordination.id, formData, handleCloseSheet);
                         } else {
-                            handleCreateProfessor(formData, handleCloseSheet);
+                            handleCreateCoordination(formData, handleCloseSheet);
                         }
                     }}
                     isSubmitting={isCreating || isUpdating}

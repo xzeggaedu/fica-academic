@@ -48,6 +48,7 @@ const ENDPOINTS = {
   SCHOOL: `${API_BASE_PATH}/catalog/schools`,     // ✅ Movido a catalog
   COURSES: `${API_BASE_PATH}/catalog/courses`,
   PROFESSORS: `${API_BASE_PATH}/catalog/professors`,
+  COORDINATIONS: `${API_BASE_PATH}/catalog/coordinations`,
   RECYCLE_BIN: `${API_BASE_PATH}/recycle-bin`,
   RESTORE_ITEM: `${API_BASE_PATH}/recycle-bin/restore`,
   COURSES_ACTIVE: `${API_BASE_PATH}/catalog/courses/active`,
@@ -309,6 +310,33 @@ export const dataProvider: DataProvider = {
         };
       }
 
+      case "coordinations": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        // Construir URL con parámetros de paginación
+        const searchParams = new URLSearchParams();
+        searchParams.append("page", String(current));
+        searchParams.append("items_per_page", String(pageSize));
+
+        // Agregar filtro de búsqueda si existe
+        if (filters && Array.isArray(filters)) {
+          const searchFilter = filters.find((f: any) => f.field === "search");
+          if (searchFilter && searchFilter.value) {
+            searchParams.append("search", searchFilter.value);
+          }
+        }
+
+        const response = await apiRequest<PaginatedResponse<any>>(
+          `${ENDPOINTS.COORDINATIONS}?${searchParams.toString()}`
+        );
+
+        return {
+          data: response.data as any[],
+          total: response.total_count,
+        };
+      }
+
       case "catalog/schedule-times/active": {
         const response = await apiRequest<any[]>(ENDPOINTS.SCHEDULE_TIMES_ACTIVE);
         return {
@@ -475,6 +503,17 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "coordinations": {
+        const response = await apiRequest<any>(
+          ENDPOINTS.COORDINATIONS,
+          {
+            method: "POST",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported`);
     }
@@ -591,6 +630,17 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "coordinations": {
+        const response = await apiRequest<any>(
+          `${ENDPOINTS.COORDINATIONS}/${id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
       case "soft-delete": {
         const type = variables["type"] as string;
         // Normalizar la ruta: "user/uuid" → "user", "faculty" → "catalog/faculties", etc.
@@ -605,6 +655,8 @@ export const dataProvider: DataProvider = {
           normalizedType = "catalog/courses";
         } else if (type === "catalog/schedule-times") {
           normalizedType = "catalog/schedule-times";
+        } else if (type === "catalog/coordinations") {
+          normalizedType = "catalog/coordinations";
         }
 
         const response = await apiRequest<{ message: string }>(
@@ -701,6 +753,16 @@ export const dataProvider: DataProvider = {
       case "professors": {
         const response = await apiRequest<{ message: string }>(
           `${ENDPOINTS.PROFESSORS}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "coordinations": {
+        const response = await apiRequest<{ message: string }>(
+          `${ENDPOINTS.COORDINATIONS}/${id}`,
           {
             method: "DELETE",
           }

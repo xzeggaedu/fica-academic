@@ -21,14 +21,10 @@ async def create_faculty_and_schools(session: AsyncSession) -> None:
 
         if fica_faculty is None:
             # Create FICA Faculty
-            fica_faculty = Faculty(
-                name="Escuela de Informática y Ciencias Aplicadas",
-                acronym="FICA",
-                is_active=True
-            )
+            fica_faculty = Faculty(name="Facultad de Informática y Ciencias Aplicadas", acronym="FICA", is_active=True)
             session.add(fica_faculty)
             await session.flush()  # Get the ID without committing
-            
+
             logger.info("FICA Faculty created successfully.")
         else:
             logger.info("FICA Faculty already exists.")
@@ -41,10 +37,7 @@ async def create_faculty_and_schools(session: AsyncSession) -> None:
 
         if info_school is None:
             info_school = School(
-                name="Escuela de Informática",
-                acronym="INFO",
-                fk_faculty=fica_faculty.id,
-                is_active=True
+                name="Escuela de Informática", acronym="INFO", fk_faculty=fica_faculty.id, is_active=True
             )
             session.add(info_school)
             logger.info("INFO School created successfully.")
@@ -58,10 +51,7 @@ async def create_faculty_and_schools(session: AsyncSession) -> None:
 
         if ccaa_school is None:
             ccaa_school = School(
-                name="Escuela de Ciencias Aplicadas",
-                acronym="CCAA",
-                fk_faculty=fica_faculty.id,
-                is_active=True
+                name="Escuela de Ciencias Aplicadas", acronym="CCAA", fk_faculty=fica_faculty.id, is_active=True
             )
             session.add(ccaa_school)
             logger.info("CCAA School created successfully.")

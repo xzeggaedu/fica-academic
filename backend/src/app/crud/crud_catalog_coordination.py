@@ -130,3 +130,23 @@ async def coordination_name_exists(db: AsyncSession, name: str) -> bool:
     """
     result = await crud_catalog_coordination.exists(db=db, name=name)
     return result
+
+
+async def hard_delete_coordination(db: AsyncSession, coordination_id: int) -> bool:
+    """Eliminar permanentemente una coordinación de la base de datos.
+
+    Args:
+    ----
+        db: Sesión de base de datos
+        coordination_id: ID de la coordinación a eliminar
+
+    Returns:
+    -------
+        True si se eliminó correctamente
+    """
+    from sqlalchemy import delete
+
+    stmt = delete(CatalogCoordination).where(CatalogCoordination.id == coordination_id)
+    await db.execute(stmt)
+    await db.commit()
+    return True

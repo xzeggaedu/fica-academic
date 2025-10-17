@@ -80,11 +80,7 @@ export const CoursesList = () => {
     },
     filters: filters,
     queryOptions: {
-      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
-      refetchOnWindowFocus: true,
-      refetchOnMount: true,
-      staleTime: 0,
-      gcTime: 0, // React Query v5: gcTime en lugar de cacheTime
+      enabled: canAccess?.can ?? false,
     },
     successNotification: false,
     errorNotification: false,
