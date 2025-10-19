@@ -68,16 +68,12 @@ export function UserCreateForm({ onSuccess, onClose, onCreate, isCreating = fals
 
     if (!formData.name.trim()) {
       newErrors.name = "Este campo es obligatorio";
-    } else if (formData.name.length < 2) {
-      newErrors.name = "El nombre debe tener al menos 2 caracteres";
+    } else if (formData.name.length < 1) {
+      newErrors.name = "El nombre debe tener al menos 1 carácter";
     } else if (formData.name.length > 50) {
       newErrors.name = "El nombre debe tener máximo 50 caracteres";
-    } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\-']+$/.test(formData.name)) {
-      newErrors.name = "El nombre solo puede contener letras, espacios, acentos, guiones y apóstrofes";
-    } else if (formData.name.trim().split(/\s+/).length < 2) {
-      newErrors.name = "Debe ingresar al menos nombre y apellido";
-    } else if (formData.name.trim().split(/\s+/).some(word => word.length < 2)) {
-      newErrors.name = "Cada palabra debe tener al menos 2 caracteres";
+    } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\-'\.\(\)]+$/.test(formData.name)) {
+      newErrors.name = "El nombre solo puede contener letras, espacios, acentos, guiones, apóstrofes, puntos y paréntesis";
     }
 
     if (!formData.username.trim()) {
@@ -192,7 +188,7 @@ export function UserCreateForm({ onSuccess, onClose, onCreate, isCreating = fals
                 <p className="text-sm text-red-600 mt-1">{errors.name}</p>
               )}
               <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                Solo letras, espacios, acentos, guiones y apóstrofes. Mínimo nombre y apellido.
+                Solo letras, espacios, acentos, guiones, apóstrofes, puntos y paréntesis.
               </p>
             </div>
 
