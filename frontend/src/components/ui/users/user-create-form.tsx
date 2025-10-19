@@ -70,8 +70,14 @@ export function UserCreateForm({ onSuccess, onClose, onCreate, isCreating = fals
       newErrors.name = "Este campo es obligatorio";
     } else if (formData.name.length < 2) {
       newErrors.name = "El nombre debe tener al menos 2 caracteres";
-    } else if (formData.name.length > 30) {
-      newErrors.name = "El nombre debe tener máximo 30 caracteres";
+    } else if (formData.name.length > 50) {
+      newErrors.name = "El nombre debe tener máximo 50 caracteres";
+    } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\-']+$/.test(formData.name)) {
+      newErrors.name = "El nombre solo puede contener letras, espacios, acentos, guiones y apóstrofes";
+    } else if (formData.name.trim().split(/\s+/).length < 2) {
+      newErrors.name = "Debe ingresar al menos nombre y apellido";
+    } else if (formData.name.trim().split(/\s+/).some(word => word.length < 2)) {
+      newErrors.name = "Cada palabra debe tener al menos 2 caracteres";
     }
 
     if (!formData.username.trim()) {
@@ -161,6 +167,7 @@ export function UserCreateForm({ onSuccess, onClose, onCreate, isCreating = fals
 
   const handleInputChange = (field: keyof FormErrors, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Solo limpiar errores si el usuario empieza a escribir
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
@@ -184,6 +191,9 @@ export function UserCreateForm({ onSuccess, onClose, onCreate, isCreating = fals
               {errors.name && (
                 <p className="text-sm text-red-600 mt-1">{errors.name}</p>
               )}
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                Solo letras, espacios, acentos, guiones y apóstrofes. Mínimo nombre y apellido.
+              </p>
             </div>
 
             <div className="space-y-3">

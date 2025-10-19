@@ -87,21 +87,21 @@ async def seed_schedule_times():
         return False
 
 
-async def seed_courses():
-    """Seed courses catalog."""
-    logger.info("Seeding courses catalog...")
+async def seed_subjects():
+    """Seed subjects catalog."""
+    logger.info("Seeding subjects catalog...")
     try:
         # Import and run the seeding
         from src.app.core.db.database import local_session
-        from src.scripts.seed_courses import seed_courses
+        from src.scripts.seed_subjects import seed_subjects
 
         async with local_session() as session:
-            await seed_courses(session)
+            await seed_subjects(session)
 
-        logger.info("Courses seeding completed")
+        logger.info("Subjects seeding completed")
         return True
     except Exception as e:
-        logger.error(f"Courses seeding failed: {e}")
+        logger.error(f"Subjects seeding failed: {e}")
         return False
 
 
@@ -177,9 +177,9 @@ async def main():
         logger.error("Failed to seed schedule times")
         sys.exit(1)
 
-    # Seed courses
-    if not await seed_courses():
-        logger.error("Failed to seed courses")
+    # Seed subjects
+    if not await seed_subjects():
+        logger.error("Failed to seed subjects")
         sys.exit(1)
 
     # Seed professors

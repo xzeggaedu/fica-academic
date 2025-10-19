@@ -33,7 +33,7 @@ import {
 import {
   FacultyList,
 } from "./pages/faculties";
-import { CoursesList } from "./pages/courses";
+import { SubjectsList } from "./pages/subjects";
 import { ScheduleTimesList } from "./pages/schedule-times";
 import { ProfessorList } from "./pages/professors";
 import { CoordinationList } from "./pages/coordinations";
@@ -110,8 +110,8 @@ function App() {
                       },
                     },
                     {
-                      name: "courses",
-                      list: "/catalogs/courses",
+                      name: "subjects",
+                      list: "/catalogs/subjects",
                       meta: {
                         label: "Asignaturas",
                         parent: "catalogs",
@@ -199,7 +199,7 @@ function App() {
                       </Route>
                       <Route path="/catalogs">
                         <Route path="schedule-times" element={<ScheduleTimesList />} />
-                        <Route path="courses" element={<CoursesList />} />
+                        <Route path="subjects" element={<SubjectsList />} />
                         <Route path="professors" element={<ProfessorList />} />
                         <Route path="coordinations" element={<CoordinationList />} />
                       </Route>

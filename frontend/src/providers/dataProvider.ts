@@ -10,9 +10,9 @@ import type {
   SchoolCreate,
   SchoolUpdate,
   Task,
-  Course,
-  CourseCreate,
-  CourseUpdate,
+  Subject,
+  SubjectCreate,
+  SubjectUpdate,
   PaginatedResponse
 } from "../types/api";
 
@@ -46,12 +46,12 @@ const ENDPOINTS = {
   FACULTY: `${API_BASE_PATH}/catalog/faculties`,    // ✅ Movido a catalog
   SCHOOLS: `${API_BASE_PATH}/catalog/schools`,    // ✅ Movido a catalog
   SCHOOL: `${API_BASE_PATH}/catalog/schools`,     // ✅ Movido a catalog
-  COURSES: `${API_BASE_PATH}/catalog/courses`,
+  SUBJECTS: `${API_BASE_PATH}/catalog/subjects`,
   PROFESSORS: `${API_BASE_PATH}/catalog/professors`,
   COORDINATIONS: `${API_BASE_PATH}/catalog/coordinations`,
   RECYCLE_BIN: `${API_BASE_PATH}/recycle-bin`,
   RESTORE_ITEM: `${API_BASE_PATH}/recycle-bin/restore`,
-  COURSES_ACTIVE: `${API_BASE_PATH}/catalog/courses/active`,
+  SUBJECTS_ACTIVE: `${API_BASE_PATH}/catalog/subjects/active`,
   SCHEDULE_TIMES: `${API_BASE_PATH}/catalog/schedule-times`,
   SCHEDULE_TIMES_ACTIVE: `${API_BASE_PATH}/catalog/schedule-times/active`,
 };
@@ -256,7 +256,7 @@ export const dataProvider: DataProvider = {
         };
       }
 
-      case "courses": {
+      case "subjects": {
         const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
         const pageSize = pagination?.pageSize || 10;
 
@@ -273,8 +273,8 @@ export const dataProvider: DataProvider = {
           }
         }
 
-        const response = await apiRequest<PaginatedResponse<Course>>(
-          `${ENDPOINTS.COURSES}?${searchParams.toString()}`
+        const response = await apiRequest<PaginatedResponse<Subject>>(
+          `${ENDPOINTS.SUBJECTS}?${searchParams.toString()}`
         );
 
         return {
@@ -470,12 +470,12 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
-      case "courses": {
-        const response = await apiRequest<Course>(
-          ENDPOINTS.COURSES,
+      case "subjects": {
+        const response = await apiRequest<Subject>(
+          ENDPOINTS.SUBJECTS,
           {
             method: "POST",
-            body: JSON.stringify(variables as CourseCreate),
+            body: JSON.stringify(variables as SubjectCreate),
           }
         );
         return { data: response as any };
@@ -593,12 +593,12 @@ export const dataProvider: DataProvider = {
         return { data: updatedSchool as any };
       }
 
-      case "courses": {
-        const response = await apiRequest<Course>(
-          `${ENDPOINTS.COURSES}/${id}`,
+      case "subjects": {
+        const response = await apiRequest<Subject>(
+          `${ENDPOINTS.SUBJECTS}/${id}`,
           {
             method: "PATCH",
-            body: JSON.stringify(variables as CourseUpdate),
+            body: JSON.stringify(variables as SubjectUpdate),
           }
         );
         return { data: response as any };
@@ -651,8 +651,8 @@ export const dataProvider: DataProvider = {
           normalizedType = "catalog/faculties";
         } else if (type === "catalog/professors") {
           normalizedType = "catalog/professors";
-        } else if (type === "catalog/courses") {
-          normalizedType = "catalog/courses";
+        } else if (type === "catalog/subjects") {
+          normalizedType = "catalog/subjects";
         } else if (type === "catalog/schedule-times") {
           normalizedType = "catalog/schedule-times";
         } else if (type === "catalog/coordinations") {
@@ -720,9 +720,9 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
-      case "courses": {
+      case "subjects": {
         const response = await apiRequest<{ message: string }>(
-          `${ENDPOINTS.COURSES}/${id}`,
+          `${ENDPOINTS.SUBJECTS}/${id}`,
           {
             method: "DELETE",
           }

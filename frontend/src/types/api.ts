@@ -151,36 +151,39 @@ export interface RefineUserIdentity {
   avatar?: string;
 }
 
-// Course types
-export interface CourseSchool {
+// Subject types
+export interface SubjectSchool {
   id: number;
   school_id: number;
   created_at: string;
 }
 
-export interface Course {
+export interface Subject {
   id: number;
-  course_code: string;
-  course_name: string;
+  subject_code: string;
+  subject_name: string;
   department_code: string;
+  is_bilingual: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  schools: CourseSchool[];
+  schools: SubjectSchool[];
 }
 
-export interface CourseCreate {
-  course_code: string;
-  course_name: string;
+export interface SubjectCreate {
+  subject_code: string;
+  subject_name: string;
   department_code: string;
+  is_bilingual?: boolean;
   is_active?: boolean;
   school_ids: number[];
 }
 
-export interface CourseUpdate {
-  course_code?: string;
-  course_name?: string;
+export interface SubjectUpdate {
+  subject_code?: string;
+  subject_name?: string;
   department_code?: string;
+  is_bilingual?: boolean;
   is_active?: boolean;
   school_ids?: number[];
 }
@@ -198,5 +201,5 @@ export const API_ENDPOINTS = {
   SCHOOLS: "/api/v1/schools",
   SCHOOL: "/api/v1/school",
   TASKS: "/api/v1/tasks/task",
-  COURSES: "/api/v1/catalog/courses",
+  SUBJECTS: "/api/v1/catalog/subjects",
 } as const;

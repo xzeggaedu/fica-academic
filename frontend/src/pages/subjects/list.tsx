@@ -17,7 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Trash2, Save, X, ChevronDown, Clock } from "lucide-react";
 import { TableFilters } from "@/components/ui/data/table-filters";
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { TablePagination } from "@/components/ui/data/table-pagination";
 import {
   Popover,
   PopoverContent,
@@ -32,7 +32,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/forms/checkbox";
-import type { Course, CourseCreate, CourseUpdate, Faculty, School } from "@/types/api";
+import type { Subject, SubjectCreate, SubjectUpdate, Faculty, School } from "@/types/api";
 import { getTableColumnClass } from "@/components/refine-ui/theme/theme-table";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Unauthorized } from "../unauthorized";
@@ -42,54 +42,36 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTablePagination } from "@/hooks/useTablePagination";
 
-export const CoursesList = () => {
+export const SubjectsList = () => {
   // Verificar permisos primero
   const { data: canAccess } = useCan({
-    resource: "courses",
+    resource: "subjects",
     action: "list",
   });
 
-  // Estados para paginación y búsqueda
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [searchValue, setSearchValue] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-
-  // Debounce para búsqueda
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchValue);
-      setCurrentPage(1); // Reset a página 1 cuando cambia la búsqueda
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchValue]);
-
-  // Configurar filtros para useList
-  const filters = debouncedSearch
-    ? [{ field: "search", operator: "contains" as const, value: debouncedSearch }]
-    : [];
-
-  const coursesResponse = useList({
-    resource: "courses",
-    pagination: {
-      currentPage: currentPage,
-      pageSize: pageSize,
-      mode: "server",
-    },
-    filters: filters,
-    queryOptions: {
-      enabled: canAccess?.can ?? false,
-    },
-    successNotification: false,
-    errorNotification: false,
+  // Hook de paginación y búsqueda reutilizable
+  const {
+    data: subjectsList,
+    total,
+    isLoading: subjectsLoading,
+    isError: subjectsError,
+    currentPage,
+    pageSize,
+    totalPages,
+    canPrevPage,
+    canNextPage,
+    nextPage,
+    prevPage,
+    goToPage,
+    searchValue,
+    setSearchValue,
+  } = useTablePagination<Subject>({
+    resource: "subjects",
+    canAccess,
+    initialPageSize: 10,
   });
-
-  const coursesLoading = coursesResponse.query.isLoading;
-  const coursesError = coursesResponse.query.isError;
-  const coursesList = coursesResponse.result?.data || [];
-  const total = coursesResponse.result?.total || 0;
 
   // Facultades y Escuelas con hooks de Refine
   const { query: facultiesQuery, result: facultiesResult } = useList<Faculty>({
@@ -112,14 +94,14 @@ export const CoursesList = () => {
   });
 
   // Hooks para operaciones CRUD con configuración correcta según documentación de Refine
-  const { mutate: createCourse, mutation: createState } = useCreate();
-  const { mutate: updateCourse, mutation: updateState } = useUpdate(
+  const { mutate: createSubject, mutation: createState } = useCreate();
+  const { mutate: updateSubject, mutation: updateState } = useUpdate(
     {
       successNotification: false,
       errorNotification: false,
     }
   );
-  const { mutate: softDeleteCourse, mutation: softDeleteState } = useUpdate();
+  const { mutate: softDeleteSubject, mutation: softDeleteState } = useUpdate();
   const invalidate = useInvalidate();
 
   const creating = createState.isPending;
@@ -129,14 +111,15 @@ export const CoursesList = () => {
   // Estados locales
   const [error, setError] = useState<string | null>(null);
   const [visibleColumns, setVisibleColumns] = useState([
-    "id", "course_code", "course_name", "department_code", "schools", "is_active", "actions"
+    "id", "subject_code", "subject_name", "department_code", "is_bilingual", "schools", "is_active", "actions"
   ]);
 
   // Estados para el formulario de creación
-  const [newCourse, setNewCourse] = useState<CourseCreate>({
-    course_code: "",
-    course_name: "",
+  const [newSubject, setNewSubject] = useState<SubjectCreate>({
+    subject_code: "",
+    subject_name: "",
     department_code: "",
+    is_bilingual: false,
     school_ids: [],
   });
   const [selectedSchools, setSelectedSchools] = useState<number[]>([]);
@@ -144,7 +127,7 @@ export const CoursesList = () => {
   // Estados para edición inline
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<CourseUpdate>({});
+  const [editForm, setEditForm] = useState<SubjectUpdate>({});
   const [editingSchools, setEditingSchools] = useState<number[]>([]);
   const [openSchoolsPopoverId, setOpenSchoolsPopoverId] = useState<number | null>(null);
 
@@ -156,20 +139,20 @@ export const CoursesList = () => {
   const schools = schoolsResult?.data || [];
   const facultiesLoading = facultiesQuery.isLoading;
   const schoolsLoading = schoolsQuery.isLoading;
-  const loading = coursesLoading || facultiesLoading || schoolsLoading;
+  const loading = subjectsLoading || facultiesLoading || schoolsLoading;
 
   useEffect(() => {
-    if (coursesError) {
+    if (subjectsError) {
       setError("Error al cargar los cursos");
     } else {
       setError(null);
     }
-  }, [coursesError]);
+  }, [subjectsError]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!newCourse.course_code || !newCourse.course_name || !newCourse.department_code) {
+    if (!newSubject.subject_code || !newSubject.subject_name || !newSubject.department_code) {
       toast.error("Error", {
         description: "Por favor complete todos los campos requeridos",
         richColors: true,
@@ -178,7 +161,7 @@ export const CoursesList = () => {
     }
 
     // Validación de espacios en códigos
-    if (newCourse.course_code.includes(' ')) {
+    if (newSubject.subject_code.includes(' ')) {
       toast.error("Error de validación", {
         description: "El código del curso no puede contener espacios. Use guiones o puntos en su lugar.",
         richColors: true,
@@ -186,7 +169,7 @@ export const CoursesList = () => {
       return;
     }
 
-    if (newCourse.department_code.includes(' ')) {
+    if (newSubject.department_code.includes(' ')) {
       toast.error("Error de validación", {
         description: "El código del departamento no puede contener espacios. Use guiones o puntos en su lugar.",
         richColors: true,
@@ -202,37 +185,38 @@ export const CoursesList = () => {
       return;
     }
 
-    const courseData: CourseCreate = {
-      ...newCourse,
+    const subjectData: SubjectCreate = {
+      ...newSubject,
       school_ids: selectedSchools,
     };
 
-    createCourse(
+    createSubject(
       {
-        resource: "courses",
-        values: courseData,
+        resource: "subjects",
+        values: subjectData,
       },
       {
         onSuccess: () => {
           toast.success("Éxito", {
-            description: "Curso creado exitosamente",
+            description: "Asignatura creada exitosamente",
             richColors: true,
           });
 
           // Limpiar formulario
-          setNewCourse({
-            course_code: "",
-            course_name: "",
+          setNewSubject({
+            subject_code: "",
+            subject_name: "",
             department_code: "",
+            is_bilingual: false,
             school_ids: [],
           });
           setSelectedSchools([]);
           // Refine automáticamente invalida y refresca la lista
         },
         onError: (error: any) => {
-          console.error("Error creating course:", error);
+          console.error("Error creating subject:", error);
           toast.error("Error", {
-            description: "Error al crear el curso",
+            description: "Error al crear la asignatura",
             richColors: true,
           });
         },
@@ -240,28 +224,29 @@ export const CoursesList = () => {
     );
   };
 
-  const handleEdit = (course: Course, field?: string) => {
-    setEditingId(course.id);
+  const handleEdit = (subject: Subject, field?: string) => {
+    setEditingId(subject.id);
     setEditingField(field ?? null);
     setEditForm({
-      course_code: course.course_code,
-      course_name: course.course_name,
-      department_code: course.department_code,
-      is_active: course.is_active,
+      subject_code: subject.subject_code,
+      subject_name: subject.subject_name,
+      department_code: subject.department_code,
+      is_bilingual: subject.is_bilingual,
+      is_active: subject.is_active,
     });
-    setEditingSchools(course.schools?.map(cs => cs.school_id) || []);
+    setEditingSchools(subject.schools?.map(cs => cs.school_id) || []);
   };
 
   const saveSingleField = (
     id: number,
-    field: keyof CourseUpdate,
+    field: keyof SubjectUpdate,
     value: string | boolean | undefined
   ) => {
     // Validación previa para campos de código
-    if (field === 'course_code' || field === 'department_code') {
+    if (field === 'subject_code' || field === 'department_code') {
       if (typeof value === 'string' && value.includes(' ')) {
         toast.error("Error de validación", {
-          description: `${field === 'course_code' ? 'El código del curso' : 'El código del departamento'} no puede contener espacios. Use guiones o puntos en su lugar.`,
+          description: `${field === 'subject_code' ? 'El código del curso' : 'El código del departamento'} no puede contener espacios. Use guiones o puntos en su lugar.`,
           richColors: true
         });
         return;
@@ -269,7 +254,7 @@ export const CoursesList = () => {
     }
 
     // Guardar solo si hay cambios reales
-    const current = coursesList.find((c) => c.id === id);
+    const current = subjectsList.find((c) => c.id === id);
     if (current) {
       const currentValue = (current as any)[field];
       if (currentValue === value) {
@@ -279,10 +264,10 @@ export const CoursesList = () => {
         return;
       }
     }
-    const payload: CourseUpdate = { [field]: value } as CourseUpdate;
-    updateCourse(
+    const payload: SubjectUpdate = { [field]: value } as SubjectUpdate;
+    updateSubject(
       {
-        resource: "courses",
+        resource: "subjects",
         id,
         values: payload,
       },
@@ -294,7 +279,7 @@ export const CoursesList = () => {
           setEditForm({});
           // Invalidar schools para refrescar datos relacionados
           invalidate({ resource: "schools", invalidates: ["list"] });
-          // Refine automáticamente invalida y refresca la lista de courses
+          // Refine automáticamente invalida y refresca la lista de subjects
         },
         onError: (error: any) => {
           console.error("Error updating field:", error);
@@ -321,9 +306,9 @@ export const CoursesList = () => {
     // Agregar ID al set de toggles en proceso
     setTogglingIds(prev => new Set(prev).add(id));
 
-    updateCourse(
+    updateSubject(
       {
-        resource: "courses",
+        resource: "subjects",
         id,
         values: { is_active: !currentStatus },
       },
@@ -342,9 +327,9 @@ export const CoursesList = () => {
           // Refine automáticamente invalida y refresca la lista
         },
         onError: (error: any) => {
-          console.error("Error toggling course status:", error);
+          console.error("Error toggling subject status:", error);
           toast.error("Error", {
-            description: "Error al cambiar el estado del curso",
+            description: "Error al cambiar el estado de la asignatura",
             richColors: true,
           });
           // Quitar ID del set en caso de error también
@@ -359,27 +344,27 @@ export const CoursesList = () => {
   };
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [courseToDelete, setCourseToDelete] = useState<{ id: number; name: string } | null>(null);
+  const [subjectToDelete, setSubjectToDelete] = useState<{ id: number; name: string } | null>(null);
 
   const openDeleteDialog = (id: number, name: string) => {
-    setCourseToDelete({ id, name });
+    setSubjectToDelete({ id, name });
     setDeleteDialogOpen(true);
   };
 
   const handleConfirmDelete = () => {
-    if (!courseToDelete) return;
-    const { id, name } = courseToDelete;
-    softDeleteCourse(
+    if (!subjectToDelete) return;
+    const { id, name } = subjectToDelete;
+    softDeleteSubject(
       {
         resource: "soft-delete",
         id,
-        values: { type: "catalog/courses" },
+        values: { type: "catalog/subjects" },
         successNotification: false,
       },
       {
         onSuccess: () => {
           invalidate({
-            resource: "courses",
+            resource: "subjects",
             invalidates: ["list"],
           });
           toast.success("Asignatura movida a papelera", {
@@ -387,10 +372,10 @@ export const CoursesList = () => {
             richColors: true,
           });
           setDeleteDialogOpen(false);
-          setCourseToDelete(null);
+          setSubjectToDelete(null);
         },
         onError: (error: any) => {
-          console.error("Error deleting course:", error);
+          console.error("Error deleting subject:", error);
           toast.error("Error al mover a papelera", {
             description: error?.message || "Error desconocido",
             richColors: true,
@@ -419,9 +404,10 @@ export const CoursesList = () => {
   // Configuración de columnas disponibles
   const availableColumns = [
     { key: "id", label: "ID" },
-    { key: "course_code", label: "Código" },
-    { key: "course_name", label: "Nombre del Curso" },
+    { key: "subject_code", label: "Código" },
+    { key: "subject_name", label: "Nombre de la Asignatura" },
     { key: "department_code", label: "Departamento" },
+    { key: "is_bilingual", label: "Bilingüe" },
     { key: "schools", label: "Escuelas" },
     { key: "is_active", label: "Estado" },
     { key: "actions", label: "Acciones" },
@@ -451,7 +437,7 @@ export const CoursesList = () => {
 
   return (
     <CanAccess
-      resource="courses"
+      resource="subjects"
       action="list"
       fallback={<Unauthorized resourceName="asignaturas" message="Solo los administradores pueden gestionar asignaturas." />}
     >
@@ -474,27 +460,27 @@ export const CoursesList = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-end">
+              <div className="flex gap-4 items-end">
                 <div className="space-y-2">
-                  <Label htmlFor="course_code">Código del Curso *</Label>
+                  <Label htmlFor="subject_code">Código *</Label>
                   <Input
-                    id="course_code"
-                    value={newCourse.course_code}
+                    id="subject_code"
+                    value={newSubject.subject_code}
                     onChange={(e) =>
-                      setNewCourse({ ...newCourse, course_code: e.target.value.toUpperCase() })
+                      setNewSubject({ ...newSubject, subject_code: e.target.value.toUpperCase() })
                     }
                     placeholder="Ej: CS101"
                     required
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="course_name">Nombre del Curso *</Label>
+                <div className="space-y-2 flex-2">
+                  <Label htmlFor="subject_name">Nombre de la Asignatura *</Label>
                   <Input
-                    id="course_name"
-                    value={newCourse.course_name}
+                    id="subject_name"
+                    value={newSubject.subject_name}
                     onChange={(e) =>
-                      setNewCourse({ ...newCourse, course_name: e.target.value })
+                      setNewSubject({ ...newSubject, subject_name: e.target.value })
                     }
                     placeholder="Ej: Introducción a la Programación"
                     required
@@ -502,20 +488,35 @@ export const CoursesList = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="department_code">Código del Departamento *</Label>
+                  <Label htmlFor="department_code">Departamento *</Label>
                   <Input
                     id="department_code"
-                    value={newCourse.department_code}
+                    value={newSubject.department_code}
                     onChange={(e) =>
-                      setNewCourse({ ...newCourse, department_code: e.target.value.toUpperCase() })
+                      setNewSubject({ ...newSubject, department_code: e.target.value.toUpperCase() })
                     }
                     placeholder="Ej: CS"
                     required
                   />
                 </div>
 
-                {/* Escuelas selector (col 4 en lg) */}
                 <div className="space-y-2">
+                  <Label htmlFor="is_bilingual" className="flex items-center gap-2">
+                    Bilingüe
+                  </Label>
+                  <div className="flex items-center h-9">
+                    <Switch
+                      id="is_bilingual"
+                      checked={newSubject.is_bilingual || false}
+                      onCheckedChange={(checked) =>
+                        setNewSubject({ ...newSubject, is_bilingual: checked })
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* Escuelas selector (col 4 en lg) */}
+                <div className="space-y-2 flex-2">
                   <Label>Escuelas *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
@@ -571,11 +572,11 @@ export const CoursesList = () => {
                   </Popover>
                 </div>
 
-                {/* Botón submit (col 5 en lg) */}
+                {/* Botón submit (col 6 en lg) */}
                 <div className="space-y-2">
                   <Label className="invisible lg:visible">&nbsp;</Label>
                   <Button type="submit" disabled={creating} className="w-full">
-                    {creating ? "Creando..." : "Agregar Curso"}
+                    {creating ? "Creando..." : "Agregar Asignatura"}
                   </Button>
                 </div>
               </div>
@@ -633,43 +634,44 @@ export const CoursesList = () => {
                 <TableHeader>
                   <TableRow>
                     {visibleColumns.includes("id") && <TableHead className={getTableColumnClass("id")}>ID</TableHead>}
-                    {visibleColumns.includes("course_code") && <TableHead>Código</TableHead>}
-                    {visibleColumns.includes("course_name") && <TableHead>Nombre del Curso</TableHead>}
+                    {visibleColumns.includes("subject_code") && <TableHead>Código</TableHead>}
+                    {visibleColumns.includes("subject_name") && <TableHead>Nombre de la Asignatura</TableHead>}
                     {visibleColumns.includes("department_code") && <TableHead>Departamento</TableHead>}
+                    {visibleColumns.includes("is_bilingual") && <TableHead className="text-center w-[100px]">Bilingüe</TableHead>}
                     {visibleColumns.includes("schools") && <TableHead>Escuelas</TableHead>}
                     {visibleColumns.includes("is_active") && <TableHead className="text-center w-[100px]">Estado</TableHead>}
                     {visibleColumns.includes("actions") && <TableHead className="text-center w-[100px]">Acciones</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {coursesList.length === 0 ? (
+                  {subjectsList.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center text-gray-500 py-8">
-                        {debouncedSearch ? "No se encontraron cursos" : "No hay cursos registrados"}
+                        {searchValue ? "No se encontraron asignaturas" : "No hay asignaturas registradas"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    coursesList.map((course: Course) => (
-                      <TableRow key={course.id}>
+                    subjectsList.map((subject: Subject) => (
+                      <TableRow key={subject.id}>
                         {/* ID */}
                         {visibleColumns.includes("id") && (
-                          <TableCell className={getTableColumnClass("id")}>{course.id}</TableCell>
+                          <TableCell className={getTableColumnClass("id")}>{subject.id}</TableCell>
                         )}
 
                         {/* Código del Curso */}
-                        {visibleColumns.includes("course_code") && (
+                        {visibleColumns.includes("subject_code") && (
                           <TableCell>
-                            {editingId === course.id && (!editingField || editingField === 'course_code') ? (
+                            {editingId === subject.id && (!editingField || editingField === 'subject_code') ? (
                               <Input
-                                value={editForm.course_code || ""}
+                                value={editForm.subject_code || ""}
                                 onChange={(e) =>
-                                  setEditForm({ ...editForm, course_code: e.target.value.toUpperCase() })
+                                  setEditForm({ ...editForm, subject_code: e.target.value.toUpperCase() })
                                 }
-                                onBlur={() => saveSingleField(course.id, 'course_code', editForm.course_code)}
+                                onBlur={() => saveSingleField(subject.id, 'subject_code', editForm.subject_code)}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') {
                                     e.preventDefault();
-                                    saveSingleField(course.id, 'course_code', editForm.course_code);
+                                    saveSingleField(subject.id, 'subject_code', editForm.subject_code);
                                   }
                                 }}
                                 className="w-32"
@@ -677,28 +679,28 @@ export const CoursesList = () => {
                             ) : (
                               <span
                                 className="font-mono font-semibold cursor-pointer hover:underline"
-                                onClick={() => handleEdit(course, 'course_code')}
+                                onClick={() => handleEdit(subject, 'subject_code')}
                               >
-                                {course.course_code}
+                                {subject.subject_code}
                               </span>
                             )}
                           </TableCell>
                         )}
 
                         {/* Nombre del Curso */}
-                        {visibleColumns.includes("course_name") && (
+                        {visibleColumns.includes("subject_name") && (
                           <TableCell>
-                            {editingId === course.id && (!editingField || editingField === 'course_name') ? (
+                            {editingId === subject.id && (!editingField || editingField === 'subject_name') ? (
                               <Input
-                                value={editForm.course_name || ""}
+                                value={editForm.subject_name || ""}
                                 onChange={(e) =>
-                                  setEditForm({ ...editForm, course_name: e.target.value })
+                                  setEditForm({ ...editForm, subject_name: e.target.value })
                                 }
-                                onBlur={() => saveSingleField(course.id, 'course_name', editForm.course_name)}
+                                onBlur={() => saveSingleField(subject.id, 'subject_name', editForm.subject_name)}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') {
                                     e.preventDefault();
-                                    saveSingleField(course.id, 'course_name', editForm.course_name);
+                                    saveSingleField(subject.id, 'subject_name', editForm.subject_name);
                                   }
                                 }}
                                 className="w-64"
@@ -706,9 +708,9 @@ export const CoursesList = () => {
                             ) : (
                               <span
                                 className="cursor-pointer hover:underline"
-                                onClick={() => handleEdit(course, 'course_name')}
+                                onClick={() => handleEdit(subject, 'subject_name')}
                               >
-                                {course.course_name}
+                                {subject.subject_name}
                               </span>
                             )}
                           </TableCell>
@@ -717,17 +719,17 @@ export const CoursesList = () => {
                         {/* Departamento */}
                         {visibleColumns.includes("department_code") && (
                           <TableCell>
-                            {editingId === course.id && (!editingField || editingField === 'department_code') ? (
+                            {editingId === subject.id && (!editingField || editingField === 'department_code') ? (
                               <Input
                                 value={editForm.department_code || ""}
                                 onChange={(e) =>
                                   setEditForm({ ...editForm, department_code: e.target.value.toUpperCase() })
                                 }
-                                onBlur={() => saveSingleField(course.id, 'department_code', editForm.department_code)}
+                                onBlur={() => saveSingleField(subject.id, 'department_code', editForm.department_code)}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') {
                                     e.preventDefault();
-                                    saveSingleField(course.id, 'department_code', editForm.department_code);
+                                    saveSingleField(subject.id, 'department_code', editForm.department_code);
                                   }
                                 }}
                                 className="w-24"
@@ -735,23 +737,49 @@ export const CoursesList = () => {
                             ) : (
                               <span
                                 className="font-mono cursor-pointer hover:underline"
-                                onClick={() => handleEdit(course, 'department_code')}
+                                onClick={() => handleEdit(subject, 'department_code')}
                               >
-                                {course.department_code}
+                                {subject.department_code}
                               </span>
                             )}
+                          </TableCell>
+                        )}
+
+                        {/* Bilingüe */}
+                        {visibleColumns.includes("is_bilingual") && (
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={subject.is_bilingual}
+                              onCheckedChange={(checked) => {
+                                updateSubject({
+                                  resource: "subjects",
+                                  id: subject.id,
+                                  values: { is_bilingual: checked === true },
+                                  mutationMode: "optimistic",
+                                }, {
+                                  onSuccess: () => {
+                                    invalidate({ resource: "subjects", invalidates: ["list"] });
+                                    toast.success("Estado bilingüe actualizado correctamente");
+                                  },
+                                  onError: () => {
+                                    toast.error("Error al actualizar el estado bilingüe");
+                                  },
+                                });
+                              }}
+                              disabled={deleting || updating}
+                            />
                           </TableCell>
                         )}
 
                         {/* Escuelas */}
                         {visibleColumns.includes("schools") && (
                           <TableCell>
-                            {editingId === course.id && (!editingField || editingField === 'schools') ? (
+                            {editingId === subject.id && (!editingField || editingField === 'schools') ? (
                               <Popover
-                                open={openSchoolsPopoverId === course.id}
+                                open={openSchoolsPopoverId === subject.id}
                                 onOpenChange={(open) => {
-                                  setOpenSchoolsPopoverId(open ? course.id : null);
-                                  if (!open && editingId === course.id && (!editingField || editingField === 'schools')) {
+                                  setOpenSchoolsPopoverId(open ? subject.id : null);
+                                  if (!open && editingId === subject.id && (!editingField || editingField === 'schools')) {
                                     setEditingId(null);
                                     setEditingField(null);
                                     setEditingSchools([]);
@@ -787,15 +815,15 @@ export const CoursesList = () => {
                                                     : [...editingSchools, school.id];
                                                   setEditingSchools(next);
                                                   // Guardar solo si cambió la selección
-                                                  const currentIds = (course.schools || []).map((cs) => cs.school_id).sort();
+                                                  const currentIds = (subject.schools || []).map((cs) => cs.school_id).sort();
                                                   const nextSorted = [...next].sort();
                                                   const same = currentIds.length === nextSorted.length && currentIds.every((v, i) => v === nextSorted[i]);
                                                   if (same) return;
                                                   // Actualizar escuelas
-                                                  updateCourse(
+                                                  updateSubject(
                                                     {
-                                                      resource: "courses",
-                                                      id: course.id,
+                                                      resource: "subjects",
+                                                      id: subject.id,
                                                       values: { school_ids: next },
                                                     },
                                                     {
@@ -807,13 +835,13 @@ export const CoursesList = () => {
                                                         // Refine automáticamente invalida y refresca la lista
                                                       },
                                                       onError: (error: any) => {
-                                                        console.error("Error updating course schools:", error);
+                                                        console.error("Error updating subject schools:", error);
                                                         toast.error("Error", {
                                                           description: "No se pudieron actualizar las escuelas",
                                                           richColors: true,
                                                         });
                                                         // Revertir cambio en UI
-                                                        setEditingSchools(course.schools?.map((cs) => cs.school_id) || []);
+                                                        setEditingSchools(subject.schools?.map((cs) => cs.school_id) || []);
                                                       },
                                                     }
                                                   );
@@ -838,13 +866,13 @@ export const CoursesList = () => {
                               <div
                                 className="flex flex-wrap gap-1 cursor-pointer"
                                 onClick={() => {
-                                  handleEdit(course, 'schools');
-                                  setEditingSchools(course.schools?.map((cs) => cs.school_id) || []);
-                                  setOpenSchoolsPopoverId(course.id);
+                                  handleEdit(subject, 'schools');
+                                  setEditingSchools(subject.schools?.map((cs) => cs.school_id) || []);
+                                  setOpenSchoolsPopoverId(subject.id);
                                 }}
                               >
-                                {course.schools && course.schools.length > 0 ? (
-                                  course.schools.map((cs) => {
+                                {subject.schools && subject.schools.length > 0 ? (
+                                  subject.schools.map((cs) => {
                                     const school = schools.find(s => s.id === cs.school_id);
                                     return school ? (
                                       <Badge key={cs.id} variant="secondary" className="text-xs">
@@ -864,9 +892,9 @@ export const CoursesList = () => {
                         {visibleColumns.includes("is_active") && (
                           <TableCell className="text-center">
                             <Switch
-                              checked={course.is_active}
-                              onCheckedChange={() => handleToggleActive(course.id, course.is_active)}
-                              disabled={editingId === course.id || togglingIds.has(course.id) || updating}
+                              checked={subject.is_active}
+                              onCheckedChange={() => handleToggleActive(subject.id, subject.is_active)}
+                              disabled={editingId === subject.id || togglingIds.has(subject.id) || updating}
                             />
                           </TableCell>
                         )}
@@ -879,7 +907,7 @@ export const CoursesList = () => {
                                 <Button
                                   variant="outline"
                                   size="icon"
-                                  onClick={() => openDeleteDialog(course.id, course.course_name)}
+                                  onClick={() => openDeleteDialog(subject.id, subject.subject_name)}
                                   className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -900,105 +928,27 @@ export const CoursesList = () => {
             </div>
 
             {/* Paginación */}
-            {(() => {
-              const totalPages = Math.max(1, Math.ceil(total / pageSize));
-              const canPrev = currentPage > 1;
-              const canNext = currentPage < totalPages;
-
-              // Calcular ventana de páginas (máx 5)
-              const windowSize = 5;
-              const half = Math.floor(windowSize / 2);
-              let start = Math.max(1, currentPage - half);
-              let end = Math.min(totalPages, start + windowSize - 1);
-              if (end - start + 1 < windowSize) {
-                start = Math.max(1, end - windowSize + 1);
-              }
-              const pages = [] as number[];
-              for (let p = start; p <= end; p++) pages.push(p);
-
-              return (
-                <Pagination className="mt-4">
-                  <PaginationContent>
-                    <PaginationItem className="mr-4">
-                      <PaginationLink
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (canPrev) setCurrentPage((p) => p - 1);
-                        }}
-                        aria-label="Ir a la página anterior"
-                        className={!canPrev ? "pointer-events-none opacity-50" : undefined}
-                      >
-                        Anterior
-                      </PaginationLink>
-                    </PaginationItem>
-
-                    {start > 1 && (
-                      <>
-                        <PaginationItem>
-                          <PaginationLink
-                            href="#"
-                            onClick={(e) => { e.preventDefault(); setCurrentPage(1); }}
-                          >1</PaginationLink>
-                        </PaginationItem>
-                        <PaginationItem>
-                          <PaginationEllipsis />
-                        </PaginationItem>
-                      </>
-                    )}
-
-                    {pages.map((p) => (
-                      <PaginationItem key={p}>
-                        <PaginationLink
-                          href="#"
-                          isActive={p === currentPage}
-                          onClick={(e) => { e.preventDefault(); setCurrentPage(p); }}
-                        >{p}</PaginationLink>
-                      </PaginationItem>
-                    ))}
-
-                    {end < totalPages && (
-                      <>
-                        <PaginationItem>
-                          <PaginationEllipsis />
-                        </PaginationItem>
-                        <PaginationItem>
-                          <PaginationLink
-                            href="#"
-                            onClick={(e) => { e.preventDefault(); setCurrentPage(totalPages); }}
-                          >{totalPages}</PaginationLink>
-                        </PaginationItem>
-                      </>
-                    )}
-
-                    <PaginationItem className="ml-4">
-                      <PaginationLink
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (canNext) setCurrentPage((p) => p + 1);
-                        }}
-                        aria-label="Ir a la página siguiente"
-                        className={!canNext ? "pointer-events-none opacity-50" : undefined}
-                      >
-                        Siguiente
-                      </PaginationLink>
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              );
-            })()}
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              canPrevPage={canPrevPage}
+              canNextPage={canNextPage}
+              onPageChange={goToPage}
+              onPrevPage={prevPage}
+              onNextPage={nextPage}
+              className="mt-4"
+            />
           </CardContent>
         </Card>
 
         {/* Confirm delete dialog */}
         <DeleteConfirmDialog
           entityType="asignatura"
-          entityName={courseToDelete?.name || ""}
+          entityName={subjectToDelete?.name || ""}
           isOpen={deleteDialogOpen}
           onClose={() => {
             setDeleteDialogOpen(false);
-            setCourseToDelete(null);
+            setSubjectToDelete(null);
           }}
           onConfirm={handleConfirmDelete}
           isDeleting={deleting}

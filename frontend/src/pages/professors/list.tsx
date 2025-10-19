@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useList, CanAccess, useCan, useUpdate, useInvalidate, useCreate } from "@refinedev/core";
 import { toast } from "sonner";
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../../components/ui/pagination";
+import { TablePagination } from "../../components/ui/data/table-pagination";
 import {
     Table,
     TableBody,
@@ -28,6 +28,7 @@ import {
     DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { ProfessorFormSheet } from "../../components/ui/professors/professor-form-sheet";
+import { useTablePagination } from "../../hooks/useTablePagination";
 
 interface Professor {
     id: number;
@@ -56,45 +57,26 @@ export const ProfessorList = () => {
         action: "list",
     });
 
-    // Estados para paginación, filtros y columnas
-    const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
-
-    // Debounce para búsqueda
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(searchTerm);
-            setCurrentPage(1); // Reset a página 1 cuando cambia la búsqueda
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
-
-    // Configurar filtros para useList
-    const filters = debouncedSearch
-        ? [{ field: "search", operator: "contains" as const, value: debouncedSearch }]
-        : [];
-
-    const { query, result } = useList<Professor>({
+    // Hook de paginación y búsqueda reutilizable
+    const {
+        data: professors,
+        total,
+        isLoading,
+        currentPage,
+        pageSize,
+        totalPages,
+        canPrevPage,
+        canNextPage,
+        nextPage,
+        prevPage,
+        goToPage,
+        searchValue: searchTerm,
+        setSearchValue: setSearchTerm,
+    } = useTablePagination<Professor>({
         resource: "professors",
-        pagination: {
-            currentPage: currentPage,
-            pageSize: pageSize,
-            mode: "server",
-        },
-        filters: filters,
-        queryOptions: {
-            enabled: canAccess?.can ?? false,
-        },
-        successNotification: false,
-        errorNotification: false,
+        canAccess,
+        initialPageSize: 10,
     });
-
-    const professors = result.data || [];
-    const total = result.total || 0;
-    const isLoading = query.isLoading;
 
     // Hooks para operaciones CRUD
     const { mutate: softDeleteProfessor, mutation: deleteState } = useUpdate();
@@ -592,100 +574,20 @@ export const ProfessorList = () => {
                         </div>
 
                         {/* Paginación */}
-                        {(() => {
-                            const totalPages = Math.max(1, Math.ceil(total / pageSize));
-                            const canPrev = currentPage > 1;
-                            const canNext = currentPage < totalPages;
-
-                            // Calcular ventana de páginas (máx 5)
-                            const windowSize = 5;
-                            const half = Math.floor(windowSize / 2);
-                            let start = Math.max(1, currentPage - half);
-                            let end = Math.min(totalPages, start + windowSize - 1);
-                            if (end - start + 1 < windowSize) {
-                                start = Math.max(1, end - windowSize + 1);
-                            }
-
-                            const pages = [];
-                            for (let i = start; i <= end; i++) {
-                                pages.push(i);
-                            }
-
-                            return (
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4">
-                                    <div className="text-sm text-muted-foreground">
-                                        Mostrando {professors.length} de {total} profesores
-                                    </div>
-                                    <Pagination>
-                                        <PaginationContent>
-                                            <PaginationItem>
-                                                <PaginationPrevious
-                                                    href="#"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        if (canPrev) setCurrentPage(currentPage - 1);
-                                                    }}
-                                                    className={!canPrev ? "pointer-events-none opacity-50" : ""}
-                                                />
-                                            </PaginationItem>
-
-                                            {start > 1 && (
-                                                <>
-                                                    <PaginationItem>
-                                                        <PaginationLink
-                                                            href="#"
-                                                            onClick={(e) => { e.preventDefault(); setCurrentPage(1); }}
-                                                        >1</PaginationLink>
-                                                    </PaginationItem>
-                                                    {start > 2 && (
-                                                        <PaginationItem>
-                                                            <PaginationEllipsis />
-                                                        </PaginationItem>
-                                                    )}
-                                                </>
-                                            )}
-
-                                            {pages.map((p) => (
-                                                <PaginationItem key={p}>
-                                                    <PaginationLink
-                                                        href="#"
-                                                        isActive={p === currentPage}
-                                                        onClick={(e) => { e.preventDefault(); setCurrentPage(p); }}
-                                                    >{p}</PaginationLink>
-                                                </PaginationItem>
-                                            ))}
-
-                                            {end < totalPages && (
-                                                <>
-                                                    {end < totalPages - 1 && (
-                                                        <PaginationItem>
-                                                            <PaginationEllipsis />
-                                                        </PaginationItem>
-                                                    )}
-                                                    <PaginationItem>
-                                                        <PaginationLink
-                                                            href="#"
-                                                            onClick={(e) => { e.preventDefault(); setCurrentPage(totalPages); }}
-                                                        >{totalPages}</PaginationLink>
-                                                    </PaginationItem>
-                                                </>
-                                            )}
-
-                                            <PaginationItem>
-                                                <PaginationNext
-                                                    href="#"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        if (canNext) setCurrentPage(currentPage + 1);
-                                                    }}
-                                                    className={!canNext ? "pointer-events-none opacity-50" : ""}
-                                                />
-                                            </PaginationItem>
-                                        </PaginationContent>
-                                    </Pagination>
-                                </div>
-                            );
-                        })()}
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4">
+                            <div className="text-sm text-muted-foreground">
+                                Mostrando {professors.length} de {total} profesores
+                            </div>
+                            <TablePagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                canPrevPage={canPrevPage}
+                                canNextPage={canNextPage}
+                                onPageChange={goToPage}
+                                onPrevPage={prevPage}
+                                onNextPage={nextPage}
+                            />
+                        </div>
                     </CardContent>
                 </Card>
 
