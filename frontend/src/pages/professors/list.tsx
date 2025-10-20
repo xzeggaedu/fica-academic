@@ -1,6 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useList, CanAccess, useCan, useUpdate, useInvalidate, useCreate } from "@refinedev/core";
-import { toast } from "sonner";
+import React, { useState, useMemo, useEffect, use } from "react";
+import { CanAccess } from "@refinedev/core";
 import { TablePagination } from "../../components/ui/data/table-pagination";
 import {
     Table,
@@ -29,6 +28,7 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { ProfessorFormSheet } from "../../components/ui/professors/professor-form-sheet";
 import { useTablePagination } from "../../hooks/useTablePagination";
+import { useProfessorsCrud } from "../../hooks/useProfessorsCrud";
 
 interface Professor {
     id: number;
@@ -51,27 +51,33 @@ interface Professor {
 }
 
 export const ProfessorList = () => {
-    // Verificar permisos primero
-    const { data: canAccess } = useCan({
-        resource: "professors",
-        action: "list",
-    });
+    // Hook CRUD centralizado
+    const {
+        canAccess,
+        itemsList: professorsList,
+        total,
+        isLoading,
+        createItem,
+        updateItem,
+        softDeleteItem,
+        editingItem: editingProfessor,
+        setEditingItem: setEditingProfessor,
+        isCreateModalOpen,
+        setIsCreateModalOpen,
+        isEditModalOpen,
+        setIsEditModalOpen,
+        isCreating,
+        isUpdating,
+        isDeleting,
+    } = useProfessorsCrud();
 
-    // Hook para obtener datos de professors
-    const { query, result } = useList<Professor>({
-        resource: "professors",
-        queryOptions: {
-            enabled: canAccess?.can ?? false,
-        },
-    });
-
-    const professorsList = result?.data || [];
-    const isLoading = query.isLoading;
+    // useEffect(() => {
+    //     console.log(professorsList[0]);
+    // }, [professorsList]);
 
     // Hook de paginación y búsqueda (stateless)
     const {
         paginatedData: professors,
-        total,
         currentPage,
         totalPages,
         canPrevPage,
@@ -86,163 +92,11 @@ export const ProfessorList = () => {
         initialPageSize: 10,
     });
 
-    // Hooks para operaciones CRUD
-    const { mutate: softDeleteProfessor, mutation: deleteState } = useUpdate();
-    const { mutate: createProfessor, mutation: createState } = useCreate();
-    const { mutate: updateProfessor, mutation: updateState } = useUpdate();
-    const invalidate = useInvalidate();
-    const isDeleting = deleteState.isPending;
-    const isCreating = createState.isPending;
-    const isUpdating = updateState.isPending;
-
-    // Función para manejar eliminación de profesor (soft delete)
-    const handleDeleteProfessor = (professorId: number, professorName: string) => {
-        softDeleteProfessor(
-            {
-                resource: "soft-delete",
-                id: professorId,
-                values: { type: "catalog/professors" },
-                successNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    invalidate({
-                        resource: "professors",
-                        invalidates: ["list"],
-                    });
-
-                    toast.success('Profesor movido a papelera', {
-                        description: `El profesor "${professorName}" ha sido movido a la papelera de reciclaje.`,
-                        richColors: true,
-                    });
-                },
-                onError: (error) => {
-                    console.error("ProfessorList - Soft delete error:", error);
-                    toast.error('Error al mover a papelera', {
-                        description: error.message,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para manejar creación de profesor
-    const handleCreateProfessor = (professorData: any, onSuccessCallback?: () => void) => {
-        createProfessor(
-            {
-                resource: "professors",
-                values: professorData,
-                successNotification: false,
-                errorNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    toast.success('Profesor creado exitosamente', {
-                        description: `El profesor "${professorData.professor_name}" ha sido creado correctamente.`,
-                        richColors: true,
-                    });
-                    if (onSuccessCallback) {
-                        onSuccessCallback();
-                    }
-                },
-                onError: (error) => {
-                    console.error("ProfessorList - Create error:", error);
-                    const errorMessage = error?.message || "Error desconocido al crear profesor";
-                    toast.error('Error al crear profesor', {
-                        description: errorMessage,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para manejar actualización de profesor
-    const handleUpdateProfessor = (professorId: number, professorData: any, onSuccessCallback?: () => void) => {
-        updateProfessor(
-            {
-                resource: "professors",
-                id: professorId,
-                values: professorData,
-                successNotification: false,
-                errorNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    toast.success('Profesor actualizado exitosamente', {
-                        description: `El profesor "${professorData.professor_name}" ha sido actualizado correctamente.`,
-                        richColors: true,
-                    });
-                    if (onSuccessCallback) {
-                        onSuccessCallback();
-                    }
-                },
-                onError: (error) => {
-                    console.error("ProfessorList - Update error:", error);
-                    const errorMessage = error?.message || "Error desconocido al actualizar profesor";
-                    toast.error('Error al actualizar profesor', {
-                        description: errorMessage,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para abrir el sheet en modo crear
-    const handleOpenCreateSheet = () => {
-        setEditingProfessor(null);
-        setFormData({
-            professor_id: "",
-            professor_name: "",
-            institutional_email: "",
-            personal_email: "",
-            phone_number: "",
-            professor_category: "",
-            academic_title: "",
-            doctorates: 0,
-            masters: 0,
-            is_bilingual: false,
-            is_paid: true,
-            is_active: true,
-        });
-        setSheetOpen(true);
-    };
-
-    // Función para abrir el sheet en modo editar
-    const handleOpenEditSheet = (professor: Professor) => {
-        setEditingProfessor(professor);
-        setFormData({
-            professor_id: professor.professor_id,
-            professor_name: professor.professor_name,
-            institutional_email: professor.institutional_email || "",
-            personal_email: professor.personal_email || "",
-            phone_number: professor.phone_number || "",
-            professor_category: professor.professor_category || "",
-            academic_title: professor.academic_title || "",
-            doctorates: professor.doctorates || 0,
-            masters: professor.masters || 0,
-            is_bilingual: professor.is_bilingual || false,
-            is_paid: professor.is_paid || true,
-            is_active: professor.is_active || true,
-        });
-        setSheetOpen(true);
-    };
-
-    // Función para cerrar el sheet
-    const handleCloseSheet = () => {
-        setSheetOpen(false);
-        setEditingProfessor(null);
-    };
-
     // Estados para el diálogo de eliminación
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedProfessor, setSelectedProfessor] = useState<{ id: number; name: string } | null>(null);
 
-    // Estados para el sheet de crear/editar
-    const [sheetOpen, setSheetOpen] = useState(false);
-    const [editingProfessor, setEditingProfessor] = useState<Professor | null>(null);
+    // Estado para el formulario
     const [formData, setFormData] = useState({
         professor_id: "",
         professor_name: "",
@@ -270,6 +124,73 @@ export const ProfessorList = () => {
         is_paid: true,
         is_active: true,
     });
+
+    // Función para abrir el sheet en modo crear
+    const handleOpenCreateSheet = () => {
+        setEditingProfessor(null);
+        setFormData({
+            professor_id: "",
+            professor_name: "",
+            institutional_email: "",
+            personal_email: "",
+            phone_number: "",
+            professor_category: "",
+            academic_title: "",
+            doctorates: 0,
+            masters: 0,
+            is_bilingual: false,
+            is_paid: true,
+            is_active: true,
+        });
+        setIsCreateModalOpen(true);
+    };
+
+    // Función para abrir el sheet en modo editar
+    const handleOpenEditSheet = (professor: Professor) => {
+        setEditingProfessor(professor);
+        setFormData({
+            professor_id: professor.professor_id,
+            professor_name: professor.professor_name,
+            institutional_email: professor.institutional_email || "",
+            personal_email: professor.personal_email || "",
+            phone_number: professor.phone_number || "",
+            professor_category: professor.professor_category || "",
+            academic_title: professor.academic_title || "",
+            doctorates: professor.doctorates || 0,
+            masters: professor.masters || 0,
+            is_bilingual: professor.is_bilingual || false,
+            is_paid: professor.is_paid || true,
+            is_active: professor.is_active || true,
+        });
+        setIsEditModalOpen(true);
+    };
+
+    // Función para cerrar el sheet
+    const handleCloseSheet = () => {
+        setIsCreateModalOpen(false);
+        setIsEditModalOpen(false);
+        setEditingProfessor(null);
+    };
+
+    // Sincronizar formData cuando cambie editingProfessor
+    useEffect(() => {
+        if (editingProfessor) {
+            setFormData({
+                professor_id: editingProfessor.professor_id,
+                professor_name: editingProfessor.professor_name,
+                institutional_email: editingProfessor.institutional_email || "",
+                personal_email: editingProfessor.personal_email || "",
+                phone_number: editingProfessor.phone_number || "",
+                professor_category: editingProfessor.professor_category || "",
+                academic_title: editingProfessor.academic_title || "",
+                doctorates: editingProfessor.doctorates || 0,
+                masters: editingProfessor.masters || 0,
+                is_bilingual: editingProfessor.is_bilingual || false,
+                is_paid: editingProfessor.is_paid || true,
+                is_active: editingProfessor.is_active || true,
+            });
+        }
+    }, [editingProfessor]);
 
     // Verificar si el usuario no tiene permisos
     if (canAccess?.can === false) {
@@ -605,8 +526,16 @@ export const ProfessorList = () => {
                         entityType="profesor"
                         entityName={selectedProfessor.name}
                         isOpen={deleteDialogOpen}
-                        onClose={() => setDeleteDialogOpen(false)}
-                        onConfirm={() => handleDeleteProfessor(selectedProfessor.id, selectedProfessor.name)}
+                        onClose={() => {
+                            setDeleteDialogOpen(false);
+                            setSelectedProfessor(null);
+                        }}
+                        onConfirm={() => {
+                            softDeleteItem(selectedProfessor.id, selectedProfessor.name, () => {
+                                setDeleteDialogOpen(false);
+                                setSelectedProfessor(null);
+                            });
+                        }}
                         isDeleting={isDeleting}
                         gender="m"
                     />
@@ -614,16 +543,28 @@ export const ProfessorList = () => {
 
                 {/* Sheet de crear/editar profesor */}
                 <ProfessorFormSheet
-                    isOpen={sheetOpen}
+                    isOpen={isCreateModalOpen || isEditModalOpen}
                     onClose={handleCloseSheet}
                     editingProfessor={editingProfessor}
                     formData={formData}
                     onFormChange={setFormData}
                     onSubmit={() => {
+                        // Limpiar espacios en blanco al inicio y final
+                        const cleanedFormData = {
+                            ...formData,
+                            professor_id: formData.professor_id.trim(),
+                            professor_name: formData.professor_name.trim(),
+                            institutional_email: formData.institutional_email.trim(),
+                            personal_email: formData.personal_email.trim(),
+                            phone_number: formData.phone_number.trim(),
+                            professor_category: formData.professor_category.trim(),
+                            academic_title: formData.academic_title.trim(),
+                        };
+
                         if (editingProfessor) {
-                            handleUpdateProfessor(editingProfessor.id, formData, handleCloseSheet);
+                            updateItem(editingProfessor.id, cleanedFormData, handleCloseSheet);
                         } else {
-                            handleCreateProfessor(formData, handleCloseSheet);
+                            createItem(cleanedFormData, handleCloseSheet);
                         }
                     }}
                     isSubmitting={isCreating || isUpdating}

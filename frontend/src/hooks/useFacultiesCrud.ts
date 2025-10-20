@@ -1,23 +1,45 @@
 import { useState } from "react";
 import { useCreate, useUpdate, useList, useCan, useInvalidate } from "@refinedev/core";
 import { toast } from "sonner";
+import type { CrudFilters } from "@refinedev/core";
 import type { Faculty, FacultyCreate, FacultyUpdate } from "@/types/api";
 
-export const useFacultiesCrud = () => {
+interface UseFacultiesCrudProps {
+  isActiveOnly?: boolean;
+  enabled?: boolean;
+  pageSize?: number;
+}
+
+export const useFacultiesCrud = (props?: UseFacultiesCrudProps) => {
+  const { isActiveOnly = false, enabled = true, pageSize = 1000 } = props || {};
+
   // Permisos
   const { data: canAccess } = useCan({ resource: "faculty", action: "list" });
   const { data: canCreate } = useCan({ resource: "faculty", action: "create" });
   const { data: canEdit } = useCan({ resource: "faculty", action: "edit" });
   const { data: canDelete } = useCan({ resource: "faculty", action: "delete" });
 
-  // Hook de useList para la lista principal
+  // Construir filtros dinámicamente
+  const filters: CrudFilters = [];
+  if (isActiveOnly) {
+    filters.push({
+      field: "is_active",
+      operator: "eq",
+      value: true,
+    });
+  }
+
+  // Hook de useList para la lista principal (con filtros y paginación opcionales)
   const { query, result } = useList<Faculty>({
-    resource: "faculty",
+    resource: "faculties",
     queryOptions: {
-      enabled: canAccess?.can ?? false,
+      enabled: enabled && (canAccess?.can ?? false),
     },
+    filters: filters.length > 0 ? filters : undefined,
     pagination: {
-      mode: "off",
+      currentPage: 1,
+      pageSize: pageSize,
+      mode: "server",
     },
   });
 
@@ -54,6 +76,7 @@ export const useFacultiesCrud = () => {
       {
         onSuccess: () => {
           invalidate({ resource: "faculty", invalidates: ["list"] });
+          invalidate({ resource: "faculties", invalidates: ["list"] });
           setIsCreateModalOpen(false);
           toast.success("Facultad creada exitosamente", {
             description: `La facultad "${values.name}" ha sido creada correctamente.`,
@@ -86,6 +109,7 @@ export const useFacultiesCrud = () => {
       {
         onSuccess: () => {
           invalidate({ resource: "faculty", invalidates: ["list"] });
+          invalidate({ resource: "faculties", invalidates: ["list"] });
           setIsEditModalOpen(false);
           setEditingItem(null);
           toast.success("Facultad actualizada exitosamente", {
@@ -119,6 +143,7 @@ export const useFacultiesCrud = () => {
       {
         onSuccess: () => {
           invalidate({ resource: "faculty", invalidates: ["list"] });
+          invalidate({ resource: "faculties", invalidates: ["list"] });
           toast.success("Facultad movida a papelera", {
             description: `La facultad "${entityName}" ha sido movida a la papelera de reciclaje.`,
             richColors: true,

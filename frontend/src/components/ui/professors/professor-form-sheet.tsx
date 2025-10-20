@@ -102,7 +102,7 @@ export function ProfessorFormSheet({
                 <Input
                   placeholder=""
                   value={formData.professor_name}
-                  onChange={(e) => onFormChange({ ...formData, professor_name: e.target.value })}
+                  onChange={(e) => onFormChange({ ...formData, professor_name: e.target.value.trim() })}
                 />
               </div>
             </div>
@@ -114,7 +114,7 @@ export function ProfessorFormSheet({
                 <Input
                   placeholder="Ej: P001"
                   value={formData.professor_id}
-                  onChange={(e) => onFormChange({ ...formData, professor_id: e.target.value.toUpperCase() })}
+                  onChange={(e) => onFormChange({ ...formData, professor_id: e.target.value.trim().toUpperCase() })}
                   maxLength={20}
                 />
               </div>
@@ -145,7 +145,7 @@ export function ProfessorFormSheet({
                 <Input
                   placeholder="7777-7777"
                   value={formData.phone_number}
-                  onChange={(e) => onFormChange({ ...formData, phone_number: e.target.value })}
+                  onChange={(e) => onFormChange({ ...formData, phone_number: e.target.value.trim() })}
                 />
               </div>
               <div className="space-y-2 flex-1">
@@ -155,7 +155,7 @@ export function ProfessorFormSheet({
                   className="w-full"
                   placeholder="profesor@utec.edu.sv"
                   value={formData.institutional_email}
-                  onChange={(e) => onFormChange({ ...formData, institutional_email: e.target.value })}
+                  onChange={(e) => onFormChange({ ...formData, institutional_email: e.target.value.trim() })}
                 />
               </div>
               <div className="space-y-2 flex-1">
@@ -165,7 +165,7 @@ export function ProfessorFormSheet({
                   className="w-full"
                   placeholder="profesor@gmail.com"
                   value={formData.personal_email}
-                  onChange={(e) => onFormChange({ ...formData, personal_email: e.target.value })}
+                  onChange={(e) => onFormChange({ ...formData, personal_email: e.target.value.trim() })}
                 />
               </div>
             </div>

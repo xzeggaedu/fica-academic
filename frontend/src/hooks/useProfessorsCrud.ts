@@ -1,20 +1,45 @@
 import { useState } from "react";
 import { useCreate, useUpdate, useList, useCan, useInvalidate } from "@refinedev/core";
 import { toast } from "sonner";
+import type { CrudFilters } from "@refinedev/core";
 import type { Professor, ProfessorCreate, ProfessorUpdate } from "@/types/api";
 
-export const useProfessorsCrud = () => {
+interface UseProfessorsCrudProps {
+  isActiveOnly?: boolean;
+  enabled?: boolean;
+  pageSize?: number;
+}
+
+export const useProfessorsCrud = (props?: UseProfessorsCrudProps) => {
+  const { isActiveOnly = false, enabled = true, pageSize = 1000 } = props || {};
+
   // Permisos
   const { data: canAccess } = useCan({ resource: "professors", action: "list" });
   const { data: canCreate } = useCan({ resource: "professors", action: "create" });
   const { data: canEdit } = useCan({ resource: "professors", action: "edit" });
   const { data: canDelete } = useCan({ resource: "professors", action: "delete" });
 
-  // Hook de useList para la lista principal
+  // Construir filtros dinámicamente
+  const filters: CrudFilters = [];
+  if (isActiveOnly) {
+    filters.push({
+      field: "is_active",
+      operator: "eq",
+      value: true,
+    });
+  }
+
+  // Hook de useList para la lista principal (con filtros y paginación opcionales)
   const { query, result } = useList<Professor>({
     resource: "professors",
     queryOptions: {
-      enabled: canAccess?.can ?? false,
+      enabled: enabled && (canAccess?.can ?? false),
+    },
+    filters: filters.length > 0 ? filters : undefined,
+    pagination: {
+      currentPage: 1,
+      pageSize: pageSize,
+      mode: "server",
     },
   });
 

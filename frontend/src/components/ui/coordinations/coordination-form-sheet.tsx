@@ -1,11 +1,12 @@
 import React from "react";
-import { useList } from "@refinedev/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
 import { Textarea } from "@/components/ui/forms/textarea";
+import { useFacultiesCrud } from "@/hooks/useFacultiesCrud";
+import { useProfessorsCrud } from "@/hooks/useProfessorsCrud";
 
 interface CoordinationFormData {
   code: string;
@@ -63,23 +64,17 @@ export function CoordinationFormSheet({
   onSubmit,
   isSubmitting,
 }: CoordinationFormSheetProps) {
-  // Cargar facultades activas
-  const { result: facultiesResult } = useList<Faculty>({
-    resource: "faculties",
-    pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
-    filters: [{ field: "is_active", operator: "eq", value: true }],
-    queryOptions: { enabled: isOpen },
+  // Cargar facultades activas solo cuando el sheet está abierto
+  const { itemsList: faculties } = useFacultiesCrud({
+    isActiveOnly: true,
+    enabled: isOpen
   });
 
-  // Cargar profesores activos
-  const { result: professorsResult } = useList<Professor>({
-    resource: "professors",
-    pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
-    queryOptions: { enabled: isOpen },
+  // Cargar profesores activos solo cuando el sheet está abierto
+  const { itemsList: professors } = useProfessorsCrud({
+    isActiveOnly: true,
+    enabled: isOpen
   });
-
-  const faculties = facultiesResult?.data || [];
-  const professors = professorsResult?.data || [];
 
   const isFormValid = formData.code && formData.name && formData.faculty_id;
 
@@ -110,7 +105,7 @@ export function CoordinationFormSheet({
                 <Input
                   placeholder="Ej: RED"
                   value={formData.code}
-                  onChange={(e) => onFormChange({ ...formData, code: e.target.value.toUpperCase() })}
+                  onChange={(e) => onFormChange({ ...formData, code: e.target.value.trim().toUpperCase() })}
                   maxLength={10}
                 />
               </div>
@@ -119,7 +114,7 @@ export function CoordinationFormSheet({
                 <Input
                   placeholder="Ej: Coordinación de Redes"
                   value={formData.name}
-                  onChange={(e) => onFormChange({ ...formData, name: e.target.value })}
+                  onChange={(e) => onFormChange({ ...formData, name: e.target.value.trim() })}
                   maxLength={100}
                 />
               </div>
@@ -131,7 +126,7 @@ export function CoordinationFormSheet({
               <Textarea
                 placeholder="Área de conocimiento que agrupa la coordinación..."
                 value={formData.description}
-                onChange={(e) => onFormChange({ ...formData, description: e.target.value })}
+                onChange={(e) => onFormChange({ ...formData, description: e.target.value.trim() })}
                 rows={3}
               />
             </div>

@@ -28,6 +28,8 @@ import {
 import { CoordinationFormSheet } from "../../components/ui/coordinations/coordination-form-sheet";
 import { useTablePagination } from "../../hooks/useTablePagination";
 import { useCoordinationsCrud } from "../../hooks/useCoordinationsCrud";
+import { useFacultiesCrud } from "../../hooks/useFacultiesCrud";
+import { useProfessorsCrud } from "../../hooks/useProfessorsCrud";
 
 interface Coordination {
     id: number;
@@ -95,22 +97,9 @@ export const CoordinationList = () => {
         initialPageSize: 10,
     });
 
-    // Cargar facultades para mostrar nombres
-    const { result: facultiesResult } = useList<Faculty>({
-        resource: "faculties",
-        pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
-        queryOptions: { enabled: canAccess?.can ?? false },
-    });
-
-    // Cargar profesores para mostrar nombres
-    const { result: professorsResult } = useList<Professor>({
-        resource: "professors",
-        pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
-        queryOptions: { enabled: canAccess?.can ?? false },
-    });
-
-    const faculties = facultiesResult?.data || [];
-    const professors = professorsResult?.data || [];
+    // Cargar facultades y profesores usando sus hooks
+    const { itemsList: faculties } = useFacultiesCrud();
+    const { itemsList: professors } = useProfessorsCrud();
 
     // Helpers para obtener nombres
     const getFacultyName = (facultyId: number) => {
@@ -158,6 +147,20 @@ export const CoordinationList = () => {
         setIsEditModalOpen(false);
         setEditingItem(null);
     };
+
+    // Sincronizar formData cuando cambie editingItem
+    useEffect(() => {
+        if (editingItem) {
+            setFormData({
+                code: editingItem.code,
+                name: editingItem.name,
+                description: editingItem.description || "",
+                faculty_id: editingItem.faculty_id,
+                coordinator_professor_id: editingItem.coordinator_professor_id,
+                is_active: editingItem.is_active,
+            });
+        }
+    }, [editingItem]);
 
     // Estados para el diálogo de eliminación
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -455,10 +458,18 @@ export const CoordinationList = () => {
                     formData={formData}
                     onFormChange={setFormData}
                     onSubmit={() => {
+                        // Limpiar espacios en blanco al inicio y final
+                        const cleanedFormData = {
+                            ...formData,
+                            code: formData.code.trim(),
+                            name: formData.name.trim(),
+                            description: formData.description.trim(),
+                        };
+
                         if (editingItem) {
-                            updateItem(editingItem.id, formData, handleCloseSheet);
+                            updateItem(editingItem.id, cleanedFormData, handleCloseSheet);
                         } else {
-                            createItem(formData, handleCloseSheet);
+                            createItem(cleanedFormData, handleCloseSheet);
                         }
                     }}
                     isSubmitting={isCreating || isUpdating}
