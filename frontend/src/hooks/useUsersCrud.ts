@@ -10,9 +10,14 @@ export const useUsersCrud = () => {
   const { data: canEdit } = useCan({ resource: "users", action: "edit" });
   const { data: canDelete } = useCan({ resource: "users", action: "delete" });
 
-  // Hook de useList para la lista principal
+  // Hook de useList para la lista principal (cargar todos los registros)
   const { query, result } = useList<User>({
     resource: "users",
+    pagination: {
+      currentPage: 1,
+      pageSize: 1000, // Cargar todos los registros para paginación client-side
+      mode: "server",
+    },
     queryOptions: {
       enabled: canAccess?.can ?? false,
     },
@@ -28,6 +33,7 @@ export const useUsersCrud = () => {
   // Hooks de Refine para operaciones CRUD
   const { mutate: createMutate, mutation: createMutation } = useCreate();
   const { mutate: updateMutate, mutation: updateMutation } = useUpdate();
+  const { mutate: updatePasswordMutate, mutation: updatePasswordMutation } = useUpdate();
   const { mutate: softDeleteMutate, mutation: softDeleteMutation } = useUpdate();
   const invalidate = useInvalidate();
 
@@ -39,6 +45,7 @@ export const useUsersCrud = () => {
   // Estados de carga
   const isCreating = createMutation.isPending;
   const isUpdating = updateMutation.isPending;
+  const isUpdatingPassword = updatePasswordMutation.isPending;
   const isDeleting = softDeleteMutation.isPending;
 
   // Función para crear usuario
@@ -125,7 +132,7 @@ export const useUsersCrud = () => {
       },
       {
         onSuccess: () => {
-          invalidate({ resource: "users", invalidates: ["list"] });
+          invalidate({ resource: "users", invalidates: ["all", "list"] });
           toast.success("Usuario movido a papelera", {
             description: `El usuario "${entityName}" ha sido movido a la papelera de reciclaje.`,
             richColors: true,
@@ -135,6 +142,45 @@ export const useUsersCrud = () => {
         onError: (error) => {
           toast.error("Error al mover a papelera", {
             description: error?.message || "Error desconocido",
+            richColors: true,
+          });
+          onError?.(error);
+        },
+      }
+    );
+  };
+
+  // Función para cambiar contraseña de usuario (endpoint especial)
+  const updatePassword = (
+    id: string,
+    passwordData: { current_password?: string; new_password: string },
+    onSuccess?: () => void,
+    onError?: (error: any) => void
+  ) => {
+    updatePasswordMutate(
+      {
+        resource: "users",
+        id: `${id}/password`,
+        values: passwordData,
+        successNotification: false,
+        errorNotification: false,
+        meta: {
+          method: "patch",
+        },
+        invalidates: [], // No invalida automáticamente
+      },
+      {
+        onSuccess: () => {
+          toast.success("Contraseña actualizada", {
+            description: "La contraseña ha sido cambiada correctamente.",
+            richColors: true,
+          });
+          onSuccess?.();
+        },
+        onError: (error) => {
+          const errorMessage = error?.message || "Error al cambiar contraseña";
+          toast.error("Error al cambiar contraseña", {
+            description: errorMessage,
             richColors: true,
           });
           onError?.(error);
@@ -160,6 +206,7 @@ export const useUsersCrud = () => {
     createItem,
     updateItem,
     softDeleteItem,
+    updatePassword,
 
     // Estados UI
     editingItem,
@@ -172,6 +219,7 @@ export const useUsersCrud = () => {
     // Estados de carga
     isCreating,
     isUpdating,
+    isUpdatingPassword,
     isDeleting,
   };
 };

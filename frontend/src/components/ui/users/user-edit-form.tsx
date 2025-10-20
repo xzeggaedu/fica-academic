@@ -138,8 +138,12 @@ export function UserEditForm({
         payload.new_password = passwordData.new_password;
       }
 
-      if (isCurrentUser && passwordData.current_password.trim()) {
-        payload.current_password = passwordData.current_password;
+      // Siempre incluir current_password: null si es admin, o el valor si es el usuario actual
+      if (isCurrentUser) {
+        payload.current_password = passwordData.current_password.trim() || null;
+      } else {
+        // Admin cambiando contraseña de otro usuario - enviar null
+        payload.current_password = null;
       }
 
       // Validar formulario de contraseña

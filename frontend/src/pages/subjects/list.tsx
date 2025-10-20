@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useList, useCreate, useUpdate, useDelete, CanAccess, useCan, useInvalidate } from "@refinedev/core";
+import { CanAccess } from "@refinedev/core";
 import {
   Table,
   TableBody,
@@ -32,7 +32,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/forms/checkbox";
-import type { Subject, SubjectCreate, SubjectUpdate, Faculty, School } from "@/types/api";
+import type { Subject, SubjectCreate, SubjectUpdate, School } from "@/types/api";
 import { getTableColumnClass } from "@/components/refine-ui/theme/theme-table";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Unauthorized } from "../unauthorized";
@@ -43,25 +43,39 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useTablePagination } from "@/hooks/useTablePagination";
+import { useSubjectsCrud } from "@/hooks/useSubjectsCrud";
+import { useFacultiesCrud } from "@/hooks/useFacultiesCrud";
+import { useSchoolsCrud } from "@/hooks/useSchoolsCrud";
 
 export const SubjectsList = () => {
-  // Verificar permisos primero
-  const { data: canAccess } = useCan({
-    resource: "subjects",
-    action: "list",
-  });
+  // Hook principal de asignaturas con todas las operaciones CRUD
+  const {
+    canAccess,
+    canCreate,
+    canEdit,
+    canDelete,
+    itemsList: subjectsData,
+    isLoading: subjectsLoading,
+    isError: subjectsError,
+    createItem: createSubject,
+    updateItem: updateSubject,
+    softDeleteItem: softDeleteSubject,
+    updateSingleField,
+    isCreating: creating,
+    isUpdating: updating,
+    isDeleting: deleting,
+  } = useSubjectsCrud();
 
-  // Hook para obtener datos de subjects
-  const { query, result } = useList<Subject>({
-    resource: "subjects",
-    queryOptions: {
-      enabled: canAccess?.can ?? false,
-    },
-  });
+  // Hooks para entidades relacionadas
+  const {
+    itemsList: faculties,
+    isLoading: facultiesLoading,
+  } = useFacultiesCrud({ isActiveOnly: true });
 
-  const subjectsData = result?.data || [];
-  const subjectsLoading = query.isLoading;
-  const subjectsError = query.isError;
+  const {
+    itemsList: schools,
+    isLoading: schoolsLoading,
+  } = useSchoolsCrud({ isActiveOnly: true });
 
   // Hook de paginación y búsqueda (stateless)
   const {
@@ -81,40 +95,8 @@ export const SubjectsList = () => {
     initialPageSize: 10,
   });
 
-  // Facultades y Escuelas con hooks de Refine
-  const { query: facultiesQuery, result: facultiesResult } = useList<Faculty>({
-    resource: "faculties",
-    pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
-    filters: [{ field: "is_active", operator: "eq", value: true }],
-    queryOptions: {
-      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
-    },
-  });
-  const { query: schoolsQuery, result: schoolsResult } = useList<School>({
-    resource: "schools",
-    pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
-    filters: [{ field: "is_active", operator: "eq", value: true }],
-    queryOptions: {
-      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
-    },
-    successNotification: false,
-    errorNotification: false,
-  });
-
-  // Hooks para operaciones CRUD con configuración correcta según documentación de Refine
-  const { mutate: createSubject, mutation: createState } = useCreate();
-  const { mutate: updateSubject, mutation: updateState } = useUpdate(
-    {
-      successNotification: false,
-      errorNotification: false,
-    }
-  );
-  const { mutate: softDeleteSubject, mutation: softDeleteState } = useUpdate();
-  const invalidate = useInvalidate();
-
-  const creating = createState.isPending;
-  const updating = updateState.isPending;
-  const deleting = softDeleteState.isPending;
+  // Calcular loading general
+  const loading = subjectsLoading || facultiesLoading || schoolsLoading;
 
   // Estados locales
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +114,7 @@ export const SubjectsList = () => {
   });
   const [selectedSchools, setSelectedSchools] = useState<number[]>([]);
 
-  // Estados para edición inline
+  // Estados para edición inline (específicos de UI)
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<SubjectUpdate>({});
@@ -142,13 +124,6 @@ export const SubjectsList = () => {
   // Estado para tracking de switches siendo actualizados
   const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
 
-  // Calcular loading y error states
-  const faculties = facultiesResult?.data || [];
-  const schools = schoolsResult?.data || [];
-  const facultiesLoading = facultiesQuery.isLoading;
-  const schoolsLoading = schoolsQuery.isLoading;
-  const loading = subjectsLoading || facultiesLoading || schoolsLoading;
-
   useEffect(() => {
     if (subjectsError) {
       setError("Error al cargar los cursos");
@@ -156,6 +131,18 @@ export const SubjectsList = () => {
       setError(null);
     }
   }, [subjectsError]);
+
+  // Función local para validar códigos (responsabilidad del componente)
+  const validateCode = (code: string, fieldName: string): boolean => {
+    if (code.includes(' ')) {
+      toast.error("Error de validación", {
+        description: `${fieldName} no puede contener espacios. Use guiones o puntos en su lugar.`,
+        richColors: true,
+      });
+      return false;
+    }
+    return true;
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,19 +156,11 @@ export const SubjectsList = () => {
     }
 
     // Validación de espacios en códigos
-    if (newSubject.subject_code.includes(' ')) {
-      toast.error("Error de validación", {
-        description: "El código del curso no puede contener espacios. Use guiones o puntos en su lugar.",
-        richColors: true,
-      });
+    if (!validateCode(newSubject.subject_code, "El código del curso")) {
       return;
     }
 
-    if (newSubject.department_code.includes(' ')) {
-      toast.error("Error de validación", {
-        description: "El código del departamento no puede contener espacios. Use guiones o puntos en su lugar.",
-        richColors: true,
-      });
+    if (!validateCode(newSubject.department_code, "El código del departamento")) {
       return;
     }
 
@@ -198,38 +177,16 @@ export const SubjectsList = () => {
       school_ids: selectedSchools,
     };
 
-    createSubject(
-      {
-        resource: "subjects",
-        values: subjectData,
-      },
-      {
-        onSuccess: () => {
-          toast.success("Éxito", {
-            description: "Asignatura creada exitosamente",
-            richColors: true,
-          });
-
-          // Limpiar formulario
-          setNewSubject({
-            subject_code: "",
-            subject_name: "",
-            department_code: "",
-            is_bilingual: false,
-            school_ids: [],
-          });
-          setSelectedSchools([]);
-          // Refine automáticamente invalida y refresca la lista
-        },
-        onError: (error: any) => {
-          console.error("Error creating subject:", error);
-          toast.error("Error", {
-            description: "Error al crear la asignatura",
-            richColors: true,
-          });
-        },
-      }
-    );
+    createSubject(subjectData, () => {
+      setNewSubject({
+        subject_code: "",
+        subject_name: "",
+        department_code: "",
+        is_bilingual: false,
+        school_ids: [],
+      });
+      setSelectedSchools([]);
+    });
   };
 
   const handleEdit = (subject: Subject, field?: string) => {
@@ -250,64 +207,26 @@ export const SubjectsList = () => {
     field: keyof SubjectUpdate,
     value: string | boolean | undefined
   ) => {
-    // Validación previa para campos de código
-    if (field === 'subject_code' || field === 'department_code') {
-      if (typeof value === 'string' && value.includes(' ')) {
-        toast.error("Error de validación", {
-          description: `${field === 'subject_code' ? 'El código del curso' : 'El código del departamento'} no puede contener espacios. Use guiones o puntos en su lugar.`,
-          richColors: true
-        });
-        return;
-      }
+    // Validación previa para campos de código (responsabilidad del componente)
+    if (field === 'subject_code' && typeof value === 'string') {
+      if (!validateCode(value, 'El código del curso')) return;
+    }
+    if (field === 'department_code' && typeof value === 'string') {
+      if (!validateCode(value, 'El código del departamento')) return;
     }
 
-    // Guardar solo si hay cambios reales
+    // Obtener el valor actual para comparación
     const current = subjectsList.find((c) => c.id === id);
-    if (current) {
-      const currentValue = (current as any)[field];
-      if (currentValue === value) {
-        setEditingId(null);
-        setEditingField(null);
-        setEditForm({});
-        return;
-      }
-    }
-    const payload: SubjectUpdate = { [field]: value } as SubjectUpdate;
-    updateSubject(
-      {
-        resource: "subjects",
-        id,
-        values: payload,
-      },
-      {
-        onSuccess: () => {
-          toast.success("Éxito", { description: "Asignatura actualizada", richColors: true });
-          setEditingId(null);
-          setEditingField(null);
-          setEditForm({});
-          // Invalidar schools para refrescar datos relacionados
-          invalidate({ resource: "schools", invalidates: ["list"] });
-          // Refine automáticamente invalida y refresca la lista de subjects
-        },
-        onError: (error: any) => {
-          console.error("Error updating field:", error);
+    if (!current) return;
 
-          // Manejar errores específicos del backend
-          let errorMessage = "No se pudo actualizar";
-          if (error?.response?.data?.detail) {
-            if (error.response.data.detail.includes("espacios")) {
-              errorMessage = error.response.data.detail;
-            } else if (error.response.data.detail.includes("Ya existe")) {
-              errorMessage = error.response.data.detail;
-            } else {
-              errorMessage = error.response.data.detail;
-            }
-          }
+    const currentValue = (current as any)[field];
 
-          toast.error("Error", { description: errorMessage, richColors: true });
-        },
-      }
-    );
+    // Usar la función del hook para actualizar con optimistic updates
+    updateSingleField(id, field, value, currentValue, () => {
+      setEditingId(null);
+      setEditingField(null);
+      setEditForm({});
+    });
   };
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
@@ -315,38 +234,23 @@ export const SubjectsList = () => {
     setTogglingIds(prev => new Set(prev).add(id));
 
     updateSubject(
-      {
-        resource: "subjects",
-        id,
-        values: { is_active: !currentStatus },
+      id,
+      { is_active: !currentStatus },
+      () => {
+        // Quitar ID del set
+        setTogglingIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       },
-      {
-        onSuccess: (data) => {
-          toast.success("Éxito", {
-            description: `Curso ${!currentStatus ? "activado" : "desactivado"} exitosamente`,
-            richColors: true,
-          });
-          // Quitar ID del set
-          setTogglingIds(prev => {
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-          });
-          // Refine automáticamente invalida y refresca la lista
-        },
-        onError: (error: any) => {
-          console.error("Error toggling subject status:", error);
-          toast.error("Error", {
-            description: "Error al cambiar el estado de la asignatura",
-            richColors: true,
-          });
-          // Quitar ID del set en caso de error también
-          setTogglingIds(prev => {
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-          });
-        },
+      () => {
+        // Quitar ID del set en caso de error también
+        setTogglingIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       }
     );
   };
@@ -362,35 +266,10 @@ export const SubjectsList = () => {
   const handleConfirmDelete = () => {
     if (!subjectToDelete) return;
     const { id, name } = subjectToDelete;
-    softDeleteSubject(
-      {
-        resource: "soft-delete",
-        id,
-        values: { type: "catalog/subjects" },
-        successNotification: false,
-      },
-      {
-        onSuccess: () => {
-          invalidate({
-            resource: "subjects",
-            invalidates: ["list"],
-          });
-          toast.success("Asignatura movida a papelera", {
-            description: `La asignatura "${name}" ha sido movida a la papelera de reciclaje.`,
-            richColors: true,
-          });
-          setDeleteDialogOpen(false);
-          setSubjectToDelete(null);
-        },
-        onError: (error: any) => {
-          console.error("Error deleting subject:", error);
-          toast.error("Error al mover a papelera", {
-            description: error?.message || "Error desconocido",
-            richColors: true,
-          });
-        },
-      }
-    );
+    softDeleteSubject(id, name, () => {
+      setDeleteDialogOpen(false);
+      setSubjectToDelete(null);
+    });
   };
 
   // Agrupar escuelas por facultad
@@ -759,20 +638,12 @@ export const SubjectsList = () => {
                             <Checkbox
                               checked={subject.is_bilingual}
                               onCheckedChange={(checked) => {
-                                updateSubject({
-                                  resource: "subjects",
-                                  id: subject.id,
-                                  values: { is_bilingual: checked === true },
-                                  mutationMode: "optimistic",
-                                }, {
-                                  onSuccess: () => {
-                                    invalidate({ resource: "subjects", invalidates: ["list"] });
-                                    toast.success("Estado bilingüe actualizado correctamente");
-                                  },
-                                  onError: () => {
-                                    toast.error("Error al actualizar el estado bilingüe");
-                                  },
-                                });
+                                updateSingleField(
+                                  subject.id,
+                                  'is_bilingual',
+                                  checked === true,
+                                  subject.is_bilingual
+                                );
                               }}
                               disabled={deleting || updating}
                             />
@@ -827,30 +698,16 @@ export const SubjectsList = () => {
                                                   const nextSorted = [...next].sort();
                                                   const same = currentIds.length === nextSorted.length && currentIds.every((v, i) => v === nextSorted[i]);
                                                   if (same) return;
-                                                  // Actualizar escuelas
-                                                  updateSubject(
-                                                    {
-                                                      resource: "subjects",
-                                                      id: subject.id,
-                                                      values: { school_ids: next },
-                                                    },
-                                                    {
-                                                      onSuccess: () => {
-                                                        toast.success("Éxito", {
-                                                          description: "Escuelas actualizadas",
-                                                          richColors: true,
-                                                        });
-                                                        // Refine automáticamente invalida y refresca la lista
-                                                      },
-                                                      onError: (error: any) => {
-                                                        console.error("Error updating subject schools:", error);
-                                                        toast.error("Error", {
-                                                          description: "No se pudieron actualizar las escuelas",
-                                                          richColors: true,
-                                                        });
-                                                        // Revertir cambio en UI
-                                                        setEditingSchools(subject.schools?.map((cs) => cs.school_id) || []);
-                                                      },
+                                                  // Actualizar escuelas usando la función del hook
+                                                  updateSingleField(
+                                                    subject.id,
+                                                    'school_ids',
+                                                    next,
+                                                    currentIds,
+                                                    undefined,
+                                                    () => {
+                                                      // Revertir cambio en UI en caso de error
+                                                      setEditingSchools(subject.schools?.map((cs) => cs.school_id) || []);
                                                     }
                                                   );
                                                 }}

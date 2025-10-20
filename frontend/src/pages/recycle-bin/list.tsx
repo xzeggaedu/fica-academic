@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useCallback } from "react";
-import { useList, CanAccess, useCan, useUpdate, useDelete, useInvalidate, useGetIdentity } from "@refinedev/core";
-import { useQueryClient } from "@tanstack/react-query";
+import { CanAccess } from "@refinedev/core";
 import { toast } from "sonner";
 import { Trash2, RotateCcw, Archive, Users, Building2, BookOpen, Calendar, ChevronDown, Settings2, Clock } from "lucide-react";
+import { useRecycleBinCrud, RecycleBinItem } from "../../hooks/useRecycleBinCrud";
 import {
     Table,
     TableBody,
@@ -49,79 +49,38 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Unauthorized } from "../unauthorized";
 
-interface RecycleBinItem {
-    id: number;
-    entity_type: string;
-    entity_id: string;
-    entity_display_name: string;
-    deleted_by_name: string;
-    deleted_at: string;
-    reason?: string;
-    can_restore: boolean;
-    restored_at?: string;
-    restored_by_name?: string;
-}
-
 export const RecycleBinList = () => {
-    // Obtener usuario actual
-    const { data: currentUser } = useGetIdentity<{
-        id: string;
-        name: string;
-        email: string;
-    }>();
-
-    // Verificar permisos primero
-    const { data: canAccess } = useCan({
-        resource: "recycle-bin",
-        action: "list",
-    });
+    // Hook principal de papelera con operaciones CRUD
+    const {
+        canAccess,
+        itemsList: items,
+        total,
+        isLoading: queryIsLoading,
+        isError: queryIsError,
+        restoreItem,
+        deleteItem,
+        isRestoring,
+        isDeleting,
+    } = useRecycleBinCrud({ pageSize: 10 });
 
     // Estados para paginación
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
 
-    const { query, result } = useList({
-        resource: "recycle-bin",
-        pagination: {
-            currentPage: currentPage,
-            pageSize: pageSize,
-            mode: "server",
-        },
-        sorters: [
-            {
-                field: "deleted_at",
-                order: "desc",
-            },
-        ],
-        queryOptions: {
-            enabled: canAccess?.can ?? false,
-        },
-        successNotification: false,
-        errorNotification: false,
-    });
-
-    const queryClient = useQueryClient();
-
-    // Hooks para operaciones de papelera
-    const { mutate: restoreItem, mutation: restoreMutation } = useUpdate();
-    const { mutate: permanentDelete, mutation: deleteMutation } = useDelete();
-    const invalidate = useInvalidate();
-
-    const isRestoring = restoreMutation.isPending;
-    const isDeleting = deleteMutation.isPending;
-
-    // Estados para modales
+    // Estados para modales y validaciones (responsabilidad de la vista)
     const [selectedItem, setSelectedItem] = useState<RecycleBinItem | null>(null);
     const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [confirmDeleteDialogOpen, setConfirmDeleteDialogOpen] = useState(false);
     const [confirmationText, setConfirmationText] = useState("");
 
-    // Debug: Monitorear cambios en selectedItem
-    // Debug logging removed for production
+    // Función para validar texto de confirmación
+    const validateConfirmationText = (text: string): boolean => {
+        return text === "eliminar registro permanentemente";
+    };
 
     // Función para formatear fechas
-    const formatDate = (dateString: string) => {
+    const formatDate = (dateString: string): string => {
         try {
             const date = new Date(dateString);
             return date.toLocaleDateString("es-ES", {
@@ -137,27 +96,8 @@ export const RecycleBinList = () => {
         }
     };
 
-    // Función para obtener el icono según el tipo de entidad
-    const getEntityIcon = (entityType: string) => {
-        switch (entityType.toLowerCase()) {
-            case 'user':
-                return <Users className="h-4 w-4" />;
-            case 'faculty':
-                return <Building2 className="h-4 w-4" />;
-            case 'professor':
-                return <Users className="h-4 w-4" />;
-            case 'course':
-                return <BookOpen className="h-4 w-4" />;
-            case 'schedule':
-            case 'schedule-time':
-                return <Calendar className="h-4 w-4" />;
-            default:
-                return <Archive className="h-4 w-4" />;
-        }
-    };
-
     // Función para obtener el color del badge según el tipo
-    const getEntityBadgeColor = (entityType: string) => {
+    const getEntityBadgeColor = (entityType: string): string => {
         switch (entityType.toLowerCase()) {
             case 'user':
                 return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
@@ -175,6 +115,25 @@ export const RecycleBinList = () => {
         }
     };
 
+    // Función para obtener el icono según el tipo de entidad (usando lucide-react)
+    const getEntityIconComponent = (entityType: string) => {
+        switch (entityType.toLowerCase()) {
+            case 'user':
+                return <Users className="h-4 w-4" />;
+            case 'faculty':
+                return <Building2 className="h-4 w-4" />;
+            case 'professor':
+                return <Users className="h-4 w-4" />;
+            case 'course':
+                return <BookOpen className="h-4 w-4" />;
+            case 'schedule':
+            case 'schedule-time':
+                return <Calendar className="h-4 w-4" />;
+            default:
+                return <Archive className="h-4 w-4" />;
+        }
+    };
+
     // Función para manejar restauración
     const handleRestore = (item: RecycleBinItem) => {
         setSelectedItem(item);
@@ -183,40 +142,20 @@ export const RecycleBinList = () => {
 
     // Función para confirmar restauración
     const handleConfirmRestore = () => {
-        if (!selectedItem || !currentUser) return;
-
-        restoreItem(
-            {
-                resource: "recycle-bin-restore",
-                id: selectedItem.id,
-                values: {
-                    restored_by_id: currentUser.id,
-                    restored_by_name: currentUser.name,
-                },
-                successNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    toast.success('Elemento restaurado', {
-                        description: `"${selectedItem.entity_display_name}" ha sido restaurado exitosamente.`,
-                        richColors: true,
-                    });
-                    invalidate({
-                        resource: "recycle-bin",
-                        invalidates: ["list"],
-                    });
-                    setRestoreDialogOpen(false);
-                    setSelectedItem(null);
-                },
-                onError: (error) => {
-                    console.error("Error restoring item:", error);
-                    toast.error('Error al restaurar', {
-                        description: error?.message || 'Error desconocido',
-                        richColors: true,
-                    });
-                },
-            }
-        );
+        if (!selectedItem) return;
+        restoreItem(selectedItem, () => {
+            toast.success("Elemento restaurado", {
+                description: `"${selectedItem.entity_display_name}" ha sido restaurado exitosamente.`,
+                richColors: true,
+            });
+            setRestoreDialogOpen(false);
+            setSelectedItem(null);
+        }, (error) => {
+            toast.error("Error al restaurar", {
+                description: error?.message || "Error desconocido",
+                richColors: true,
+            });
+        });
     };
 
     // Función para manejar eliminación permanente (Paso 1: Abrir primer modal)
@@ -232,7 +171,7 @@ export const RecycleBinList = () => {
 
     // Función para proceder a la confirmación final (Paso 2: Validar texto y abrir segundo modal)
     const handleProceedToFinalConfirmation = async () => {
-        if (confirmationText !== "eliminar registro permanentemente") {
+        if (!validateConfirmationText(confirmationText)) {
             toast.error('Texto de confirmación incorrecto', {
                 description: 'Por favor escribe exactamente "eliminar registro permanentemente"',
                 richColors: true,
@@ -252,49 +191,29 @@ export const RecycleBinList = () => {
 
     // Función para confirmar eliminación permanente (Paso 3: Ejecutar eliminación)
     const handleConfirmPermanentDelete = useCallback((itemToDelete?: RecycleBinItem) => {
-        // Usar el parámetro si está disponible, sino usar el state
         const item = itemToDelete || selectedItem;
+        if (!item) return;
 
-        if (!item) {
-            return;
-        }
-
-        permanentDelete(
-            {
-                resource: "recycle-bin",
-                id: item.id,
-                successNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    toast.success('Elemento eliminado permanentemente', {
-                        description: `"${item.entity_display_name}" ha sido eliminado permanentemente.`,
-                        richColors: true,
-                    });
-                    invalidate({
-                        resource: "recycle-bin",
-                        invalidates: ["list"],
-                    });
-                    setConfirmDeleteDialogOpen(false);
-                    setSelectedItem(null);
-                    setConfirmationText("");
-                },
-                onError: (error) => {
-                    console.error("Error deleting item permanently:", error);
-                    toast.error('Error al eliminar permanentemente', {
-                        description: error?.message || 'Error desconocido',
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    }, [selectedItem, permanentDelete, invalidate]);
+        deleteItem(item, () => {
+            toast.success("Elemento eliminado permanentemente", {
+                description: `"${item.entity_display_name}" ha sido eliminado permanentemente.`,
+                richColors: true,
+            });
+            setConfirmDeleteDialogOpen(false);
+            setSelectedItem(null);
+            setConfirmationText("");
+        }, (error) => {
+            toast.error("Error al eliminar permanentemente", {
+                description: error?.message || "Error desconocido",
+                richColors: true,
+            });
+        });
+    }, [selectedItem, deleteItem]);
 
     // Función para cerrar primer modal sin limpiar selectedItem
     const handleCloseFirstModal = useCallback(() => {
         setDeleteDialogOpen(false);
         setConfirmationText("");
-        // NO limpiar selectedItem aquí
     }, []);
 
     // Función para cancelar eliminación (limpia todo)
@@ -305,9 +224,6 @@ export const RecycleBinList = () => {
         setConfirmationText("");
     }, []);
 
-    const items = useMemo(() => result.data || [], [result.data]);
-    const total = result.total || 0;
-
     const [searchValue, setSearchValue] = useState("");
     const [entityTypeFilter, setEntityTypeFilter] = useState<string>("");
 
@@ -316,14 +232,14 @@ export const RecycleBinList = () => {
 
         if (searchValue) {
             filtered = filtered.filter((item) =>
-                (item as any).entity_display_name.toLowerCase().includes(searchValue.toLowerCase()) ||
-                (item as any).deleted_by_name.toLowerCase().includes(searchValue.toLowerCase())
+                item.entity_display_name.toLowerCase().includes(searchValue.toLowerCase()) ||
+                item.deleted_by_name.toLowerCase().includes(searchValue.toLowerCase())
             );
         }
 
         if (entityTypeFilter) {
             filtered = filtered.filter((item) =>
-                (item as any).entity_type.toLowerCase() === entityTypeFilter.toLowerCase()
+                item.entity_type.toLowerCase() === entityTypeFilter.toLowerCase()
             );
         }
 
@@ -348,12 +264,12 @@ export const RecycleBinList = () => {
         );
     };
 
-    if (query.isLoading) {
+    if (queryIsLoading) {
         return <div>Cargando papelera...</div>;
     }
 
-    if (query.error) {
-        return <div>Error al cargar papelera: {query.error.message}</div>;
+    if (queryIsError) {
+        return <div>Error al cargar papelera</div>;
     }
 
     if (canAccess?.can === false) {
@@ -507,37 +423,37 @@ export const RecycleBinList = () => {
                                     <TableRow key={item.id}>
                                         {visibleColumns.includes("entity_type") && (
                                             <TableCell className="text-left">
-                                                <Badge className={`${getEntityBadgeColor((item as any).entity_type)} flex items-center gap-1 w-fit`}>
-                                                    {getEntityIcon((item as any).entity_type)}
-                                                    {(item as any).entity_type.charAt(0).toUpperCase() + (item as any).entity_type.slice(1)}
+                                                <Badge className={`${getEntityBadgeColor(item.entity_type)} flex items-center gap-1 w-fit`}>
+                                                    {getEntityIconComponent(item.entity_type)}
+                                                    {item.entity_type.charAt(0).toUpperCase() + item.entity_type.slice(1)}
                                                 </Badge>
                                             </TableCell>
                                         )}
                                         {visibleColumns.includes("entity_display_name") && (
                                             <TableCell className="text-left">
-                                                <div className="font-medium">{(item as any).entity_display_name}</div>
-                                                {(item as any).reason && (
-                                                    <div className="text-sm text-muted-foreground">{(item as any).reason}</div>
+                                                <div className="font-medium">{item.entity_display_name}</div>
+                                                {item.reason && (
+                                                    <div className="text-sm text-muted-foreground">{item.reason}</div>
                                                 )}
                                             </TableCell>
                                         )}
                                         {visibleColumns.includes("deleted_by_name") && (
                                             <TableCell className="text-left">
-                                                {(item as any).deleted_by_name}
+                                                {item.deleted_by_name}
                                             </TableCell>
                                         )}
                                         {visibleColumns.includes("deleted_at") && (
                                             <TableCell className="text-left">
-                                                {formatDate((item as any).deleted_at)}
+                                                {formatDate(item.deleted_at)}
                                             </TableCell>
                                         )}
                                         {visibleColumns.includes("status") && (
                                             <TableCell className="text-left">
-                                                {(item as any).restored_at ? (
+                                                {item.restored_at ? (
                                                     <Badge variant="outline" className="text-green-500 border-green-300 bg-green-50 dark:bg-green-950/20 dark:border-green-800 dark:text-green-400">
                                                         Restaurado
                                                     </Badge>
-                                                ) : (item as any).can_restore ? (
+                                                ) : item.can_restore ? (
                                                     <Badge variant="outline" className="text-yellow-500 border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800 dark:text-yellow-400">
                                                         Pendiente
                                                     </Badge>
@@ -552,13 +468,13 @@ export const RecycleBinList = () => {
                                             <TableCell className="text-center">
                                                 <TooltipProvider>
                                                     <div className="flex items-center gap-2 justify-center">
-                                                        {(item as any).can_restore && !(item as any).restored_at && (
+                                                        {item.can_restore && !item.restored_at && (
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <Button
                                                                         variant="outline"
                                                                         size="icon"
-                                                                        onClick={() => handleRestore(item as any)}
+                                                                        onClick={() => handleRestore(item)}
                                                                         disabled={isRestoring || isDeleting}
                                                                         className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
                                                                     >
@@ -570,13 +486,13 @@ export const RecycleBinList = () => {
                                                                 </TooltipContent>
                                                             </Tooltip>
                                                         )}
-                                                        {(item as any).can_restore && !(item as any).restored_at && (
+                                                        {item.can_restore && !item.restored_at && (
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <Button
                                                                         variant="outline"
                                                                         size="icon"
-                                                                        onClick={() => handlePermanentDelete(item as any)}
+                                                                        onClick={() => handlePermanentDelete(item)}
                                                                         disabled={isRestoring || isDeleting}
                                                                         className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
                                                                     >
@@ -600,7 +516,7 @@ export const RecycleBinList = () => {
                 </div>
 
                 {/* Paginación */}
-                {!query.isLoading && !query.error && (() => {
+                {!queryIsLoading && !queryIsError && (() => {
                     const totalPages = Math.max(1, Math.ceil(total / pageSize));
                     const canPrev = currentPage > 1;
                     const canNext = currentPage < totalPages;
@@ -769,7 +685,7 @@ export const RecycleBinList = () => {
                         </AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleProceedToFinalConfirmation}
-                            disabled={confirmationText !== "eliminar registro permanentemente"}
+                            disabled={!validateConfirmationText(confirmationText)}
                             className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400"
                         >
                             Continuar

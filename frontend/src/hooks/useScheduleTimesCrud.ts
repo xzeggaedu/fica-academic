@@ -3,6 +3,22 @@ import { useCreate, useUpdate, useList, useCan, useInvalidate } from "@refinedev
 import { toast } from "sonner";
 import type { ScheduleTime, ScheduleTimeCreate, ScheduleTimeUpdate } from "@/types/api";
 
+// Tipo para el payload de creación que incluye days_array
+export interface ScheduleTimeCreatePayload {
+  days_array: number[];
+  start_time: string;
+  end_time: string;
+  is_active?: boolean;
+}
+
+// Tipo para el payload de actualización
+export interface ScheduleTimeUpdatePayload {
+  days_array?: number[];
+  start_time?: string;
+  end_time?: string;
+  is_active?: boolean;
+}
+
 export const useScheduleTimesCrud = () => {
   // Permisos
   const { data: canAccess } = useCan({ resource: "schedule-times", action: "list" });
@@ -10,9 +26,14 @@ export const useScheduleTimesCrud = () => {
   const { data: canEdit } = useCan({ resource: "schedule-times", action: "edit" });
   const { data: canDelete } = useCan({ resource: "schedule-times", action: "delete" });
 
-  // Hook de useList para la lista principal
+  // Hook de useList para la lista principal - SIN PAGINACIÓN
   const { query, result } = useList<ScheduleTime>({
     resource: "schedule-times",
+    pagination: {
+      currentPage: 1,
+      pageSize: 1000, // Número alto para cargar todos los registros
+      mode: "server",
+    },
     queryOptions: {
       enabled: canAccess?.can ?? false,
     },
@@ -40,7 +61,7 @@ export const useScheduleTimesCrud = () => {
   const isDeleting = softDeleteMutation.isPending;
 
   // Función para crear horario
-  const createItem = (values: ScheduleTimeCreate, onSuccess?: () => void, onError?: (error: any) => void) => {
+  const createItem = (values: ScheduleTimeCreatePayload, onSuccess?: () => void, onError?: (error: any) => void) => {
     createMutate(
       {
         resource: "schedule-times",
@@ -53,7 +74,7 @@ export const useScheduleTimesCrud = () => {
           invalidate({ resource: "schedule-times", invalidates: ["list"] });
           setIsCreateModalOpen(false);
           toast.success("Horario creado exitosamente", {
-            description: `El horario "${values.schedule_code}" ha sido creado correctamente.`,
+            description: `El horario ha sido creado correctamente.`,
             richColors: true,
           });
           onSuccess?.();
@@ -71,7 +92,7 @@ export const useScheduleTimesCrud = () => {
   };
 
   // Función para actualizar horario
-  const updateItem = (id: number, values: ScheduleTimeUpdate, onSuccess?: () => void, onError?: (error: any) => void) => {
+  const updateItem = (id: number, values: ScheduleTimeUpdatePayload, onSuccess?: () => void, onError?: (error: any) => void) => {
     updateMutate(
       {
         resource: "schedule-times",
@@ -86,7 +107,7 @@ export const useScheduleTimesCrud = () => {
           setIsEditModalOpen(false);
           setEditingItem(null);
           toast.success("Horario actualizado exitosamente", {
-            description: `El horario "${values.schedule_code || id}" ha sido actualizado correctamente.`,
+            description: `El horario ha sido actualizado correctamente.`,
             richColors: true,
           });
           onSuccess?.();

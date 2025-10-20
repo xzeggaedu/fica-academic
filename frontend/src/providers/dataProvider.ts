@@ -542,10 +542,21 @@ export const dataProvider: DataProvider = {
         // Handle user password endpoint
         if (id && id.toString().includes('/password')) {
           const userId = id.toString().replace('/password', '');
+          const passwordUrl = `${API_BASE_PATH}/user/${userId}/password`;
+
+          if (DEBUG_MODE) {
+            console.log('Password update request:', {
+              userId,
+              url: passwordUrl,
+              variables,
+              method: "PATCH"
+            });
+          }
+
           const response = await apiRequest<{ message: string }>(
-            `${API_BASE_PATH}/user/${userId}/password`,
+            passwordUrl,
             {
-              method: meta?.method || "PATCH",
+              method: "PATCH", // ✅ Forzar PATCH para password
               body: JSON.stringify(variables),
             }
           );

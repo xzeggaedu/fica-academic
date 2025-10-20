@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { useCreate, useUpdate, useList, useCan, useInvalidate } from "@refinedev/core";
+import { useCreate, useUpdate, useDelete, useList, useCan, useInvalidate } from "@refinedev/core";
 import { toast } from "sonner";
 import type { CrudFilters } from "@refinedev/core";
 import type { School, SchoolCreate, SchoolUpdate } from "@/types/api";
 
 interface UseSchoolsCrudProps {
   facultyId?: number;
+  isActiveOnly?: boolean;
   enabled?: boolean;
 }
 
 export const useSchoolsCrud = (props?: UseSchoolsCrudProps) => {
-  const { facultyId, enabled = true } = props || {};
+  const { facultyId, isActiveOnly = false, enabled = true } = props || {};
 
   // Permisos
   const { data: canAccess } = useCan({ resource: "school", action: "list" });
@@ -25,6 +26,13 @@ export const useSchoolsCrud = (props?: UseSchoolsCrudProps) => {
       field: "faculty_id",
       operator: "eq",
       value: facultyId,
+    });
+  }
+  if (isActiveOnly) {
+    filters.push({
+      field: "is_active",
+      operator: "eq",
+      value: true,
     });
   }
 
@@ -48,7 +56,7 @@ export const useSchoolsCrud = (props?: UseSchoolsCrudProps) => {
   // Hooks de Refine para operaciones CRUD
   const { mutate: createMutate, mutation: createMutation } = useCreate();
   const { mutate: updateMutate, mutation: updateMutation } = useUpdate();
-  const { mutate: softDeleteMutate, mutation: softDeleteMutation } = useUpdate();
+  const { mutate: deleteMutate, mutation: deleteMutation } = useDelete();
   const invalidate = useInvalidate();
 
   // Estados locales para UI
@@ -59,7 +67,7 @@ export const useSchoolsCrud = (props?: UseSchoolsCrudProps) => {
   // Estados de carga
   const isCreating = createMutation.isPending;
   const isUpdating = updateMutation.isPending;
-  const isDeleting = softDeleteMutation.isPending;
+  const isDeleting = deleteMutation.isPending;
 
   // Función para crear escuela
   const createItem = (values: SchoolCreate, onSuccess?: () => void, onError?: (error: any) => void) => {
@@ -127,13 +135,12 @@ export const useSchoolsCrud = (props?: UseSchoolsCrudProps) => {
     );
   };
 
-  // Función para soft delete (marcar como eliminado)
-  const softDeleteItem = (id: number, entityName: string, onSuccess?: () => void, onError?: (error: any) => void) => {
-    softDeleteMutate(
+  // Función para eliminar escuela (hard delete)
+  const deleteItem = (id: number, entityName: string, onSuccess?: () => void, onError?: (error: any) => void) => {
+    deleteMutate(
       {
-        resource: "soft-delete",
+        resource: "school",
         id,
-        values: { type: "school" },
         successNotification: false,
         errorNotification: false,
       },
@@ -141,14 +148,14 @@ export const useSchoolsCrud = (props?: UseSchoolsCrudProps) => {
         onSuccess: () => {
           invalidate({ resource: "school", invalidates: ["list"] });
           invalidate({ resource: "schools", invalidates: ["list"] });
-          toast.success("Escuela movida a papelera", {
-            description: `La escuela "${entityName}" ha sido movida a la papelera de reciclaje.`,
+          toast.success("Escuela eliminada", {
+            description: `La escuela "${entityName}" ha sido eliminada correctamente.`,
             richColors: true,
           });
           onSuccess?.();
         },
         onError: (error) => {
-          toast.error("Error al mover a papelera", {
+          toast.error("Error al eliminar escuela", {
             description: error?.message || "Error desconocido",
             richColors: true,
           });
@@ -174,7 +181,7 @@ export const useSchoolsCrud = (props?: UseSchoolsCrudProps) => {
     // Operaciones CRUD
     createItem,
     updateItem,
-    softDeleteItem,
+    deleteItem,
 
     // Estados UI
     editingItem,

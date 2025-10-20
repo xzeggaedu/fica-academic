@@ -10,9 +10,14 @@ export const useSubjectsCrud = () => {
   const { data: canEdit } = useCan({ resource: "subjects", action: "edit" });
   const { data: canDelete } = useCan({ resource: "subjects", action: "delete" });
 
-  // Hook de useList para la lista principal
+  // Hook de useList para la lista principal (cargar todos los registros)
   const { query, result } = useList<Subject>({
     resource: "subjects",
+    pagination: {
+      currentPage: 1,
+      pageSize: 1000, // Cargar todos los registros para paginación client-side
+      mode: "server",
+    },
     queryOptions: {
       enabled: canAccess?.can ?? false,
     },
@@ -25,7 +30,10 @@ export const useSubjectsCrud = () => {
 
   // Hooks de Refine para operaciones CRUD
   const { mutate: createMutate, mutation: createMutation } = useCreate();
-  const { mutate: updateMutate, mutation: updateMutation } = useUpdate();
+  const { mutate: updateMutate, mutation: updateMutation } = useUpdate({
+    successNotification: false,
+    errorNotification: false,
+  });
   const { mutate: softDeleteMutate, mutation: softDeleteMutation } = useUpdate();
   const invalidate = useInvalidate();
 
@@ -33,6 +41,7 @@ export const useSubjectsCrud = () => {
   const [editingItem, setEditingItem] = useState<Subject | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Estados de carga
   const isCreating = createMutation.isPending;
@@ -133,6 +142,55 @@ export const useSubjectsCrud = () => {
     );
   };
 
+  // Función para actualizar un campo individual (sin validaciones específicas)
+  const updateSingleField = (
+    id: number,
+    field: keyof SubjectUpdate,
+    value: string | boolean | number[] | undefined,
+    currentValue: any,
+    onSuccess?: () => void,
+    onError?: (error: any) => void
+  ) => {
+    // Verificar si hay cambios reales
+    if (currentValue === value) {
+      setIsEditing(false);
+      return;
+    }
+
+    const payload: SubjectUpdate = { [field]: value } as SubjectUpdate;
+    updateMutate(
+      {
+        resource: "subjects",
+        id,
+        values: payload,
+        mutationMode: "optimistic",
+      },
+      {
+        onSuccess: () => {
+          invalidate({ resource: "subjects", invalidates: ["list"] });
+          setIsEditing(false);
+          toast.success("Campo actualizado", {
+            description: "El campo ha sido actualizado correctamente.",
+            richColors: true,
+          });
+          onSuccess?.();
+        },
+        onError: (error) => {
+          const errorMessage = error?.message || "Error desconocido al actualizar";
+          toast.error("Error al actualizar", {
+            description: errorMessage,
+            richColors: true,
+          });
+          onError?.(error);
+        },
+      }
+    );
+  };
+
+  // Funciones de control de inline editing
+  const startEdit = () => setIsEditing(true);
+  const cancelEdit = () => setIsEditing(false);
+
   return {
     // Permisos
     canAccess,
@@ -151,6 +209,11 @@ export const useSubjectsCrud = () => {
     updateItem,
     softDeleteItem,
 
+    // Operaciones de inline editing
+    updateSingleField,
+    startEdit,
+    cancelEdit,
+
     // Estados UI
     editingItem,
     setEditingItem,
@@ -158,6 +221,8 @@ export const useSubjectsCrud = () => {
     setIsCreateModalOpen,
     isEditModalOpen,
     setIsEditModalOpen,
+    isEditing,
+    setIsEditing,
 
     // Estados de carga
     isCreating,
