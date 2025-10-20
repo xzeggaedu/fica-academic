@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useList, CanAccess, useCan, useUpdate, useInvalidate, useCreate } from "@refinedev/core";
-import { toast } from "sonner";
+import { useList, CanAccess } from "@refinedev/core";
 import { TablePagination } from "../../components/ui/data/table-pagination";
 import {
     Table,
@@ -28,6 +27,7 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { CoordinationFormSheet } from "../../components/ui/coordinations/coordination-form-sheet";
 import { useTablePagination } from "../../hooks/useTablePagination";
+import { useCoordinationsCrud } from "../../hooks/useCoordinationsCrud";
 
 interface Coordination {
     id: number;
@@ -56,19 +56,32 @@ interface Professor {
 }
 
 export const CoordinationList = () => {
-    // Verificar permisos primero
-    const { data: canAccess } = useCan({
-        resource: "coordinations",
-        action: "list",
-    });
-
-    // Hook de paginación y búsqueda reutilizable
+    // Hook CRUD de coordinations
     const {
-        data: coordinations,
-        total,
+        canAccess,
+        itemsList: coordinationsList,
+        total: totalItems,
         isLoading,
+        isError,
+        createItem,
+        updateItem,
+        softDeleteItem,
+        editingItem,
+        setEditingItem,
+        isCreateModalOpen,
+        setIsCreateModalOpen,
+        isEditModalOpen,
+        setIsEditModalOpen,
+        isCreating,
+        isUpdating,
+        isDeleting,
+    } = useCoordinationsCrud();
+
+    // Hook de paginación y búsqueda (stateless)
+    const {
+        paginatedData: coordinations,
+        total,
         currentPage,
-        pageSize,
         totalPages,
         canPrevPage,
         canNextPage,
@@ -78,8 +91,7 @@ export const CoordinationList = () => {
         searchValue: searchTerm,
         setSearchValue: setSearchTerm,
     } = useTablePagination<Coordination>({
-        resource: "coordinations",
-        canAccess,
+        data: coordinationsList,
         initialPageSize: 10,
     });
 
@@ -112,113 +124,9 @@ export const CoordinationList = () => {
         return professor ? professor.professor_name : `ID: ${professorId}`;
     };
 
-    // Hooks para operaciones CRUD
-    const { mutate: softDeleteCoordination, mutation: deleteState } = useUpdate();
-    const { mutate: createCoordination, mutation: createState } = useCreate();
-    const { mutate: updateCoordination, mutation: updateState } = useUpdate();
-    const invalidate = useInvalidate();
-    const isDeleting = deleteState.isPending;
-    const isCreating = createState.isPending;
-    const isUpdating = updateState.isPending;
-
-    // Función para manejar eliminación de coordinación (soft delete)
-    const handleDeleteCoordination = (coordinationId: number, coordinationName: string) => {
-        softDeleteCoordination(
-            {
-                resource: "soft-delete",
-                id: coordinationId,
-                values: { type: "catalog/coordinations" },
-                successNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    invalidate({
-                        resource: "coordinations",
-                        invalidates: ["list"],
-                    });
-
-                    toast.success('Coordinación movida a papelera', {
-                        description: `La coordinación "${coordinationName}" ha sido movida a la papelera de reciclaje.`,
-                        richColors: true,
-                    });
-                },
-                onError: (error) => {
-                    console.error("CoordinationList - Soft delete error:", error);
-                    toast.error('Error al mover a papelera', {
-                        description: error.message,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para manejar creación de coordinación
-    const handleCreateCoordination = (coordinationData: any, onSuccessCallback?: () => void) => {
-        createCoordination(
-            {
-                resource: "coordinations",
-                values: coordinationData,
-                successNotification: false,
-                errorNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    toast.success('Coordinación creada exitosamente', {
-                        description: `La coordinación "${coordinationData.name}" ha sido creada correctamente.`,
-                        richColors: true,
-                    });
-                    if (onSuccessCallback) {
-                        onSuccessCallback();
-                    }
-                },
-                onError: (error) => {
-                    console.error("CoordinationList - Create error:", error);
-                    const errorMessage = error?.message || "Error desconocido al crear coordinación";
-                    toast.error('Error al crear coordinación', {
-                        description: errorMessage,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para manejar actualización de coordinación
-    const handleUpdateCoordination = (coordinationId: number, coordinationData: any, onSuccessCallback?: () => void) => {
-        updateCoordination(
-            {
-                resource: "coordinations",
-                id: coordinationId,
-                values: coordinationData,
-                successNotification: false,
-                errorNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    toast.success('Coordinación actualizada exitosamente', {
-                        description: `La coordinación "${coordinationData.name}" ha sido actualizada correctamente.`,
-                        richColors: true,
-                    });
-                    if (onSuccessCallback) {
-                        onSuccessCallback();
-                    }
-                },
-                onError: (error) => {
-                    console.error("CoordinationList - Update error:", error);
-                    const errorMessage = error?.message || "Error desconocido al actualizar coordinación";
-                    toast.error('Error al actualizar coordinación', {
-                        description: errorMessage,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
     // Función para abrir el sheet en modo crear
     const handleOpenCreateSheet = () => {
-        setEditingCoordination(null);
+        setEditingItem(null);
         setFormData({
             code: "",
             name: "",
@@ -227,12 +135,12 @@ export const CoordinationList = () => {
             coordinator_professor_id: null,
             is_active: true,
         });
-        setSheetOpen(true);
+        setIsCreateModalOpen(true);
     };
 
     // Función para abrir el sheet en modo editar
     const handleOpenEditSheet = (coordination: Coordination) => {
-        setEditingCoordination(coordination);
+        setEditingItem(coordination);
         setFormData({
             code: coordination.code,
             name: coordination.name,
@@ -241,22 +149,21 @@ export const CoordinationList = () => {
             coordinator_professor_id: coordination.coordinator_professor_id,
             is_active: coordination.is_active,
         });
-        setSheetOpen(true);
+        setIsEditModalOpen(true);
     };
 
     // Función para cerrar el sheet
     const handleCloseSheet = () => {
-        setSheetOpen(false);
-        setEditingCoordination(null);
+        setIsCreateModalOpen(false);
+        setIsEditModalOpen(false);
+        setEditingItem(null);
     };
 
     // Estados para el diálogo de eliminación
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedCoordination, setSelectedCoordination] = useState<{ id: number; name: string } | null>(null);
 
-    // Estados para el sheet de crear/editar
-    const [sheetOpen, setSheetOpen] = useState(false);
-    const [editingCoordination, setEditingCoordination] = useState<Coordination | null>(null);
+    // Estado para el formulario
     const [formData, setFormData] = useState({
         code: "",
         name: "",
@@ -525,8 +432,16 @@ export const CoordinationList = () => {
                         entityType="coordinación"
                         entityName={selectedCoordination.name}
                         isOpen={deleteDialogOpen}
-                        onClose={() => setDeleteDialogOpen(false)}
-                        onConfirm={() => handleDeleteCoordination(selectedCoordination.id, selectedCoordination.name)}
+                        onClose={() => {
+                            setDeleteDialogOpen(false);
+                            setSelectedCoordination(null);
+                        }}
+                        onConfirm={() => {
+                            softDeleteItem(selectedCoordination.id, selectedCoordination.name, () => {
+                                setDeleteDialogOpen(false);
+                                setSelectedCoordination(null);
+                            });
+                        }}
                         isDeleting={isDeleting}
                         gender="f"
                     />
@@ -534,16 +449,16 @@ export const CoordinationList = () => {
 
                 {/* Sheet de crear/editar coordinación */}
                 <CoordinationFormSheet
-                    isOpen={sheetOpen}
+                    isOpen={isCreateModalOpen || isEditModalOpen}
                     onClose={handleCloseSheet}
-                    editingCoordination={editingCoordination}
+                    editingCoordination={editingItem}
                     formData={formData}
                     onFormChange={setFormData}
                     onSubmit={() => {
-                        if (editingCoordination) {
-                            handleUpdateCoordination(editingCoordination.id, formData, handleCloseSheet);
+                        if (editingItem) {
+                            updateItem(editingItem.id, formData, handleCloseSheet);
                         } else {
-                            handleCreateCoordination(formData, handleCloseSheet);
+                            createItem(formData, handleCloseSheet);
                         }
                     }}
                     isSubmitting={isCreating || isUpdating}

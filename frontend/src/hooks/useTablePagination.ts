@@ -1,104 +1,70 @@
-import { useState, useEffect } from "react";
-import { useList } from "@refinedev/core";
-import type { BaseRecord, HttpError, CrudFilters, CanReturnType } from "@refinedev/core";
+import { useState, useEffect, useMemo } from "react";
 
-interface UseTablePaginationProps<TData extends BaseRecord = BaseRecord> {
-  resource: string;
-  canAccess?: CanReturnType;
-  initialPageSize?: number;
-  additionalFilters?: CrudFilters;
-  queryOptions?: {
-    enabled?: boolean;
-    [key: string]: any;
-  };
-}
-
-interface UseTablePaginationReturn<TData extends BaseRecord = BaseRecord> {
-  // Data
+interface UseTablePaginationProps<TData> {
   data: TData[];
-  total: number;
-  isLoading: boolean;
-  isError: boolean;
-
-  // Pagination
-  currentPage: number;
-  pageSize: number;
-  totalPages: number;
-  setCurrentPage: (page: number | ((prev: number) => number)) => void;
-  setPageSize: (size: number) => void;
-  canPrevPage: boolean;
-  canNextPage: boolean;
-  nextPage: () => void;
-  prevPage: () => void;
-  goToPage: (page: number) => void;
-
-  // Search
-  searchValue: string;
-  setSearchValue: (value: string) => void;
-  debouncedSearch: string;
-
-  // Filters
-  filters: CrudFilters;
+  initialPageSize?: number;
 }
 
-export function useTablePagination<TData extends BaseRecord = BaseRecord>({
-  resource,
-  canAccess,
+/**
+ * Hook stateless para manejar paginación y búsqueda de datos
+ * NO hace requests, solo maneja la lógica de UI
+ */
+export const useTablePagination = <TData extends Record<string, any>>({
+  data,
   initialPageSize = 10,
-  additionalFilters = [],
-  queryOptions = {},
-}: UseTablePaginationProps<TData>): UseTablePaginationReturn<TData> {
-  // Estados para paginación y búsqueda
+}: UseTablePaginationProps<TData>) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  // Debounce para búsqueda
+  // Debounce del search
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchValue);
-      setCurrentPage(1); // Reset a página 1 cuando cambia la búsqueda
+      setCurrentPage(1); // Reset a página 1 cuando se busca
     }, 500);
-
     return () => clearTimeout(timer);
   }, [searchValue]);
 
-  // Configurar filtros combinados
-  const searchFilter: CrudFilters = debouncedSearch
-    ? [{ field: "search", operator: "contains" as const, value: debouncedSearch }]
-    : [];
+  // Filtrar datos por búsqueda (busca en todos los campos string)
+  const filteredData = useMemo(() => {
+    if (!debouncedSearch.trim()) return data;
 
-  const filters: CrudFilters = [...searchFilter, ...additionalFilters];
+    const searchLower = debouncedSearch.toLowerCase();
+    return data.filter((item) => {
+      return Object.values(item).some((value) => {
+        if (typeof value === "string") {
+          return value.toLowerCase().includes(searchLower);
+        }
+        if (typeof value === "number") {
+          return value.toString().includes(searchLower);
+        }
+        return false;
+      });
+    });
+  }, [data, debouncedSearch]);
 
-  // useList hook
-  const { query, result } = useList<TData, HttpError>({
-    resource,
-    pagination: {
-      currentPage,
-      pageSize,
-      mode: "server",
-    },
-    filters,
-    queryOptions: {
-      enabled: canAccess?.can ?? true,
-      ...queryOptions,
-    },
-    successNotification: false,
-    errorNotification: false,
-  });
-
-  const data = result?.data || [];
-  const total = result?.total || 0;
-  const isLoading = query.isLoading;
-  const isError = query.isError;
-
-  // Cálculos de paginación
+  // Calcular paginación
+  const total = filteredData.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // Ajustar página actual si está fuera de rango
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  // Datos de la página actual
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedData = filteredData.slice(startIndex, endIndex);
+
+  // Controles de navegación
   const canPrevPage = currentPage > 1;
   const canNextPage = currentPage < totalPages;
 
-  // Funciones de navegación
   const nextPage = () => {
     if (canNextPage) {
       setCurrentPage((prev) => prev + 1);
@@ -112,35 +78,30 @@ export function useTablePagination<TData extends BaseRecord = BaseRecord>({
   };
 
   const goToPage = (page: number) => {
-    const validPage = Math.max(1, Math.min(page, totalPages));
-    setCurrentPage(validPage);
+    const targetPage = Math.max(1, Math.min(page, totalPages));
+    setCurrentPage(targetPage);
   };
 
   return {
-    // Data
-    data,
+    // Datos paginados
+    paginatedData,
     total,
-    isLoading,
-    isError,
 
-    // Pagination
+    // Estado de paginación
     currentPage,
     pageSize,
     totalPages,
-    setCurrentPage,
-    setPageSize,
     canPrevPage,
     canNextPage,
+
+    // Controles de paginación
     nextPage,
     prevPage,
     goToPage,
+    setPageSize,
 
-    // Search
+    // Búsqueda
     searchValue,
     setSearchValue,
-    debouncedSearch,
-
-    // Filters
-    filters,
   };
-}
+};

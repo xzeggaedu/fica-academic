@@ -51,14 +51,23 @@ export const SubjectsList = () => {
     action: "list",
   });
 
-  // Hook de paginación y búsqueda reutilizable
+  // Hook para obtener datos de subjects
+  const { query, result } = useList<Subject>({
+    resource: "subjects",
+    queryOptions: {
+      enabled: canAccess?.can ?? false,
+    },
+  });
+
+  const subjectsData = result?.data || [];
+  const subjectsLoading = query.isLoading;
+  const subjectsError = query.isError;
+
+  // Hook de paginación y búsqueda (stateless)
   const {
-    data: subjectsList,
+    paginatedData: subjectsList,
     total,
-    isLoading: subjectsLoading,
-    isError: subjectsError,
     currentPage,
-    pageSize,
     totalPages,
     canPrevPage,
     canNextPage,
@@ -68,8 +77,7 @@ export const SubjectsList = () => {
     searchValue,
     setSearchValue,
   } = useTablePagination<Subject>({
-    resource: "subjects",
-    canAccess,
+    data: subjectsData,
     initialPageSize: 10,
   });
 

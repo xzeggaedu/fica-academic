@@ -57,13 +57,22 @@ export const ProfessorList = () => {
         action: "list",
     });
 
-    // Hook de paginación y búsqueda reutilizable
+    // Hook para obtener datos de professors
+    const { query, result } = useList<Professor>({
+        resource: "professors",
+        queryOptions: {
+            enabled: canAccess?.can ?? false,
+        },
+    });
+
+    const professorsList = result?.data || [];
+    const isLoading = query.isLoading;
+
+    // Hook de paginación y búsqueda (stateless)
     const {
-        data: professors,
+        paginatedData: professors,
         total,
-        isLoading,
         currentPage,
-        pageSize,
         totalPages,
         canPrevPage,
         canNextPage,
@@ -73,8 +82,7 @@ export const ProfessorList = () => {
         searchValue: searchTerm,
         setSearchValue: setSearchTerm,
     } = useTablePagination<Professor>({
-        resource: "professors",
-        canAccess,
+        data: professorsList,
         initialPageSize: 10,
     });
 

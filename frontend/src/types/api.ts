@@ -188,6 +188,117 @@ export interface SubjectUpdate {
   school_ids?: number[];
 }
 
+// Professor types
+export interface Professor {
+  id: number;
+  professor_id: string;
+  professor_name: string;
+  institutional_email: string | null;
+  personal_email: string | null;
+  phone_number: string | null;
+  professor_category: string | null;
+  academic_title: string | null;
+  doctorates: number;
+  masters: number;
+  is_bilingual: boolean;
+  is_paid: boolean;
+  is_active: boolean;
+  deleted: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProfessorCreate {
+  professor_id: string;
+  professor_name: string;
+  institutional_email?: string;
+  personal_email?: string;
+  phone_number?: string;
+  professor_category?: string;
+  academic_title?: string;
+  doctorates?: number;
+  masters?: number;
+  is_bilingual?: boolean;
+  is_paid?: boolean;
+  is_active?: boolean;
+}
+
+export interface ProfessorUpdate {
+  professor_id?: string;
+  professor_name?: string;
+  institutional_email?: string;
+  personal_email?: string;
+  phone_number?: string;
+  professor_category?: string;
+  academic_title?: string;
+  doctorates?: number;
+  masters?: number;
+  is_bilingual?: boolean;
+  is_paid?: boolean;
+  is_active?: boolean;
+}
+
+// Coordination types
+export interface Coordination {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  faculty_id: number;
+  coordinator_professor_id: number | null;
+  is_active: boolean;
+  deleted: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface CoordinationCreate {
+  code: string;
+  name: string;
+  description?: string;
+  faculty_id: number;
+  coordinator_professor_id?: number | null;
+  is_active?: boolean;
+}
+
+export interface CoordinationUpdate {
+  code?: string;
+  name?: string;
+  description?: string;
+  faculty_id?: number;
+  coordinator_professor_id?: number | null;
+  is_active?: boolean;
+}
+
+// ScheduleTime types
+export interface ScheduleTime {
+  id: number;
+  schedule_code: string;
+  start_time: string;
+  end_time: string;
+  is_active: boolean;
+  deleted: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface ScheduleTimeCreate {
+  schedule_code: string;
+  start_time: string;
+  end_time: string;
+  is_active?: boolean;
+}
+
+export interface ScheduleTimeUpdate {
+  schedule_code?: string;
+  start_time?: string;
+  end_time?: string;
+  is_active?: boolean;
+}
+
 // API Endpoints
 export const API_ENDPOINTS = {
   LOGIN: "/api/v1/login",
