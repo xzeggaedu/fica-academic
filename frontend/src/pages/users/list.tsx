@@ -1,6 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { CanAccess, useGetIdentity } from "@refinedev/core";
-import { useQueryClient } from "@tanstack/react-query";
 import { UserRoleEnum } from "../../types/api";
 import {
   Table,
@@ -19,13 +18,12 @@ import { UserCreateButton } from "../../components/ui/users/user-create-button";
 import { UserViewSheet } from "../../components/ui/users/user-view-sheet";
 import { getTableColumnClass } from "../../components/refine-ui/theme/theme-table";
 import { Unauthorized } from "../unauthorized";
-import { Clock } from "lucide-react";
 import { useUsersCrud } from "../../hooks/useUsersCrud";
 
 export const UserList = () => {
   // Hook principal de usuarios con todas las operaciones CRUD
   const {
-    canAccess,
+    canCreate,
     itemsList: users,
     isLoading: queryIsLoading,
     isError: queryIsError,
@@ -35,7 +33,6 @@ export const UserList = () => {
     isDeleting,
   } = useUsersCrud();
 
-  const queryClient = useQueryClient();
   const { data: identity } = useGetIdentity<{ id: number; username: string }>();
 
   // Función para manejar creación de usuario
@@ -185,13 +182,24 @@ export const UserList = () => {
       action="list"
       fallback={<Unauthorized resourceName="usuarios" message="Solo los administradores pueden gestionar usuarios." />}
     >
-      <div className="container mx-auto py-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">Usuarios</h1>
+
+      <div className="container mx-auto py-6 space-y-6 max-w-[98%]">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Coordinaciones</h1>
+            <p className="text-muted-foreground">
+              Gestiona todos los usuarios del sistema
+            </p>
           </div>
+          {canCreate?.can && (
+            <UserCreateButton
+              onSuccess={handleSuccess}
+              onCreate={handleCreateUser}
+              isCreating={isCreating}
+            />
+          )}
         </div>
+
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -201,11 +209,7 @@ export const UserList = () => {
                   Gestiona todos los usuarios del sistema
                 </CardDescription>
               </div>
-              <UserCreateButton
-                onSuccess={handleSuccess}
-                onCreate={handleCreateUser}
-                isCreating={isCreating}
-              />
+
             </div>
           </CardHeader>
           <CardContent>

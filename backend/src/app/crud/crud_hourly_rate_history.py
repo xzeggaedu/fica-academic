@@ -30,8 +30,8 @@ async def get_hourly_rates(
     limit: int = 100,
     level_id: int | None = None,
     is_active: bool | None = None,
-    start_date: date | None = None,
-    end_date: date | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
 ) -> list[HourlyRateHistory]:
     """Get list of hourly rates with optional filters.
 
@@ -202,7 +202,7 @@ async def create_hourly_rate(
     This is the CRITICAL endpoint. It executes an atomic transaction:
     1. Validates no date overlap
     2. Finds the previous active rate (end_date = NULL) for same level_id
-    3. Sets its end_date to the day before the new start_date
+    3. Sets its end_date to 1 second before the new start_date
     4. Creates the new rate with end_date = NULL
 
     Args:
@@ -229,8 +229,8 @@ async def create_hourly_rate(
 
     # If there's an active rate, close it first
     if active_rate:
-        # Set end_date to the day before the new start_date
-        active_rate.end_date = rate_data.start_date - timedelta(days=1)
+        # Set end_date to 1 second before the new start_date
+        active_rate.end_date = rate_data.start_date - timedelta(seconds=1)
 
     # Now check for date overlap (excluding the rate we just closed)
     has_overlap = await check_date_overlap(
@@ -252,7 +252,7 @@ async def create_hourly_rate(
         start_date=rate_data.start_date,
         end_date=None,  # Always NULL for new rates
         created_by_id=created_by_id,
-        created_at=datetime.now(),  # Establecer explícitamente para evitar lambda
+        created_at=datetime.utcnow(),  # Establecer explícitamente para evitar lambda
     )
 
     session.add(new_rate)
@@ -349,3 +349,62 @@ async def count_hourly_rates(
 
     result = await session.execute(stmt)
     return len(list(result.scalars().all()))
+
+
+async def delete_hourly_rate(session: AsyncSession, rate_id: int) -> bool:
+    """Delete an hourly rate record.
+
+    This function allows deletion of hourly rate records that are less than 24 hours old.
+    When a current rate is deleted, the previous rate (if any) is automatically reactivated.
+
+    Args:
+        session: Database session
+        rate_id: ID of the rate to delete
+
+    Returns:
+        True if deletion was successful, False if rate not found
+
+    Raises:
+        ValueError: If rate cannot be deleted (older than 24 hours)
+    """
+    from datetime import datetime, timedelta
+
+    # Get the rate to delete
+    stmt = select(HourlyRateHistory).where(HourlyRateHistory.id == rate_id)
+    result = await session.execute(stmt)
+    rate_to_delete = result.scalar_one_or_none()
+
+    if not rate_to_delete:
+        return False
+
+    # Check if rate is less than 24 hours old
+    now = datetime.utcnow()
+    time_diff = now - rate_to_delete.created_at
+    if time_diff >= timedelta(hours=24):
+        raise ValueError("No se puede eliminar esta tarifa. Ha pasado más de 24 horas desde su creación.")
+
+    # If this is the current active rate, reactivate the previous one
+    if rate_to_delete.end_date is None:  # This is the current active rate
+        # Find the previous rate for the same level
+        prev_stmt = (
+            select(HourlyRateHistory)
+            .where(
+                HourlyRateHistory.level_id == rate_to_delete.level_id,
+                HourlyRateHistory.id != rate_to_delete.id,
+                HourlyRateHistory.end_date.isnot(None),
+            )
+            .order_by(HourlyRateHistory.end_date.desc())
+        )
+        prev_result = await session.execute(prev_stmt)
+        previous_rate = prev_result.scalar_one_or_none()
+
+        if previous_rate:
+            # Reactivate the previous rate by setting end_date to None
+            previous_rate.end_date = None
+            previous_rate.updated_at = datetime.utcnow()
+
+    # Delete the rate
+    await session.delete(rate_to_delete)
+    await session.commit()
+
+    return True

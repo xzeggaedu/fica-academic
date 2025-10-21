@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { GraduationCap, Plus, Trash2 } from "lucide-react";
+import React, { useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
+import { CanAccess } from "@refinedev/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
-import { Label } from "@/components/ui/forms/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/data/table";
 import { Switch } from "@/components/ui/switch";
@@ -15,25 +15,24 @@ import type { AcademicLevel, AcademicLevelCreate } from "@/types/api";
 import { AcademicLevelCreateSheet } from "@/components/ui/academic-levels";
 import { Textarea } from "@/components/ui/forms/textarea";
 
-const PRIORITY_COLORS: Record<number, string> = {
-  5: "bg-purple-500",
-  4: "bg-blue-500",
-  3: "bg-green-500",
-  2: "bg-yellow-500",
-  1: "bg-gray-500",
+const PRIORITY_BORDER_COLORS: Record<number, string> = {
+  1: "border-purple-500 text-purple-700",
+  2: "border-blue-500 text-blue-700",
+  3: "border-green-500 text-green-700",
+  4: "border-yellow-500 text-yellow-700",
+  5: "border-gray-500 text-gray-700",
 };
 
 const PRIORITY_LABELS: Record<number, string> = {
-  5: "Muy Alta",
-  4: "Alta",
+  1: "Muy Alta",
+  2: "Alta",
   3: "Media",
-  2: "Baja",
-  1: "Base",
+  4: "Baja",
+  5: "Base",
 };
 
 export function AcademicLevelsList() {
   const {
-    canAccess,
     canCreate,
     canEdit,
     canDelete,
@@ -45,7 +44,6 @@ export function AcademicLevelsList() {
     updateItem,
     softDeleteItem,
     isCreating,
-    isUpdating,
     isDeleting,
   } = useAcademicLevelsCrud();
 
@@ -185,10 +183,6 @@ export function AcademicLevelsList() {
     });
   };
 
-  if (!canAccess?.can) {
-    return <Unauthorized />;
-  }
-
   if (isError) {
     return (
       <div className="p-6">
@@ -199,214 +193,227 @@ export function AcademicLevelsList() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Niveles Académicos</h1>
-          <p className="text-muted-foreground">
-            Gestión de jerarquía de compensación docente
-          </p>
-        </div>
-        {canCreate?.can && (
-          <Button onClick={() => setIsCreateSheetOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nuevo Nivel
-          </Button>
-        )}
-      </div>
 
-      {/* Tabla de niveles académicos */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Niveles Configurados</CardTitle>
-          <CardDescription>{total} niveles académicos registrados</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">Cargando...</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Prioridad</TableHead>
-                  <TableHead>Descripción</TableHead>
-                  <TableHead className="text-center w-[100px]">Estado</TableHead>
-                  <TableHead className="text-center w-[100px]">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {academicLevels.map((level) => (
-                  <TableRow key={level.id}>
-                    <TableCell className="font-medium">{level.id}</TableCell>
-                    <TableCell>
-                      {editingId === level.id && editingField === "code" ? (
-                        <Input
-                          value={editingValue}
-                          onChange={(e) => setEditingValue(e.target.value.toUpperCase())}
-                          onBlur={() => handleSaveEdit(level.id, "code", editingValue)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              handleSaveEdit(level.id, "code", editingValue);
-                            }
-                            if (e.key === "Escape") {
-                              setEditingId(null);
-                              setEditingField(null);
-                              setEditingValue("");
-                            }
-                          }}
-                          autoFocus
-                          className="h-8"
-                        />
-                      ) : (
-                        <span
-                          className="cursor-pointer hover:bg-muted px-2 py-1 rounded font-mono"
-                          onClick={() => canEdit?.can && handleEdit(level.id, "code", level.code)}
-                        >
-                          {level.code}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {editingId === level.id && editingField === "name" ? (
-                        <Input
-                          value={editingValue}
-                          onChange={(e) => setEditingValue(e.target.value)}
-                          onBlur={() => handleSaveEdit(level.id, "name", editingValue)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              handleSaveEdit(level.id, "name", editingValue);
-                            }
-                            if (e.key === "Escape") {
-                              setEditingId(null);
-                              setEditingField(null);
-                              setEditingValue("");
-                            }
-                          }}
-                          autoFocus
-                          className="h-8"
-                        />
-                      ) : (
-                        <span
-                          className="cursor-pointer hover:bg-muted px-2 py-1 rounded"
-                          onClick={() => canEdit?.can && handleEdit(level.id, "name", level.name)}
-                        >
-                          {level.name}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {editingId === level.id && editingField === "priority" ? (
-                        <Input
-                          type="number"
-                          min="1"
-                          max="5"
-                          value={editingValue}
-                          onChange={(e) => setEditingValue(e.target.value)}
-                          onBlur={() => handleSaveEdit(level.id, "priority", editingValue)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              handleSaveEdit(level.id, "priority", editingValue);
-                            }
-                            if (e.key === "Escape") {
-                              setEditingId(null);
-                              setEditingField(null);
-                              setEditingValue("");
-                            }
-                          }}
-                          autoFocus
-                          className="h-8 w-20"
-                        />
-                      ) : (
-                        <div
-                          className="cursor-pointer hover:bg-muted px-2 py-1 rounded inline-flex items-center gap-2"
-                          onClick={() => canEdit?.can && handleEdit(level.id, "priority", level.priority)}
-                        >
-                          <Badge className={PRIORITY_COLORS[level.priority] || "bg-gray-500"}>
-                            {level.priority}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {PRIORITY_LABELS[level.priority]}
-                          </span>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {editingId === level.id && editingField === "description" ? (
-                        <Textarea
-                          value={editingValue}
-                          onChange={(e) => setEditingValue(e.target.value)}
-                          onBlur={() => handleSaveEdit(level.id, "description", editingValue)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") {
-                              setEditingId(null);
-                              setEditingField(null);
-                              setEditingValue("");
-                            }
-                          }}
-                          autoFocus
-                          className="min-h-[60px]"
-                        />
-                      ) : (
-                        <span
-                          className="cursor-pointer hover:bg-muted px-2 py-1 rounded text-sm text-muted-foreground"
-                          onClick={() =>
-                            canEdit?.can && handleEdit(level.id, "description", level.description || "")
-                          }
-                        >
-                          {level.description || "-"}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Switch
-                        checked={level.is_active}
-                        onCheckedChange={(checked) => handleToggleActive(level.id, checked)}
-                        disabled={!canEdit?.can}
-                      />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {canDelete?.can && (
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleDelete(level)}
-                          disabled={isDeleting}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+    <CanAccess
+      resource="academic-levels"
+      action="list"
+      fallback={<Unauthorized resourceName="usuarios" message="Solo los administradores pueden gestionar usuarios." />}
+    >
+      <div className="container mx-auto py-6 space-y-6 max-w-[98%]">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Niveles Académicos</h1>
+            <p className="text-muted-foreground">
+              Gestión de jerarquía de compensación docente
+            </p>
+          </div>
+          {canCreate?.can && (
+            <Button onClick={() => setIsCreateSheetOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nuevo Nivel
+            </Button>
           )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Sheet para crear nivel académico */}
-      <AcademicLevelCreateSheet
-        isOpen={isCreateSheetOpen}
-        onClose={() => setIsCreateSheetOpen(false)}
-        newLevel={newLevel}
-        onNewLevelChange={setNewLevel}
-        onCreate={handleCreate}
-        isCreating={isCreating}
-      />
 
-      {/* Diálogo de confirmación de eliminación */}
-      <DeleteConfirmDialog
-        entityType="nivel académico"
-        entityName={levelToDelete ? `${levelToDelete.code} - ${levelToDelete.name}` : ""}
-        isOpen={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        onConfirm={handleConfirmDelete}
-        isDeleting={isDeleting}
-        gender="m"
-      />
-    </div>
+        {/* Tabla de niveles académicos */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Niveles Configurados</CardTitle>
+            <CardDescription>{total} niveles académicos registrados</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-8">Cargando...</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead className="text-center">Prioridad</TableHead>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead className="text-center w-[100px]">Estado</TableHead>
+                    <TableHead className="text-center w-[100px]">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {academicLevels.map((level) => (
+                    <TableRow key={level.id}>
+                      <TableCell className="font-medium">{level.id}</TableCell>
+                      <TableCell>
+                        {editingId === level.id && editingField === "code" ? (
+                          <Input
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value.toUpperCase())}
+                            onBlur={() => handleSaveEdit(level.id, "code", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleSaveEdit(level.id, "code", editingValue);
+                              }
+                              if (e.key === "Escape") {
+                                setEditingId(null);
+                                setEditingField(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            autoFocus
+                            className="h-8"
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-muted px-2 py-1 rounded font-mono"
+                            onClick={() => canEdit?.can && handleEdit(level.id, "code", level.code)}
+                          >
+                            {level.code}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingId === level.id && editingField === "name" ? (
+                          <Input
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleSaveEdit(level.id, "name", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleSaveEdit(level.id, "name", editingValue);
+                              }
+                              if (e.key === "Escape") {
+                                setEditingId(null);
+                                setEditingField(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            autoFocus
+                            className="h-8"
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-muted px-2 py-1 rounded"
+                            onClick={() => canEdit?.can && handleEdit(level.id, "name", level.name)}
+                          >
+                            {level.name}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingId === level.id && editingField === "priority" ? (
+                          <div
+                            className="cursor-pointer hover:bg-muted px-2 py-1 rounded items-center gap-2 flex"
+                            onClick={() => canEdit?.can && handleEdit(level.id, "priority", level.priority)}
+                          >
+                            <Input
+                              type="number"
+                              min="1"
+                              max="5"
+                              value={editingValue}
+                              onChange={(e) => setEditingValue(e.target.value)}
+                              onBlur={() => handleSaveEdit(level.id, "priority", editingValue)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  handleSaveEdit(level.id, "priority", editingValue);
+                                }
+                                if (e.key === "Escape") {
+                                  setEditingId(null);
+                                  setEditingField(null);
+                                  setEditingValue("");
+                                }
+                              }}
+                              autoFocus
+                              className="h-8 w-20 mx-auto"
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            className="cursor-pointer hover:bg-muted px-2 py-1 rounded items-center gap-2 flex"
+                            onClick={() => canEdit?.can && handleEdit(level.id, "priority", level.priority)}
+                          >
+                            <Badge
+                              variant="outline"
+                              className={`text-sm min-w-[75px] mx-auto ${PRIORITY_BORDER_COLORS[level.priority] || 'border-gray-500 text-gray-700'}`}
+                            >
+                              {PRIORITY_LABELS[level.priority]}
+                            </Badge>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingId === level.id && editingField === "description" ? (
+                          <Textarea
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleSaveEdit(level.id, "description", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                setEditingId(null);
+                                setEditingField(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            autoFocus
+                            className="min-h-[60px]"
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-muted px-2 py-1 rounded text-sm text-muted-foreground"
+                            onClick={() =>
+                              canEdit?.can && handleEdit(level.id, "description", level.description || "")
+                            }
+                          >
+                            {level.description || "-"}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={level.is_active}
+                          onCheckedChange={(checked) => handleToggleActive(level.id, checked)}
+                          disabled={!canEdit?.can}
+                        />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {canDelete?.can && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleDelete(level)}
+                            disabled={isDeleting}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Sheet para crear nivel académico */}
+        <AcademicLevelCreateSheet
+          isOpen={isCreateSheetOpen}
+          onClose={() => setIsCreateSheetOpen(false)}
+          newLevel={newLevel}
+          onNewLevelChange={setNewLevel}
+          onCreate={handleCreate}
+          isCreating={isCreating}
+        />
+
+        {/* Diálogo de confirmación de eliminación */}
+        <DeleteConfirmDialog
+          entityType="nivel académico"
+          entityName={levelToDelete ? `${levelToDelete.code} - ${levelToDelete.name}` : ""}
+          isOpen={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+          onConfirm={handleConfirmDelete}
+          isDeleting={isDeleting}
+          gender="m"
+        />
+      </div>
+    </CanAccess>
   );
 }

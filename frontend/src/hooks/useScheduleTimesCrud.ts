@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useCreate, useUpdate, useList, useCan, useInvalidate } from "@refinedev/core";
 import { toast } from "sonner";
-import type { ScheduleTime, ScheduleTimeCreate, ScheduleTimeUpdate } from "@/types/api";
+import type { ScheduleTime } from "@/types/api";
 
 // Tipo para el payload de creación que incluye days_array
 export interface ScheduleTimeCreatePayload {

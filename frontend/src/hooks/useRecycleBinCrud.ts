@@ -1,5 +1,4 @@
 import { useList, useUpdate, useDelete, useCan, useInvalidate, useGetIdentity } from "@refinedev/core";
-import { toast } from "sonner";
 
 // Interface para elementos de la papelera
 export interface RecycleBinItem {

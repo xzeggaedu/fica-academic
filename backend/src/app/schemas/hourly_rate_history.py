@@ -1,6 +1,6 @@
 """Pydantic schemas for Hourly Rate History API validation."""
 
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
@@ -26,10 +26,16 @@ class HourlyRateHistoryBase(BaseModel):
             description="Tarifa por hora en USD",
         ),
     ]
-    start_date: Annotated[date, Field(examples=["2025-01-01"], description="Fecha de inicio de vigencia")]
+    start_date: Annotated[
+        datetime, Field(examples=["2025-01-01T00:00:00Z"], description="Fecha y hora de inicio de vigencia")
+    ]
     end_date: Annotated[
-        date | None,
-        Field(default=None, examples=[None, "2025-12-31"], description="Fecha de fin de vigencia (NULL = vigente)"),
+        datetime | None,
+        Field(
+            default=None,
+            examples=[None, "2025-12-31T23:59:59Z"],
+            description="Fecha y hora de fin de vigencia (NULL = vigente)",
+        ),
     ] = None
 
     @field_validator("rate_per_hour")
@@ -42,10 +48,10 @@ class HourlyRateHistoryBase(BaseModel):
 
     @model_validator(mode="after")
     def validate_dates(self):
-        """Validate that end_date is after start_date if provided."""
+        """Validate that end_date is not before start_date if provided."""
         if self.end_date and self.start_date:
-            if self.end_date <= self.start_date:
-                raise ValueError("La fecha de fin debe ser posterior a la fecha de inicio")
+            if self.end_date < self.start_date:
+                raise ValueError("La fecha de fin no puede ser anterior a la fecha de inicio")
         return self
 
 
@@ -74,10 +80,10 @@ class HourlyRateHistoryCreate(BaseModel):
         ),
     ]
     start_date: Annotated[
-        date,
+        datetime,
         Field(
-            examples=["2026-01-01"],
-            description="Fecha de inicio de la nueva tarifa",
+            examples=["2026-01-01T00:00:00Z"],
+            description="Fecha y hora de inicio de la nueva tarifa",
         ),
     ]
 
@@ -100,8 +106,8 @@ class HourlyRateHistoryUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     rate_per_hour: Annotated[Decimal | None, Field(default=None, gt=0, decimal_places=2)] = None
-    start_date: Annotated[date | None, Field(default=None)] = None
-    end_date: Annotated[date | None, Field(default=None)] = None
+    start_date: Annotated[datetime | None, Field(default=None)] = None
+    end_date: Annotated[datetime | None, Field(default=None)] = None
 
     @field_validator("rate_per_hour")
     @classmethod
@@ -115,10 +121,10 @@ class HourlyRateHistoryUpdate(BaseModel):
 
     @model_validator(mode="after")
     def validate_dates(self):
-        """Validate that end_date is after start_date if both provided."""
+        """Validate that end_date is not before start_date if both provided."""
         if self.end_date and self.start_date:
-            if self.end_date <= self.start_date:
-                raise ValueError("La fecha de fin debe ser posterior a la fecha de inicio")
+            if self.end_date < self.start_date:
+                raise ValueError("La fecha de fin no puede ser anterior a la fecha de inicio")
         return self
 
 
@@ -157,8 +163,8 @@ class HourlyRateTimelineItem(BaseModel):
 
     id: int
     rate_per_hour: Decimal
-    start_date: date
-    end_date: date | None
+    start_date: datetime
+    end_date: datetime | None
     is_active: bool
     created_at: datetime
 

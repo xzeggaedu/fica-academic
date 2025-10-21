@@ -226,3 +226,39 @@ async def update_hourly_rate(
         return HourlyRateHistoryRead.model_validate(updated_rate)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.delete("/{rate_id}")
+async def delete_hourly_rate(
+    rate_id: int,
+    session: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)],
+) -> dict:
+    """Delete an hourly rate record.
+
+    This endpoint allows deletion of hourly rate records that are less than 24 hours old.
+    When a current rate is deleted, the previous rate (if any) is automatically reactivated.
+
+    Args:
+        rate_id: ID of the rate to delete
+        session: Database session
+        current_user: Current authenticated user (for audit)
+
+    Returns:
+        Success message
+
+    Raises:
+        HTTPException: 404 if rate not found, 400 if rate cannot be deleted
+    """
+    try:
+        success = await crud_hourly_rate_history.delete_hourly_rate(session=session, rate_id=rate_id)
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Tarifa horaria con ID {rate_id} no encontrada",
+            )
+
+        return {"message": f"Tarifa horaria con ID {rate_id} eliminada exitosamente"}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, use } from "react";
+import React, { useState, useEffect } from "react";
 import { CanAccess } from "@refinedev/core";
 import { TablePagination } from "../../components/ui/data/table-pagination";
 import {
@@ -11,11 +11,10 @@ import {
 } from "../../components/ui/data/table";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { TableFilters } from "../../components/ui/data/table-filters";
 import { Unauthorized } from "../unauthorized";
 import { Button } from "../../components/ui/button";
 import { DeleteConfirmDialog } from "../../components/ui/delete-confirm-dialog";
-import { Eye, Pencil, Trash2, Search, Plus, Settings2, CheckCircle, XCircle, MoreHorizontal, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, Search, Plus, Settings2, CheckCircle, XCircle, MoreHorizontal, ChevronDown } from "lucide-react";
 import { Input } from "../../components/ui/forms/input";
 import {
     DropdownMenu,
@@ -53,7 +52,7 @@ interface Professor {
 export const ProfessorList = () => {
     // Hook CRUD centralizado
     const {
-        canAccess,
+        canCreate,
         itemsList: professorsList,
         total,
         isLoading,
@@ -189,21 +188,30 @@ export const ProfessorList = () => {
         }
     }, [editingProfessor]);
 
-    // Verificar si el usuario no tiene permisos
-    if (canAccess?.can === false) {
-        return <Unauthorized />;
-    }
 
     return (
-        <CanAccess resource="professors" action="list" fallback={<Unauthorized />}>
-            <div className="space-y-6 p-6">
-                {/* Header */}
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Profesores</h1>
-                    <p className="text-muted-foreground">
-                        Gestiona el catálogo de profesores de la institución
-                    </p>
+        <CanAccess
+            resource="professors"
+            action="list"
+            fallback={<Unauthorized resourceName="horarios" message="Solo los administradores pueden gestionar horarios." />}
+        >
+
+            <div className="container mx-auto py-6 space-y-6 max-w-[98%]">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold">Profesores</h1>
+                        <p className="text-muted-foreground">
+                            Gestiona el catálogo de profesores de la institución
+                        </p>
+                    </div>
+                    {canCreate?.can && (
+                        <Button onClick={handleOpenCreateSheet}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Crear Profesor
+                        </Button>
+                    )}
                 </div>
+
 
                 {/* Card with filters and table */}
                 <Card>
@@ -214,13 +222,6 @@ export const ProfessorList = () => {
                                 <CardDescription>
                                     {total} profesor(es) en total
                                 </CardDescription>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {/* Botón Crear */}
-                                <Button onClick={handleOpenCreateSheet}>
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Crear Profesor
-                                </Button>
                             </div>
                         </div>
                     </CardHeader>
@@ -567,6 +568,6 @@ export const ProfessorList = () => {
                     isSubmitting={isCreating || isUpdating}
                 />
             </div>
-        </CanAccess>
+        </CanAccess >
     );
 };

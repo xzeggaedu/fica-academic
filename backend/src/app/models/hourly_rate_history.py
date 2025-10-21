@@ -1,11 +1,11 @@
 """Hourly Rate History model for professor compensation tracking."""
 
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Date, ForeignKey, Index, Integer, Numeric
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -32,8 +32,8 @@ class HourlyRateHistory(Base):
         id: Unique numeric identifier
         level_id: Foreign key to academic_level
         rate_per_hour: Hourly rate amount in USD
-        start_date: Start date of validity
-        end_date: End date of validity (NULL = currently active)
+        start_date: Start datetime of validity
+        end_date: End datetime of validity (NULL = currently active)
         created_by_id: User who created this rate (for audit)
         created_at: Timestamp of creation
         updated_at: Timestamp of last update
@@ -47,13 +47,13 @@ class HourlyRateHistory(Base):
         Integer, ForeignKey("academic_level.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     rate_per_hour: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
-    start_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    end_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    start_date: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    end_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
     created_by_id: Mapped[UUID | None] = mapped_column(ForeignKey("user.uuid", ondelete="SET NULL"), nullable=True)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(), nullable=False)
-    updated_at: Mapped[datetime | None] = mapped_column(default=None, onupdate=lambda: datetime.now(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.utcnow(), nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(default=None, onupdate=lambda: datetime.utcnow(), nullable=True)
 
     # Relationships (init=False para evitar conflictos con dataclasses)
     academic_level: Mapped["AcademicLevel"] = relationship(

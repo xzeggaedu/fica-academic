@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, X, ChevronDown, Clock } from "lucide-react";
+import { Plus, Trash2, ChevronDown } from "lucide-react";
 import { TableFilters } from "@/components/ui/data/table-filters";
 import { TablePagination } from "@/components/ui/data/table-pagination";
 import {
@@ -52,10 +52,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export const SubjectsList = () => {
   // Hook principal de asignaturas con todas las operaciones CRUD
   const {
-    canAccess,
     canCreate,
-    canEdit,
-    canDelete,
     itemsList: subjectsData,
     isLoading: subjectsLoading,
     isError: subjectsError,
@@ -339,15 +336,16 @@ export const SubjectsList = () => {
       action="list"
       fallback={<Unauthorized resourceName="asignaturas" message="Solo los administradores pueden gestionar asignaturas." />}
     >
-      <div className="container mx-auto py-6 space-y-6">
-      <div className="flex items-center justify-between">
-          <div className="flex items-start gap-2">
-            <Clock className="h-6 w-6 mt-1" />
-            <div className="flex flex-col">
-              <h1 className="text-2xl font-bold">Asignaturas</h1>
-            </div>
+      <div className="container mx-auto py-6 space-y-6 max-w-[98%]">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Asignaturas</h1>
+            <p className="text-muted-foreground">
+              Gestiona Asignaturas impartidas en cada escuela y sus respectivas coordinaciones.
+            </p>
           </div>
         </div>
+
         {/* Formulario de creación */}
         <Card>
           <CardHeader>
@@ -358,136 +356,139 @@ export const SubjectsList = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="flex gap-4 items-end">
-                <div className="space-y-2">
-                  <Label htmlFor="subject_code">Código *</Label>
-                  <Input
-                    id="subject_code"
-                    value={newSubject.subject_code}
-                    onChange={(e) =>
-                      setNewSubject({ ...newSubject, subject_code: e.target.value.toUpperCase() })
-                    }
-                    placeholder="Ej: CS101"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2 flex-2">
-                  <Label htmlFor="subject_name">Nombre de la Asignatura *</Label>
-                  <Input
-                    id="subject_name"
-                    value={newSubject.subject_name}
-                    onChange={(e) =>
-                      setNewSubject({ ...newSubject, subject_name: e.target.value })
-                    }
-                    placeholder="Ej: Introducción a la Programación"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="coordination_code">Coordinación *</Label>
-                  <Select
-                    value={newSubject.coordination_code || undefined}
-                    onValueChange={(value) =>
-                      setNewSubject({ ...newSubject, coordination_code: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione una coordinación" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {coordinations
-                        .filter((coord) => coord.is_active)
-                        .map((coordination) => (
-                          <SelectItem key={coordination.id} value={coordination.code}>
-                            {coordination.code} - {coordination.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="is_bilingual" className="flex items-center gap-2">
-                    Bilingüe
-                  </Label>
-                  <div className="flex items-center h-9">
-                    <Switch
-                      id="is_bilingual"
-                      checked={newSubject.is_bilingual || false}
-                      onCheckedChange={(checked) =>
-                        setNewSubject({ ...newSubject, is_bilingual: checked })
+              {canCreate?.can && (
+                <div className="flex gap-4 items-end">
+                  <div className="space-y-2">
+                    <Label htmlFor="subject_code">Código *</Label>
+                    <Input
+                      id="subject_code"
+                      value={newSubject.subject_code}
+                      onChange={(e) =>
+                        setNewSubject({ ...newSubject, subject_code: e.target.value.toUpperCase() })
                       }
+                      placeholder="Ej: CS101"
+                      required
                     />
                   </div>
-                </div>
 
-                {/* Escuelas selector (col 4 en lg) */}
-                <div className="space-y-2 flex-2">
-                  <Label>Escuelas *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className="w-full justify-between"
-                      >
-                        {selectedSchools.length > 0
-                          ? `${selectedSchools.length} escuelas seleccionadas`
-                          : "Seleccionar..."
+                  <div className="space-y-2 flex-2">
+                    <Label htmlFor="subject_name">Nombre de la Asignatura *</Label>
+                    <Input
+                      id="subject_name"
+                      value={newSubject.subject_name}
+                      onChange={(e) =>
+                        setNewSubject({ ...newSubject, subject_name: e.target.value })
+                      }
+                      placeholder="Ej: Introducción a la Programación"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="coordination_code">Coordinación *</Label>
+                    <Select
+                      value={newSubject.coordination_code || undefined}
+                      onValueChange={(value) =>
+                        setNewSubject({ ...newSubject, coordination_code: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccione una coordinación" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {coordinations
+                          .filter((coord) => coord.is_active)
+                          .map((coordination) => (
+                            <SelectItem key={coordination.id} value={coordination.code}>
+                              {coordination.code} - {coordination.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="is_bilingual" className="flex items-center gap-2">
+                      Bilingüe
+                    </Label>
+                    <div className="flex items-center h-9">
+                      <Switch
+                        id="is_bilingual"
+                        checked={newSubject.is_bilingual || false}
+                        onCheckedChange={(checked) =>
+                          setNewSubject({ ...newSubject, is_bilingual: checked })
                         }
-                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0">
-                      <Command>
-                        <CommandInput placeholder="Buscar escuelas..." />
-                        <CommandList>
-                          <CommandEmpty>No se encontraron escuelas.</CommandEmpty>
-                          {faculties.map(faculty => {
-                            const facultySchools = schoolsByFaculty[faculty.id] || [];
-                            if (facultySchools.length === 0) return null;
+                      />
+                    </div>
+                  </div>
 
-                            return (
-                              <CommandGroup key={faculty.id} heading={faculty.name}>
-                                {facultySchools.map(school => (
-                                  <CommandItem
-                                    key={school.id}
-                                    value={`${school.name} ${school.acronym}`}
-                                    onSelect={() => {
-                                      if (selectedSchools.includes(school.id)) {
-                                        setSelectedSchools(selectedSchools.filter(id => id !== school.id));
-                                      } else {
-                                        setSelectedSchools([...selectedSchools, school.id]);
-                                      }
-                                    }}
-                                    className="flex items-center space-x-2"
-                                  >
-                                    <Checkbox
-                                      checked={selectedSchools.includes(school.id)}
-                                      className="pointer-events-none"
-                                    />
-                                    <span className="flex-1">{school.name} ({school.acronym})</span>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            );
-                          })}
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
+                  {/* Escuelas selector (col 4 en lg) */}
+                  <div className="space-y-2 flex-2">
+                    <Label>Escuelas *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between"
+                        >
+                          {selectedSchools.length > 0
+                            ? `${selectedSchools.length} escuelas seleccionadas`
+                            : "Seleccionar..."
+                          }
+                          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Buscar escuelas..." />
+                          <CommandList>
+                            <CommandEmpty>No se encontraron escuelas.</CommandEmpty>
+                            {faculties.map(faculty => {
+                              const facultySchools = schoolsByFaculty[faculty.id] || [];
+                              if (facultySchools.length === 0) return null;
 
-                {/* Botón submit (col 6 en lg) */}
-                <div className="space-y-2">
-                  <Label className="invisible lg:visible">&nbsp;</Label>
-                  <Button type="submit" disabled={creating} className="w-full">
-                    {creating ? "Creando..." : "Agregar Asignatura"}
-                  </Button>
+                              return (
+                                <CommandGroup key={faculty.id} heading={faculty.name}>
+                                  {facultySchools.map(school => (
+                                    <CommandItem
+                                      key={school.id}
+                                      value={`${school.name} ${school.acronym}`}
+                                      onSelect={() => {
+                                        if (selectedSchools.includes(school.id)) {
+                                          setSelectedSchools(selectedSchools.filter(id => id !== school.id));
+                                        } else {
+                                          setSelectedSchools([...selectedSchools, school.id]);
+                                        }
+                                      }}
+                                      className="flex items-center space-x-2"
+                                    >
+                                      <Checkbox
+                                        checked={selectedSchools.includes(school.id)}
+                                        className="pointer-events-none"
+                                      />
+                                      <span className="flex-1">{school.name} ({school.acronym})</span>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              );
+                            })}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Botón submit (col 6 en lg) */}
+                  <div className="space-y-2">
+                    <Label className="invisible lg:visible">&nbsp;</Label>
+                    <Button type="submit" disabled={creating} className="w-full">
+                      {creating ? "Creando..." : "Agregar Asignatura"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
+
 
               {/* Mostrar escuelas seleccionadas (debajo del grid en todas las resoluciones) */}
               {selectedSchools.length > 0 && (
