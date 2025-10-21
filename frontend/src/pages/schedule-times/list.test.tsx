@@ -103,7 +103,7 @@ describe('ScheduleTimesList - Lista de Horarios', () => {
   it('debería renderizar el título', () => {
     renderWithProviders(<ScheduleTimesList />);
 
-    expect(screen.getByText(/Configuración de Horarios/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Horarios' })).toBeInTheDocument();
   });
 
   it('debería cargar y mostrar horarios desde la API', () => {

@@ -3,7 +3,7 @@
 import asyncio
 import csv
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -74,13 +74,13 @@ async def seed_hourly_rates(session: AsyncSession) -> None:
                         f"Parsed data: level_code={level_code}, level_id={level_id}, rate_per_hour={rate_per_hour}"
                     )
 
-                    # Parsear fechas
-                    start_date_parsed = date.fromisoformat(start_date_str)
+                    # Parsear fechas como datetime UTC (naive, sin timezone info)
+                    start_date_parsed = datetime.fromisoformat(start_date_str + "T00:00:00")
 
                     # end_date puede ser NULL
                     end_date_parsed = None
                     if end_date_str and end_date_str.upper() != "NULL":
-                        end_date_parsed = date.fromisoformat(end_date_str)
+                        end_date_parsed = datetime.fromisoformat(end_date_str + "T23:59:59")
 
                     # Verificar si ya existe una tarifa activa para este nivel
                     existing = await session.execute(
@@ -105,7 +105,7 @@ async def seed_hourly_rates(session: AsyncSession) -> None:
                         start_date=start_date_parsed,
                         end_date=end_date_parsed,
                         created_by_id=None,
-                        created_at=datetime.now(),
+                        created_at=datetime.utcnow(),
                     )
 
                     session.add(hourly_rate)

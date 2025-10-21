@@ -64,7 +64,7 @@ async def seed_academic_levels(session: AsyncSession) -> None:
                         name=name,
                         priority=priority,
                         is_active=True,
-                        created_at=datetime.now(),
+                        created_at=datetime.utcnow(),
                     )
 
                     session.add(academic_level)

@@ -87,7 +87,7 @@ export function AcademicLevelCreateSheet({
               required
             />
             <p className="text-xs text-muted-foreground">
-              5 = Muy Alta, 4 = Alta, 3 = Media, 2 = Baja, 1 = Base
+              1 = Muy Alta, 2 = Alta, 3 = Media, 4 = Baja, 5 = Base
             </p>
           </div>
 

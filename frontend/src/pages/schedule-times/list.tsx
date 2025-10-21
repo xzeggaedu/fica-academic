@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Clock, Plus, Trash2, ChevronDown, List, Grid3X3 } from "lucide-react";
+import { Plus, Trash2, ChevronDown, List, Grid3X3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
@@ -8,8 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/forms/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useNotification, CanAccess } from "@refinedev/core";
-import { useQueryClient } from "@tanstack/react-query";
+import { CanAccess } from "@refinedev/core";
 import { toast } from "sonner";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Unauthorized } from "../unauthorized";
@@ -18,7 +17,6 @@ import type { ScheduleTimeCreatePayload, ScheduleTimeUpdatePayload } from "@/hoo
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 // Constantes para los días de la semana (0=Lunes, 6=Domingo)
@@ -134,19 +132,14 @@ interface NewScheduleTime {
 export function ScheduleTimesList() {
   // Hook personalizado para CRUD de horarios
   const {
-    canAccess,
     canCreate,
-    canEdit,
-    canDelete,
     itemsList: scheduleTimesList,
-    total,
     isLoading,
     isError,
     createItem,
     updateItem,
     softDeleteItem,
     isCreating,
-    isUpdating,
     isDeleting,
   } = useScheduleTimesCrud();
 
@@ -174,8 +167,6 @@ export function ScheduleTimesList() {
 
   // Estado para animación de highlight
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
-
-  const { open } = useNotification();
 
   // Los hooks de eliminación ya están disponibles desde useScheduleTimesCrud
 
@@ -278,13 +269,9 @@ export function ScheduleTimesList() {
   useEffect(() => {
     if (isError) {
       setError("Error al cargar horarios");
-      open?.({
-        type: "error",
-        message: "Error",
-        description: "Error al cargar horarios",
-      });
+      toast.error("Error al cargar horarios");
     }
-  }, [isError, open]);
+  }, [isError]);
 
   // Función para manejar cambio de hora de inicio con auto-incremento
   const handleStartTimeChange = (newStartTime: string) => {
@@ -590,15 +577,16 @@ export function ScheduleTimesList() {
       action="list"
       fallback={<Unauthorized resourceName="horarios" message="Solo los administradores pueden gestionar horarios." />}
     >
-      <div className="container mx-auto py-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">Configuración de Horarios</h1>
-          </div>
 
-          {/* Toggle de vista */}
-          <div className="flex items-center gap-2">
+      <div className="container mx-auto py-6 space-y-6 max-w-[98%]">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Horarios</h1>
+            <p className="text-muted-foreground">
+              Establece rangos horarios recurrentes para el sistema
+            </p>
+          </div>
+          <div className="flex items-center gap-2 justify-end">
             <span className="text-sm text-muted-foreground">Vista:</span>
             <div className="flex border rounded-md">
               <Button
@@ -621,149 +609,160 @@ export function ScheduleTimesList() {
               </Button>
             </div>
           </div>
+
         </div>
 
         {/* Formulario para agregar nuevo horario */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Agregar Nuevo Horario
-            </CardTitle>
-            <CardDescription>
-              Establece rangos horarios recurrentes para el sistema
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="day-selector" className="px-1">
-                  Días de la Semana
-                </Label>
-                <Popover open={isDayDropdownOpen} onOpenChange={setIsDayDropdownOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between">
-                      {selectedDays.length === 0 ? "Seleccionar días" : generateDayGroupName(selectedDays)}
-                      <ChevronDown className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-3">
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-sm">Seleccionar días</h4>
+        {canCreate?.can && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                Agregar Nuevo Horario
+              </CardTitle>
+              <CardDescription>
+                Establece rangos horarios recurrentes para el sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex w-full gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="day-selector" className="px-1">
+                    Días de la Semana
+                  </Label>
+                  <Popover open={isDayDropdownOpen} onOpenChange={setIsDayDropdownOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between">
+                        {selectedDays.length === 0 ? "Seleccionar días" : generateDayGroupName(selectedDays)}
+                        <ChevronDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-3">
                       <div className="space-y-2">
-                        {WEEK_DAYS.map((day) => (
-                          <div key={day.index} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={day.key}
-                              checked={selectedDays.includes(day.index)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedDays([...selectedDays, day.index]);
-                                } else {
-                                  setSelectedDays(selectedDays.filter(d => d !== day.index));
-                                }
-                              }}
-                            />
-                            <label htmlFor={day.key} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                              {day.label}
-                            </label>
-                          </div>
-                        ))}
+                        <h4 className="font-medium text-sm">Seleccionar días</h4>
+                        <div className="space-y-2">
+                          {WEEK_DAYS.map((day) => (
+                            <div key={day.index} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={day.key}
+                                checked={selectedDays.includes(day.index)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedDays([...selectedDays, day.index]);
+                                  } else {
+                                    setSelectedDays(selectedDays.filter(d => d !== day.index));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={day.key} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                {day.label}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="start-time" className="px-1">
-                  Hora Inicio
-                </Label>
-                <Input
-                  type="time"
-                  id="start-time"
-                  value={newScheduleTime.start_time}
-                  onChange={(e) => handleStartTimeChange(e.target.value)}
-                  className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="end-time" className="px-1">
-                  Hora Fin
-                </Label>
-                <div className="flex gap-2 items-end">
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="flex flex-col gap-2  min-w-[125px]">
+                  <Label htmlFor="start-time" className="px-1">
+                    Hora Inicio
+                  </Label>
                   <Input
                     type="time"
-                    id="end-time"
-                    value={newScheduleTime.end_time}
-                    onChange={(e) => handleEndTimeChange(e.target.value)}
-                    className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none flex-1"
+                    id="start-time"
+                    value={newScheduleTime.start_time}
+                    onChange={(e) => handleStartTimeChange(e.target.value)}
+                    className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
                   />
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="extended-times" className="text-sm text-muted-foreground">
-                      Horarios extendidos
-                    </Label>
-                    <Switch
-                      id="extended-times"
-                      checked={hasExtendedTimes}
-                      onCheckedChange={toggleExtendedTimes}
+                </div>
+
+                <div className="flex flex-col gap-2  min-w-[125px]">
+                  <Label htmlFor="end-time" className="px-1">
+                    Hora Fin
+                  </Label>
+                  <div className="flex gap-2 items-end">
+                    <Input
+                      type="time"
+                      id="end-time"
+                      value={newScheduleTime.end_time}
+                      onChange={(e) => handleEndTimeChange(e.target.value)}
+                      className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none flex-1"
                     />
                   </div>
                 </div>
+
+                {hasExtendedTimes && (
+                  <>
+                    <div className="flex flex-col gap-2 min-w-[125px]">
+                      <Label htmlFor="start-time-ext" className="px-1">
+                        Hora Inicio Extendida
+                      </Label>
+                      <Input
+                        type="time"
+                        id="start-time-ext"
+                        value={newScheduleTime.start_time_ext || ""}
+                        onChange={(e) => handleStartTimeExtChange(e.target.value)}
+                        className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-2 min-w-[125px]">
+                      <Label htmlFor="end-time-ext" className="px-1">
+                        Hora Fin Extendida
+                      </Label>
+                      <Input
+                        type="time"
+                        id="end-time-ext"
+                        value={newScheduleTime.end_time_ext || ""}
+                        onChange={(e) => handleEndTimeExtChange(e.target.value)}
+                        className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="flex flex-col gap-3">
+                  <Label htmlFor="extended-times" className="px-1text-sm">
+                    Extendido
+                  </Label>
+                  <Switch
+                    id="extended-times"
+                    checked={hasExtendedTimes}
+                    onCheckedChange={toggleExtendedTimes}
+                    className="mt-1"
+                  />
+                </div>
+
+                {/* Campos de horarios extendidos */}
+
+                <div className="flex">
+                  <Button onClick={handleCreate} disabled={isCreating} className="pr-4 mt-5 ml-4">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Agregar
+                  </Button>
+                </div>
               </div>
 
-              {/* Campos de horarios extendidos */}
-              {hasExtendedTimes && (
-                <div className="grid grid-cols-2 gap-4 col-span-full border-t pt-4">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="start-time-ext" className="px-1 text-sm">
-                      Hora Inicio Extendida
-                    </Label>
-                    <Input
-                      type="time"
-                      id="start-time-ext"
-                      value={newScheduleTime.start_time_ext || ""}
-                      onChange={(e) => handleStartTimeExtChange(e.target.value)}
-                      className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="end-time-ext" className="px-1 text-sm">
-                      Hora Fin Extendida
-                    </Label>
-                    <Input
-                      type="time"
-                      id="end-time-ext"
-                      value={newScheduleTime.end_time_ext || ""}
-                      onChange={(e) => handleEndTimeExtChange(e.target.value)}
-                      className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                    />
+              {/* Mostrar el rango de tiempo generado automáticamente */}
+              {newScheduleTime.start_time && newScheduleTime.end_time && (
+                <div className="mt-4 p-3 bg-muted rounded-lg">
+                  <div className="text-sm font-medium text-muted-foreground">Rango de tiempo generado:</div>
+                  <div className="text-sm font-semibold">
+                    {generateRangeText(
+                      newScheduleTime.start_time,
+                      newScheduleTime.end_time,
+                      hasExtendedTimes ? newScheduleTime.start_time_ext : null,
+                      hasExtendedTimes ? newScheduleTime.end_time_ext : null
+                    )}
                   </div>
                 </div>
               )}
-              <div className="flex items-end">
-                <Button onClick={handleCreate} disabled={isCreating} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Agregar
-                </Button>
-              </div>
-            </div>
+            </CardContent>
+          </Card>
+        )}
 
-            {/* Mostrar el rango de tiempo generado automáticamente */}
-            {newScheduleTime.start_time && newScheduleTime.end_time && (
-              <div className="mt-4 p-3 bg-muted rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground">Rango de tiempo generado:</div>
-                <div className="text-sm font-semibold">
-                  {generateRangeText(
-                    newScheduleTime.start_time,
-                    newScheduleTime.end_time,
-                    hasExtendedTimes ? newScheduleTime.start_time_ext : null,
-                    hasExtendedTimes ? newScheduleTime.end_time_ext : null
-                  )}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Tabla de horarios */}
         <Card>
@@ -795,11 +794,10 @@ export function ScheduleTimesList() {
                   {scheduleTimes.map((scheduleTime) => (
                     <TableRow
                       key={scheduleTime.id}
-                      className={`transition-all duration-500 ${
-                        highlightedId === scheduleTime.id
-                          ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700'
-                          : ''
-                      }`}
+                      className={`transition-all duration-500 ${highlightedId === scheduleTime.id
+                        ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700'
+                        : ''
+                        }`}
                     >
                       <TableCell className="font-medium">{scheduleTime.id}</TableCell>
                       <TableCell>
@@ -1002,20 +1000,20 @@ export function ScheduleTimesList() {
                       </TableCell>
                       <TableCell className="text-center">
                         <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => handleDelete(scheduleTime.id, scheduleTime.range_text, scheduleTime.day_group_name)}
-                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Eliminar</p>
-                            </TooltipContent>
-                          </Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleDelete(scheduleTime.id, scheduleTime.range_text, scheduleTime.day_group_name)}
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Eliminar</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1038,11 +1036,10 @@ export function ScheduleTimesList() {
                     times.map((scheduleTime, index) => (
                       <TableRow
                         key={scheduleTime.id}
-                        className={`transition-all duration-500 ${
-                          highlightedId === scheduleTime.id
-                            ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700'
-                            : ''
-                        }`}
+                        className={`transition-all duration-500 ${highlightedId === scheduleTime.id
+                          ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700'
+                          : ''
+                          }`}
                       >
                         {index === 0 && (
                           <TableCell

@@ -1,4 +1,4 @@
-import { useCreate, useDelete, useInvalidate, useList, useUpdate, useCan } from "@refinedev/core";
+import { useCreate, useInvalidate, useList, useUpdate, useCan } from "@refinedev/core";
 import { toast } from "sonner";
 import type { AcademicLevel, AcademicLevelCreate, AcademicLevelUpdate } from "@/types/api";
 

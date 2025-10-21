@@ -41,8 +41,8 @@ class AcademicLevel(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(), nullable=False)
-    updated_at: Mapped[datetime | None] = mapped_column(default=None, onupdate=lambda: datetime.now(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.utcnow(), nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(default=None, onupdate=lambda: datetime.utcnow(), nullable=True)
 
     # Relationships (init=False para evitar conflictos con dataclasses)
     hourly_rates: Mapped[list["HourlyRateHistory"]] = relationship(
