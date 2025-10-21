@@ -16,34 +16,38 @@ class TestCatalogSubjectValidation:
     def test_subject_code_validation_valid(self):
         """Prueba que códigos de asignatura válidos pasen la validación."""
         subject = CatalogSubjectBase(
-            subject_code="CS101", subject_name="Introducción a la Programación", department_code="CS", is_active=True
+            subject_code="CS101", subject_name="Introducción a la Programación", coordination_code="PRO", is_active=True
         )
 
         assert subject.subject_code == "CS101"
         assert subject.subject_name == "Introducción a la Programación"
-        assert subject.department_code == "CS"
+        assert subject.coordination_code == "PRO"
         assert subject.is_active is True
 
     def test_subject_code_uppercase_normalization(self):
         """Prueba que los códigos se normalicen a mayúsculas."""
         subject = CatalogSubjectBase(
-            subject_code="cs101", subject_name="Test Subject", department_code="cs", is_active=True
+            subject_code="cs101", subject_name="Test Subject", coordination_code="cs", is_active=True
         )
 
         assert subject.subject_code == "CS101"
-        assert subject.department_code == "CS"
+        assert subject.coordination_code == "CS"
 
     def test_subject_code_no_spaces(self):
         """Prueba que los códigos no puedan contener espacios."""
         with pytest.raises(ValidationError) as exc_info:
-            CatalogSubjectBase(subject_code="CS 101", subject_name="Test Subject", department_code="CS", is_active=True)
+            CatalogSubjectBase(
+                subject_code="CS 101", subject_name="Test Subject", coordination_code="CS", is_active=True
+            )
 
         assert "Los códigos no pueden contener espacios" in str(exc_info.value)
 
-    def test_department_code_no_spaces(self):
-        """Prueba que el código de departamento no pueda contener espacios."""
+    def test_coordination_code_no_spaces(self):
+        """Prueba que el código de coordinación no pueda contener espacios."""
         with pytest.raises(ValidationError) as exc_info:
-            CatalogSubjectBase(subject_code="CS101", subject_name="Test Subject", department_code="C S", is_active=True)
+            CatalogSubjectBase(
+                subject_code="CS101", subject_name="Test Subject", coordination_code="P RO", is_active=True
+            )
 
         # El validador genérico usa el mensaje "Los códigos no pueden contener espacios"
         assert "Los códigos no pueden contener espacios" in str(exc_info.value)
@@ -53,7 +57,7 @@ class TestCatalogSubjectValidation:
         subject = CatalogSubjectBase(
             subject_code="CS101",
             subject_name="  Introducción a la Programación  ",
-            department_code="CS",
+            coordination_code="CS",
             is_active=True,
         )
 
@@ -62,21 +66,21 @@ class TestCatalogSubjectValidation:
     def test_subject_code_required(self):
         """Prueba que subject_code sea requerido."""
         with pytest.raises(ValidationError):
-            CatalogSubjectBase(subject_name="Test Subject", department_code="CS", is_active=True)
+            CatalogSubjectBase(subject_name="Test Subject", coordination_code="CS", is_active=True)
 
     def test_subject_name_required(self):
         """Prueba que subject_name sea requerido."""
         with pytest.raises(ValidationError):
-            CatalogSubjectBase(subject_code="CS101", department_code="CS", is_active=True)
+            CatalogSubjectBase(subject_code="CS101", coordination_code="CS", is_active=True)
 
-    def test_department_code_required(self):
-        """Prueba que department_code sea requerido."""
+    def test_coordination_code_required(self):
+        """Prueba que coordination_code sea requerido."""
         with pytest.raises(ValidationError):
             CatalogSubjectBase(subject_code="CS101", subject_name="Test Subject", is_active=True)
 
     def test_is_active_default_value(self):
         """Prueba que is_active tenga valor por defecto True."""
-        subject = CatalogSubjectBase(subject_code="CS101", subject_name="Test Subject", department_code="CS")
+        subject = CatalogSubjectBase(subject_code="CS101", subject_name="Test Subject", coordination_code="CS")
 
         assert subject.is_active is True
 
@@ -89,7 +93,7 @@ class TestCatalogSubjectCreate:
         subject_data = CatalogSubjectCreate(
             subject_code="CS101",
             subject_name="Introducción a la Programación",
-            department_code="CS",
+            coordination_code="CS",
             school_ids=[1, 2, 3],
         )
 
@@ -99,7 +103,7 @@ class TestCatalogSubjectCreate:
     def test_create_subject_without_schools(self):
         """Prueba crear una asignatura sin escuelas asociadas."""
         subject_data = CatalogSubjectCreate(
-            subject_code="CS101", subject_name="Introducción a la Programación", department_code="CS"
+            subject_code="CS101", subject_name="Introducción a la Programación", coordination_code="CS"
         )
 
         assert subject_data.school_ids == []
@@ -107,7 +111,7 @@ class TestCatalogSubjectCreate:
     def test_create_subject_with_empty_school_list(self):
         """Prueba crear una asignatura con lista vacía de escuelas."""
         subject_data = CatalogSubjectCreate(
-            subject_code="CS101", subject_name="Introducción a la Programación", department_code="CS", school_ids=[]
+            subject_code="CS101", subject_name="Introducción a la Programación", coordination_code="CS", school_ids=[]
         )
 
         assert subject_data.school_ids == []
@@ -122,7 +126,7 @@ class TestCatalogSubjectUpdate:
 
         assert update_data.subject_name == "Nuevo Nombre"
         assert update_data.subject_code is None
-        assert update_data.department_code is None
+        assert update_data.coordination_code is None
         assert update_data.is_active is None
         assert update_data.school_ids is None
 
@@ -157,14 +161,14 @@ class TestCatalogSubjectUpdate:
         update_data = CatalogSubjectUpdate(
             subject_code="CS102",
             subject_name="Programación Avanzada",
-            department_code="CS",
+            coordination_code="CS",
             is_active=False,
             school_ids=[1],
         )
 
         assert update_data.subject_code == "CS102"
         assert update_data.subject_name == "Programación Avanzada"
-        assert update_data.department_code == "CS"
+        assert update_data.coordination_code == "CS"
         assert update_data.is_active is False
         assert update_data.school_ids == [1]
 
@@ -177,7 +181,7 @@ class TestSubjectCodeValidation:
         valid_codes = ["CS101", "MATH201", "PHYS301", "ENG101A", "BIO101-L"]
 
         for code in valid_codes:
-            subject = CatalogSubjectBase(subject_code=code, subject_name="Test Course", department_code="TEST")
+            subject = CatalogSubjectBase(subject_code=code, subject_name="Test Course", coordination_code="TEST")
             assert subject.subject_code == code.upper()
 
     def test_subject_code_max_length(self):
@@ -186,21 +190,21 @@ class TestSubjectCodeValidation:
             CatalogSubjectBase(
                 subject_code="A" * 21,  # 21 caracteres, máximo es 20
                 subject_name="Test Course",
-                department_code="CS",
+                coordination_code="CS",
             )
 
     def test_subject_code_min_length(self):
         """Prueba que el código tenga al menos 1 carácter."""
         with pytest.raises(ValidationError):
-            CatalogSubjectBase(subject_code="", subject_name="Test Course", department_code="CS")
+            CatalogSubjectBase(subject_code="", subject_name="Test Course", coordination_code="CS")
 
-    def test_department_code_max_length(self):
-        """Prueba que el código de departamento no exceda la longitud máxima."""
+    def test_coordination_code_max_length(self):
+        """Prueba que el código de coordinación no exceda la longitud máxima."""
         with pytest.raises(ValidationError):
             CatalogSubjectBase(
                 subject_code="CS101",
                 subject_name="Test Course",
-                department_code="A" * 21,  # 21 caracteres, máximo es 20
+                coordination_code="A" * 11,  # 11 caracteres, máximo es 10
             )
 
 
@@ -213,18 +217,18 @@ class TestSubjectNameValidation:
             CatalogSubjectBase(
                 subject_code="CS101",
                 subject_name="A" * 256,  # 256 caracteres, máximo es 255
-                department_code="CS",
+                coordination_code="CS",
             )
 
     def test_subject_name_min_length(self):
         """Prueba que el nombre tenga al menos 1 carácter."""
         with pytest.raises(ValidationError):
-            CatalogSubjectBase(subject_code="CS101", subject_name="", department_code="CS")
+            CatalogSubjectBase(subject_code="CS101", subject_name="", coordination_code="CS")
 
     def test_subject_name_with_special_characters(self):
         """Prueba que el nombre pueda contener caracteres especiales."""
         subject = CatalogSubjectBase(
-            subject_code="CS101", subject_name="Introducción a la Programación I & II", department_code="CS"
+            subject_code="CS101", subject_name="Introducción a la Programación I & II", coordination_code="CS"
         )
 
         assert subject.subject_name == "Introducción a la Programación I & II"
@@ -232,7 +236,7 @@ class TestSubjectNameValidation:
     def test_subject_name_with_numbers(self):
         """Prueba que el nombre pueda contener números."""
         subject = CatalogSubjectBase(
-            subject_code="CS101", subject_name="Programación 101 - Nivel 1", department_code="CS"
+            subject_code="CS101", subject_name="Programación 101 - Nivel 1", coordination_code="CS"
         )
 
         assert subject.subject_name == "Programación 101 - Nivel 1"

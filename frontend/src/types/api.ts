@@ -162,7 +162,7 @@ export interface Subject {
   id: number;
   subject_code: string;
   subject_name: string;
-  department_code: string;
+  coordination_code: string;
   is_bilingual: boolean;
   is_active: boolean;
   created_at: string;
@@ -173,7 +173,7 @@ export interface Subject {
 export interface SubjectCreate {
   subject_code: string;
   subject_name: string;
-  department_code: string;
+  coordination_code: string;
   is_bilingual?: boolean;
   is_active?: boolean;
   school_ids: number[];
@@ -182,7 +182,7 @@ export interface SubjectCreate {
 export interface SubjectUpdate {
   subject_code?: string;
   subject_name?: string;
-  department_code?: string;
+  coordination_code?: string;
   is_bilingual?: boolean;
   is_active?: boolean;
   school_ids?: number[];
@@ -246,6 +246,7 @@ export interface Coordination {
   name: string;
   description: string | null;
   faculty_id: number;
+  school_id: number;
   coordinator_professor_id: number | null;
   is_active: boolean;
   deleted: boolean;
@@ -259,6 +260,7 @@ export interface CoordinationCreate {
   name: string;
   description?: string;
   faculty_id: number;
+  school_id: number;
   coordinator_professor_id?: number | null;
   is_active?: boolean;
 }
@@ -268,6 +270,7 @@ export interface CoordinationUpdate {
   name?: string;
   description?: string;
   faculty_id?: number;
+  school_id?: number;
   coordinator_professor_id?: number | null;
   is_active?: boolean;
 }
@@ -278,6 +281,8 @@ export interface ScheduleTime {
   schedule_code: string;
   start_time: string;
   end_time: string;
+  start_time_ext: string | null;
+  end_time_ext: string | null;
   is_active: boolean;
   deleted: boolean;
   deleted_at: string | null;
@@ -289,6 +294,8 @@ export interface ScheduleTimeCreate {
   schedule_code: string;
   start_time: string;
   end_time: string;
+  start_time_ext?: string | null;
+  end_time_ext?: string | null;
   is_active?: boolean;
 }
 
@@ -296,6 +303,8 @@ export interface ScheduleTimeUpdate {
   schedule_code?: string;
   start_time?: string;
   end_time?: string;
+  start_time_ext?: string | null;
+  end_time_ext?: string | null;
   is_active?: boolean;
 }
 

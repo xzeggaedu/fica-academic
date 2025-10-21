@@ -55,7 +55,7 @@ const generateDayGroupName = (selectedDayIndexes: number[]): string => {
 };
 
 // Función para generar range_text basado en las horas
-const generateRangeText = (startTime: string, endTime: string): string => {
+const generateRangeText = (startTime: string, endTime: string, startTimeExt?: string | null, endTimeExt?: string | null): string => {
   if (!startTime || !endTime) return '';
 
   const formatTime = (time: string) => {
@@ -69,7 +69,14 @@ const generateRangeText = (startTime: string, endTime: string): string => {
     return `${hour - 12}:${min.toString().padStart(2, '0')} p.m.`;
   };
 
-  return `${formatTime(startTime)} a ${formatTime(endTime)}`;
+  const mainRange = `${formatTime(startTime)} a ${formatTime(endTime)}`;
+
+  if (startTimeExt && endTimeExt) {
+    const extRange = `${formatTime(startTimeExt)} a ${formatTime(endTimeExt)}`;
+    return `${mainRange} y ${extRange}`;
+  }
+
+  return mainRange;
 };
 
 // Función para parsear day_group_name de vuelta a array de índices
@@ -108,6 +115,8 @@ interface ScheduleTime {
   range_text: string;
   start_time: string;
   end_time: string;
+  start_time_ext: string | null;
+  end_time_ext: string | null;
   duration_min: number;
   is_active: boolean;
   created_at: string;
@@ -117,6 +126,8 @@ interface ScheduleTime {
 interface NewScheduleTime {
   start_time: string;
   end_time: string;
+  start_time_ext: string | null;
+  end_time_ext: string | null;
   is_active: boolean;
 }
 
@@ -145,6 +156,8 @@ export function ScheduleTimesList() {
   const [newScheduleTime, setNewScheduleTime] = useState<NewScheduleTime>({
     start_time: "00:00",
     end_time: "01:00",
+    start_time_ext: null,
+    end_time_ext: null,
     is_active: true,
   });
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
@@ -157,6 +170,7 @@ export function ScheduleTimesList() {
   const [viewMode, setViewMode] = useState<'table' | 'grouped'>('table');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [scheduleToDelete, setScheduleToDelete] = useState<{ id: number, range: string, dayGroup: string } | null>(null);
+  const [hasExtendedTimes, setHasExtendedTimes] = useState(false);
 
   // Estado para animación de highlight
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
@@ -231,6 +245,8 @@ export function ScheduleTimesList() {
         range_text: item.range_text || '',
         start_time: item.start_time || '',
         end_time: item.end_time || '',
+        start_time_ext: item.start_time_ext || null,
+        end_time_ext: item.end_time_ext || null,
         duration_min: item.duration_min || 0,
         is_active: item.is_active || false,
         created_at: item.created_at || '',
@@ -306,6 +322,54 @@ export function ScheduleTimesList() {
     });
   };
 
+  // Función para manejar cambio de hora inicio extendida
+  const handleStartTimeExtChange = (newStartTimeExt: string) => {
+    setNewScheduleTime({
+      ...newScheduleTime,
+      start_time_ext: newStartTimeExt,
+    });
+  };
+
+  // Función para manejar cambio de hora fin extendida con validación
+  const handleEndTimeExtChange = (newEndTimeExt: string) => {
+    // Validar que la hora fin extendida no sea menor que la hora inicio extendida
+    if (newScheduleTime.start_time_ext) {
+      const startTimeExt = new Date(`2000-01-01T${newScheduleTime.start_time_ext}`);
+      const endTimeExt = new Date(`2000-01-01T${newEndTimeExt}`);
+
+      if (endTimeExt <= startTimeExt) {
+        toast.error('Hora inválida', {
+          description: 'La hora de fin extendida debe ser mayor que la hora de inicio extendida',
+          richColors: true,
+        });
+        return;
+      }
+    }
+
+    setNewScheduleTime({
+      ...newScheduleTime,
+      end_time_ext: newEndTimeExt,
+    });
+  };
+
+  // Función para toggle de horarios extendidos
+  const toggleExtendedTimes = (enabled: boolean) => {
+    setHasExtendedTimes(enabled);
+    if (!enabled) {
+      setNewScheduleTime({
+        ...newScheduleTime,
+        start_time_ext: null,
+        end_time_ext: null,
+      });
+    } else {
+      setNewScheduleTime({
+        ...newScheduleTime,
+        start_time_ext: "07:00",
+        end_time_ext: "09:00",
+      });
+    }
+  };
+
   const handleCreate = () => {
     if (selectedDays.length === 0 || !newScheduleTime.start_time || !newScheduleTime.end_time) {
       toast.error('Error de validación', {
@@ -327,10 +391,26 @@ export function ScheduleTimesList() {
       return;
     }
 
+    // Validación para horarios extendidos
+    if (hasExtendedTimes && newScheduleTime.start_time_ext && newScheduleTime.end_time_ext) {
+      const startTimeExt = new Date(`2000-01-01T${newScheduleTime.start_time_ext}`);
+      const endTimeExt = new Date(`2000-01-01T${newScheduleTime.end_time_ext}`);
+
+      if (endTimeExt <= startTimeExt) {
+        toast.error('Horarios extendidos inválidos', {
+          description: 'La hora de fin extendida debe ser mayor que la hora de inicio extendida',
+          richColors: true,
+        });
+        return;
+      }
+    }
+
     const payload: ScheduleTimeCreatePayload = {
       days_array: selectedDays,
       start_time: newScheduleTime.start_time,
       end_time: newScheduleTime.end_time,
+      start_time_ext: hasExtendedTimes ? newScheduleTime.start_time_ext : null,
+      end_time_ext: hasExtendedTimes ? newScheduleTime.end_time_ext : null,
       is_active: newScheduleTime.is_active,
     };
 
@@ -339,9 +419,12 @@ export function ScheduleTimesList() {
       setNewScheduleTime({
         start_time: "00:00",
         end_time: "01:00",
+        start_time_ext: null,
+        end_time_ext: null,
         is_active: true,
       });
       setSelectedDays([]);
+      setHasExtendedTimes(false);
     });
   };
 
@@ -414,15 +497,44 @@ export function ScheduleTimesList() {
           return; // No guardar si es inválido
         }
         updateData[field] = value;
+      } else if (field === 'end_time_ext') {
+        // Validar que la hora fin extendida no sea menor o igual que la hora inicio extendida
+        const startTimeExt = scheduleTime.start_time_ext;
+        if (startTimeExt) {
+          const startTimeExtDate = new Date(`2000-01-01T${startTimeExt}`);
+          const endTimeExtDate = new Date(`2000-01-01T${value}`);
+
+          if (endTimeExtDate <= startTimeExtDate) {
+            toast.error('Hora extendida inválida', {
+              description: 'La hora de fin extendida debe ser mayor que la hora de inicio extendida',
+              richColors: true,
+            });
+            return; // No guardar si es inválido
+          }
+        }
+        updateData[field] = value;
+      } else if (field === 'start_time_ext') {
+        // Validar que la hora inicio extendida no sea mayor o igual que la hora fin extendida
+        const endTimeExt = scheduleTime.end_time_ext;
+        if (endTimeExt) {
+          const startTimeExtDate = new Date(`2000-01-01T${value}`);
+          const endTimeExtDate = new Date(`2000-01-01T${endTimeExt}`);
+
+          if (startTimeExtDate >= endTimeExtDate) {
+            toast.error('Hora extendida inválida', {
+              description: 'La hora de inicio extendida debe ser menor que la hora de fin extendida',
+              richColors: true,
+            });
+            return; // No guardar si es inválido
+          }
+        }
+        updateData[field] = value;
       } else if (field === 'is_active') {
         updateData.is_active = value === 'true';
       }
     }
 
-    console.log(`🔍 DEBUG Updating schedule ${id}, field: ${field}, updateData:`, updateData);
-
     updateItem(id, updateData, () => {
-      console.log(`✅ DEBUG Successfully updated schedule ${id}`);
       // Activar highlight para mostrar qué fila se editó
       highlightRow(id);
       setEditingId(null);
@@ -578,14 +690,56 @@ export function ScheduleTimesList() {
                 <Label htmlFor="end-time" className="px-1">
                   Hora Fin
                 </Label>
-                <Input
-                  type="time"
-                  id="end-time"
-                  value={newScheduleTime.end_time}
-                  onChange={(e) => handleEndTimeChange(e.target.value)}
-                  className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                />
+                <div className="flex gap-2 items-end">
+                  <Input
+                    type="time"
+                    id="end-time"
+                    value={newScheduleTime.end_time}
+                    onChange={(e) => handleEndTimeChange(e.target.value)}
+                    className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none flex-1"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="extended-times" className="text-sm text-muted-foreground">
+                      Horarios extendidos
+                    </Label>
+                    <Switch
+                      id="extended-times"
+                      checked={hasExtendedTimes}
+                      onCheckedChange={toggleExtendedTimes}
+                    />
+                  </div>
+                </div>
               </div>
+
+              {/* Campos de horarios extendidos */}
+              {hasExtendedTimes && (
+                <div className="grid grid-cols-2 gap-4 col-span-full border-t pt-4">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="start-time-ext" className="px-1 text-sm">
+                      Hora Inicio Extendida
+                    </Label>
+                    <Input
+                      type="time"
+                      id="start-time-ext"
+                      value={newScheduleTime.start_time_ext || ""}
+                      onChange={(e) => handleStartTimeExtChange(e.target.value)}
+                      className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="end-time-ext" className="px-1 text-sm">
+                      Hora Fin Extendida
+                    </Label>
+                    <Input
+                      type="time"
+                      id="end-time-ext"
+                      value={newScheduleTime.end_time_ext || ""}
+                      onChange={(e) => handleEndTimeExtChange(e.target.value)}
+                      className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                    />
+                  </div>
+                </div>
+              )}
               <div className="flex items-end">
                 <Button onClick={handleCreate} disabled={isCreating} className="w-full">
                   <Plus className="h-4 w-4 mr-2" />
@@ -598,7 +752,14 @@ export function ScheduleTimesList() {
             {newScheduleTime.start_time && newScheduleTime.end_time && (
               <div className="mt-4 p-3 bg-muted rounded-lg">
                 <div className="text-sm font-medium text-muted-foreground">Rango de tiempo generado:</div>
-                <div className="text-sm font-semibold">{generateRangeText(newScheduleTime.start_time, newScheduleTime.end_time)}</div>
+                <div className="text-sm font-semibold">
+                  {generateRangeText(
+                    newScheduleTime.start_time,
+                    newScheduleTime.end_time,
+                    hasExtendedTimes ? newScheduleTime.start_time_ext : null,
+                    hasExtendedTimes ? newScheduleTime.end_time_ext : null
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
@@ -623,6 +784,8 @@ export function ScheduleTimesList() {
                     <TableHead>Rango de Tiempo</TableHead>
                     <TableHead>Hora Inicio</TableHead>
                     <TableHead>Hora Fin</TableHead>
+                    <TableHead>Hora Inicio Ext</TableHead>
+                    <TableHead>Hora Fin Ext</TableHead>
                     <TableHead>Duración (min)</TableHead>
                     <TableHead className="text-center w-[100px]">Estado</TableHead>
                     <TableHead className="text-center w-[100px]">Acciones</TableHead>
@@ -769,6 +932,64 @@ export function ScheduleTimesList() {
                             onClick={() => handleEdit(scheduleTime.id, "end_time", scheduleTime.end_time)}
                           >
                             {scheduleTime.end_time}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingId === scheduleTime.id && editingField === "start_time_ext" ? (
+                          <Input
+                            type="time"
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleSaveEdit(scheduleTime.id, "start_time_ext", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleSaveEdit(scheduleTime.id, "start_time_ext", editingValue);
+                              }
+                              if (e.key === "Escape") {
+                                setEditingId(null);
+                                setEditingField(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            autoFocus
+                            className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-muted px-2 py-1 rounded"
+                            onClick={() => handleEdit(scheduleTime.id, "start_time_ext", scheduleTime.start_time_ext || "")}
+                          >
+                            {scheduleTime.start_time_ext || "-"}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingId === scheduleTime.id && editingField === "end_time_ext" ? (
+                          <Input
+                            type="time"
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleSaveEdit(scheduleTime.id, "end_time_ext", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleSaveEdit(scheduleTime.id, "end_time_ext", editingValue);
+                              }
+                              if (e.key === "Escape") {
+                                setEditingId(null);
+                                setEditingField(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            autoFocus
+                            className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-muted px-2 py-1 rounded"
+                            onClick={() => handleEdit(scheduleTime.id, "end_time_ext", scheduleTime.end_time_ext || "")}
+                          >
+                            {scheduleTime.end_time_ext || "-"}
                           </span>
                         )}
                       </TableCell>

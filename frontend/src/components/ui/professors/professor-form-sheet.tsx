@@ -123,7 +123,6 @@ export function ProfessorFormSheet({
                 <Select
                   value={formData.professor_category}
                   onValueChange={(value) => onFormChange({ ...formData, professor_category: value })}
-                  className="w-full"
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar categoría" />

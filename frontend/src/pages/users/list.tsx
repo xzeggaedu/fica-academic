@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { CanAccess, useGetIdentity } from "@refinedev/core";
 import { useQueryClient } from "@tanstack/react-query";
-import { UserRoleEnum } from "../../types/auth";
+import { UserRoleEnum } from "../../types/api";
 import {
   Table,
   TableBody,
@@ -46,7 +46,7 @@ export const UserList = () => {
       email: string;
       password: string;
       profile_image_url: string;
-      role: string;
+      role: UserRoleEnum;
     },
     onSuccessCallback?: () => void
   ) => {
@@ -84,13 +84,11 @@ export const UserList = () => {
 
   // Filtrar datos basado en búsqueda
   const filteredData = useMemo(() => {
-    console.log("users", users);
     if (!users) return [];
 
     if (!searchValue.trim()) return users;
 
     const searchLower = searchValue.toLowerCase();
-    console.log("users", users);
     return users.filter((user: any) =>
       user.name?.toLowerCase().includes(searchLower) ||
       user.username?.toLowerCase().includes(searchLower) ||

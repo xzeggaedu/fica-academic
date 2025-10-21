@@ -93,7 +93,7 @@ async def read_subjects(
             or_(
                 CatalogSubject.subject_code.ilike(search_pattern),
                 CatalogSubject.subject_name.ilike(search_pattern),
-                CatalogSubject.department_code.ilike(search_pattern),
+                CatalogSubject.coordination_code.ilike(search_pattern),
             )
         )
 

@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Integer, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
@@ -20,7 +20,7 @@ class CatalogSubject(Base):
         id: Identificador único de la asignatura
         subject_code: Código único de la asignatura
         subject_name: Nombre de la asignatura
-        department_code: Código del departamento (string por ahora)
+        coordination_code: Código de la coordinación (FK a catalog_coordination.code)
         is_bilingual: Indica si la asignatura es bilingüe
         is_active: Estado del registro
         deleted: Indica si la asignatura fue eliminada (soft delete)
@@ -34,7 +34,9 @@ class CatalogSubject(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, init=False)
     subject_code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
     subject_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    department_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    coordination_code: Mapped[str] = mapped_column(
+        String(10), ForeignKey("catalog_coordination.code"), nullable=False, index=True
+    )
     is_bilingual: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

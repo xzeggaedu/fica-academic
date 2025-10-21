@@ -92,7 +92,7 @@ async def seed_subjects(session: AsyncSession) -> None:
                     # Parsear datos del CSV
                     subject_code = row["CourseCode"].strip()
                     subject_name = row["CourseName"].strip()
-                    department_code = row["DepartmentCode"].strip()
+                    coordination_code = row["DepartmentCode"].strip().upper()
                     school_codes_str = row["SchoolCodes"].strip()
 
                     # Verificar si la asignatura ya existe
@@ -121,7 +121,7 @@ async def seed_subjects(session: AsyncSession) -> None:
                     subject = CatalogSubject(
                         subject_code=subject_code,
                         subject_name=subject_name,
-                        department_code=department_code,
+                        coordination_code=coordination_code,
                         is_bilingual=False,  # Por defecto, las asignaturas no son bilingües
                         is_active=True,
                     )

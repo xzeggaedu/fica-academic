@@ -66,7 +66,6 @@ export const useFacultiesCrud = (props?: UseFacultiesCrudProps) => {
 
   // Función para crear facultad
   const createItem = (values: FacultyCreate, onSuccess?: () => void, onError?: (error: any) => void) => {
-    console.log("createItem", values);
     createMutate(
       {
         resource: "faculty",
@@ -99,7 +98,6 @@ export const useFacultiesCrud = (props?: UseFacultiesCrudProps) => {
 
   // Función para actualizar facultad
   const updateItem = (id: number, values: FacultyUpdate, onSuccess?: () => void, onError?: (error: any) => void) => {
-    console.log("updateItem", id, values);
     updateMutate(
       {
         resource: "faculty",
@@ -134,7 +132,6 @@ export const useFacultiesCrud = (props?: UseFacultiesCrudProps) => {
 
   // Función para soft delete (marcar como eliminado)
   const softDeleteItem = (id: number, entityName: string, onSuccess?: () => void, onError?: (error: any) => void) => {
-    console.log("softDeleteItem", id, entityName);
     softDeleteMutate(
       {
         resource: "soft-delete",

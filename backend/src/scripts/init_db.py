@@ -69,6 +69,24 @@ async def seed_faculties_schools():
         return False
 
 
+async def seed_coordinations():
+    """Seed coordinations catalog."""
+    logger.info("Seeding coordinations catalog...")
+    try:
+        # Import and run the seeding
+        from src.app.core.db.database import local_session
+        from src.scripts.seed_coordinations import seed_coordinations
+
+        async with local_session() as session:
+            await seed_coordinations(session)
+
+        logger.info("Coordinations seeding completed")
+        return True
+    except Exception as e:
+        logger.error(f"Coordinations seeding failed: {e}")
+        return False
+
+
 async def seed_schedule_times():
     """Seed initial schedule times."""
     logger.info("Seeding schedule times...")
@@ -172,19 +190,24 @@ async def main():
         logger.error("Failed to seed faculties and schools")
         sys.exit(1)
 
+    # Seed professors (debe ir antes de coordinations)
+    if not await seed_professors():
+        logger.error("Failed to seed professors")
+        sys.exit(1)
+
+    # Seed coordinations (depende de professors, debe ir antes de subjects)
+    if not await seed_coordinations():
+        logger.error("Failed to seed coordinations")
+        sys.exit(1)
+
     # Seed schedule times
     if not await seed_schedule_times():
         logger.error("Failed to seed schedule times")
         sys.exit(1)
 
-    # Seed subjects
+    # Seed subjects (depende de coordinations)
     if not await seed_subjects():
         logger.error("Failed to seed subjects")
-        sys.exit(1)
-
-    # Seed professors
-    if not await seed_professors():
-        logger.error("Failed to seed professors")
         sys.exit(1)
 
     logger.info("Database initialization completed successfully!")

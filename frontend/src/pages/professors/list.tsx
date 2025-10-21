@@ -71,9 +71,6 @@ export const ProfessorList = () => {
         isDeleting,
     } = useProfessorsCrud();
 
-    // useEffect(() => {
-    //     console.log(professorsList[0]);
-    // }, [professorsList]);
 
     // Hook de paginación y búsqueda (stateless)
     const {

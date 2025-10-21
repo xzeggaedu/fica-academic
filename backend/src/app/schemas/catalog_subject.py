@@ -10,11 +10,11 @@ class CatalogSubjectBase(BaseModel):
 
     subject_code: str = Field(..., min_length=1, max_length=20, description="Código de la asignatura")
     subject_name: str = Field(..., min_length=1, max_length=255, description="Nombre de la asignatura")
-    department_code: str = Field(..., min_length=1, max_length=20, description="Código del departamento")
+    coordination_code: str = Field(..., min_length=1, max_length=10, description="Código de la coordinación")
     is_bilingual: bool = Field(default=False, description="Indica si la asignatura es bilingüe")
     is_active: bool = Field(default=True, description="Estado de la asignatura")
 
-    @field_validator("subject_code", "department_code")
+    @field_validator("subject_code", "coordination_code")
     @classmethod
     def validate_codes(cls, v: str) -> str:
         """Validar que los códigos no contengan espacios en blanco."""
@@ -42,7 +42,7 @@ class CatalogSubjectUpdate(BaseModel):
 
     subject_code: str | None = Field(None, min_length=1, max_length=20)
     subject_name: str | None = Field(None, min_length=1, max_length=255)
-    department_code: str | None = Field(None, min_length=1, max_length=20)
+    coordination_code: str | None = Field(None, min_length=1, max_length=10)
     is_bilingual: bool | None = None
     is_active: bool | None = None
     deleted: bool | None = None
@@ -59,12 +59,14 @@ class CatalogSubjectUpdate(BaseModel):
             raise ValueError("El código de la asignatura no puede contener espacios")
         return v.strip().upper()
 
-    @field_validator("department_code")
+    @field_validator("coordination_code")
     @classmethod
-    def validate_department_code(cls, v: str | None) -> str | None:
-        """Validar y normalizar department_code (permite espacios)."""
+    def validate_coordination_code(cls, v: str | None) -> str | None:
+        """Validar y normalizar coordination_code."""
         if v is None:
             return v
+        if " " in v:
+            raise ValueError("El código de coordinación no puede contener espacios")
         return v.strip().upper()
 
     @field_validator("subject_name")

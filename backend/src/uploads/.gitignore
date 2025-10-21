@@ -1,0 +1,11 @@
+# Ignorar archivos temporales y de usuario, pero mantener archivos de datos del sistema
+*
+!.gitignore
+!index.html
+!README.md
+!data/
+!users/
+!temp/
+!data/schedules/
+!data/schedules/.gitkeep
+!data/schedules/*.csv

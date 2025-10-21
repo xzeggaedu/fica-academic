@@ -26,6 +26,10 @@ vi.mock('@refinedev/core', () => ({
     mutate: vi.fn(),
     mutation: { isPending: false },
   })),
+  useDelete: vi.fn(() => ({
+    mutate: vi.fn(),
+    mutation: { isPending: false },
+  })),
   useInvalidate: vi.fn(() => vi.fn()),
   CanAccess: ({ children }: { children: React.ReactNode }) => children,
 }));

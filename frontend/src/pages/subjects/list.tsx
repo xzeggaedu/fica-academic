@@ -46,6 +46,8 @@ import { useTablePagination } from "@/hooks/useTablePagination";
 import { useSubjectsCrud } from "@/hooks/useSubjectsCrud";
 import { useFacultiesCrud } from "@/hooks/useFacultiesCrud";
 import { useSchoolsCrud } from "@/hooks/useSchoolsCrud";
+import { useCoordinationsCrud } from "@/hooks/useCoordinationsCrud";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
 
 export const SubjectsList = () => {
   // Hook principal de asignaturas con todas las operaciones CRUD
@@ -77,6 +79,11 @@ export const SubjectsList = () => {
     isLoading: schoolsLoading,
   } = useSchoolsCrud({ isActiveOnly: true });
 
+  const {
+    itemsList: coordinations,
+    isLoading: coordinationsLoading,
+  } = useCoordinationsCrud();
+
   // Hook de paginación y búsqueda (stateless)
   const {
     paginatedData: subjectsList,
@@ -96,19 +103,19 @@ export const SubjectsList = () => {
   });
 
   // Calcular loading general
-  const loading = subjectsLoading || facultiesLoading || schoolsLoading;
+  const loading = subjectsLoading || facultiesLoading || schoolsLoading || coordinationsLoading;
 
   // Estados locales
   const [error, setError] = useState<string | null>(null);
   const [visibleColumns, setVisibleColumns] = useState([
-    "id", "subject_code", "subject_name", "department_code", "is_bilingual", "schools", "is_active", "actions"
+    "id", "subject_code", "subject_name", "coordination_code", "is_bilingual", "schools", "is_active", "actions"
   ]);
 
   // Estados para el formulario de creación
   const [newSubject, setNewSubject] = useState<SubjectCreate>({
     subject_code: "",
     subject_name: "",
-    department_code: "",
+    coordination_code: "",
     is_bilingual: false,
     school_ids: [],
   });
@@ -147,7 +154,7 @@ export const SubjectsList = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!newSubject.subject_code || !newSubject.subject_name || !newSubject.department_code) {
+    if (!newSubject.subject_code || !newSubject.subject_name || !newSubject.coordination_code) {
       toast.error("Error", {
         description: "Por favor complete todos los campos requeridos",
         richColors: true,
@@ -160,9 +167,7 @@ export const SubjectsList = () => {
       return;
     }
 
-    if (!validateCode(newSubject.department_code, "El código del departamento")) {
-      return;
-    }
+    // No es necesario validar coordination_code ya que viene de un Select
 
     if (selectedSchools.length === 0) {
       toast.error("Error", {
@@ -181,7 +186,7 @@ export const SubjectsList = () => {
       setNewSubject({
         subject_code: "",
         subject_name: "",
-        department_code: "",
+        coordination_code: "",
         is_bilingual: false,
         school_ids: [],
       });
@@ -195,7 +200,7 @@ export const SubjectsList = () => {
     setEditForm({
       subject_code: subject.subject_code,
       subject_name: subject.subject_name,
-      department_code: subject.department_code,
+      coordination_code: subject.coordination_code,
       is_bilingual: subject.is_bilingual,
       is_active: subject.is_active,
     });
@@ -211,9 +216,7 @@ export const SubjectsList = () => {
     if (field === 'subject_code' && typeof value === 'string') {
       if (!validateCode(value, 'El código del curso')) return;
     }
-    if (field === 'department_code' && typeof value === 'string') {
-      if (!validateCode(value, 'El código del departamento')) return;
-    }
+    // No validar coordination_code ya que viene de un Select con valores válidos
 
     // Obtener el valor actual para comparación
     const current = subjectsList.find((c) => c.id === id);
@@ -272,6 +275,14 @@ export const SubjectsList = () => {
     });
   };
 
+  // Helper para obtener datos de coordinación
+  const getCoordinationData = (coordinationCode: string) => {
+    const coordination = coordinations.find(c => c.code === coordinationCode);
+    return coordination
+      ? { code: coordination.code, name: coordination.name }
+      : { code: coordinationCode, name: '' };
+  };
+
   // Agrupar escuelas por facultad
   const getSchoolsByFaculty = () => {
     const grouped: Record<number, School[]> = {};
@@ -293,7 +304,7 @@ export const SubjectsList = () => {
     { key: "id", label: "ID" },
     { key: "subject_code", label: "Código" },
     { key: "subject_name", label: "Nombre de la Asignatura" },
-    { key: "department_code", label: "Departamento" },
+    { key: "coordination_code", label: "Coordinación" },
     { key: "is_bilingual", label: "Bilingüe" },
     { key: "schools", label: "Escuelas" },
     { key: "is_active", label: "Estado" },
@@ -375,16 +386,26 @@ export const SubjectsList = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="department_code">Departamento *</Label>
-                  <Input
-                    id="department_code"
-                    value={newSubject.department_code}
-                    onChange={(e) =>
-                      setNewSubject({ ...newSubject, department_code: e.target.value.toUpperCase() })
+                  <Label htmlFor="coordination_code">Coordinación *</Label>
+                  <Select
+                    value={newSubject.coordination_code || undefined}
+                    onValueChange={(value) =>
+                      setNewSubject({ ...newSubject, coordination_code: value })
                     }
-                    placeholder="Ej: CS"
-                    required
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione una coordinación" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {coordinations
+                        .filter((coord) => coord.is_active)
+                        .map((coordination) => (
+                          <SelectItem key={coordination.id} value={coordination.code}>
+                            {coordination.code} - {coordination.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -523,7 +544,7 @@ export const SubjectsList = () => {
                     {visibleColumns.includes("id") && <TableHead className={getTableColumnClass("id")}>ID</TableHead>}
                     {visibleColumns.includes("subject_code") && <TableHead>Código</TableHead>}
                     {visibleColumns.includes("subject_name") && <TableHead>Nombre de la Asignatura</TableHead>}
-                    {visibleColumns.includes("department_code") && <TableHead>Departamento</TableHead>}
+                    {visibleColumns.includes("coordination_code") && <TableHead>Coordinación</TableHead>}
                     {visibleColumns.includes("is_bilingual") && <TableHead className="text-center w-[100px]">Bilingüe</TableHead>}
                     {visibleColumns.includes("schools") && <TableHead>Escuelas</TableHead>}
                     {visibleColumns.includes("is_active") && <TableHead className="text-center w-[100px]">Estado</TableHead>}
@@ -603,31 +624,47 @@ export const SubjectsList = () => {
                           </TableCell>
                         )}
 
-                        {/* Departamento */}
-                        {visibleColumns.includes("department_code") && (
+                        {/* Coordinación */}
+                        {visibleColumns.includes("coordination_code") && (
                           <TableCell>
-                            {editingId === subject.id && (!editingField || editingField === 'department_code') ? (
-                              <Input
-                                value={editForm.department_code || ""}
-                                onChange={(e) =>
-                                  setEditForm({ ...editForm, department_code: e.target.value.toUpperCase() })
-                                }
-                                onBlur={() => saveSingleField(subject.id, 'department_code', editForm.department_code)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    saveSingleField(subject.id, 'department_code', editForm.department_code);
-                                  }
+                            {editingId === subject.id && (!editingField || editingField === 'coordination_code') ? (
+                              <Select
+                                value={editForm.coordination_code || undefined}
+                                onValueChange={(value) => {
+                                  setEditForm({ ...editForm, coordination_code: value });
+                                  saveSingleField(subject.id, 'coordination_code', value);
                                 }}
-                                className="w-24"
-                              />
-                            ) : (
-                              <span
-                                className="font-mono cursor-pointer hover:underline"
-                                onClick={() => handleEdit(subject, 'department_code')}
                               >
-                                {subject.department_code}
-                              </span>
+                                <SelectTrigger className="w-48">
+                                  <SelectValue placeholder="Seleccione..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {coordinations
+                                    .filter((coord) => coord.is_active)
+                                    .map((coordination) => (
+                                      <SelectItem key={coordination.id} value={coordination.code}>
+                                        {coordination.code} - {coordination.name}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge
+                                      variant="outline"
+                                      className="cursor-pointer hover:bg-accent"
+                                      onClick={() => handleEdit(subject, 'coordination_code')}
+                                    >
+                                      {getCoordinationData(subject.coordination_code).code}
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{getCoordinationData(subject.coordination_code).name}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             )}
                           </TableCell>
                         )}

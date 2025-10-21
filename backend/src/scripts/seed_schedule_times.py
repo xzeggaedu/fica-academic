@@ -96,12 +96,16 @@ def generate_day_group_name(days_array: list[int]) -> str:
         return "-".join(day_names[day] for day in days_array)
 
 
-def generate_range_text(start_time: time, end_time: time) -> str:
+def generate_range_text(
+    start_time: time, end_time: time, start_time_ext: time | None = None, end_time_ext: time | None = None
+) -> str:
     """Genera el texto del rango de tiempo.
 
     Args:
         start_time: Hora de inicio
         end_time: Hora de fin
+        start_time_ext: Hora de inicio extendida (opcional)
+        end_time_ext: Hora de fin extendida (opcional)
 
     Returns:
         String del rango de tiempo
@@ -125,7 +129,12 @@ def generate_range_text(start_time: time, end_time: time) -> str:
     start_str = format_time(start_time)
     end_str = format_time(end_time)
 
-    return f"{start_str} a {end_str}"
+    if start_time_ext and end_time_ext:
+        start_ext_str = format_time(start_time_ext)
+        end_ext_str = format_time(end_time_ext)
+        return f"{start_str} a {end_str} y {start_ext_str} a {end_ext_str}"
+    else:
+        return f"{start_str} a {end_str}"
 
 
 async def seed_schedule_times(session: AsyncSession) -> None:
@@ -159,21 +168,43 @@ async def seed_schedule_times(session: AsyncSession) -> None:
                     hora_fin_str = row["hora_fin"].strip()
                     days_array_str = row["days_array"].strip()
 
-                    # Parsear times
+                    # Parsear campos extendidos (opcionales)
+                    # Manejar None y strings vacíos
+                    hora_inicio_ext_raw = row.get("hora_inicio_ext", "")
+                    hora_fin_ext_raw = row.get("hora_fin_ext", "")
+
+                    hora_inicio_ext_str = hora_inicio_ext_raw.strip() if hora_inicio_ext_raw else ""
+                    hora_fin_ext_str = hora_fin_ext_raw.strip() if hora_fin_ext_raw else ""
+
+                    # Parsear times principales
                     start_time = parse_time_string(hora_inicio_str)
                     end_time = parse_time_string(hora_fin_str)
+
+                    # Parsear times extendidos (solo si están presentes)
+                    start_time_ext = None
+                    end_time_ext = None
+                    if hora_inicio_ext_str and hora_fin_ext_str:
+                        start_time_ext = parse_time_string(hora_inicio_ext_str)
+                        end_time_ext = parse_time_string(hora_fin_ext_str)
 
                     # Parsear days_array
                     days_array = parse_days_array(days_array_str)
 
                     # Generar campos automáticos
                     day_group_name = generate_day_group_name(days_array)
-                    range_text = generate_range_text(start_time, end_time)
+                    range_text = generate_range_text(start_time, end_time, start_time_ext, end_time_ext)
 
                     # Calcular duración en minutos
                     start_minutes = start_time.hour * 60 + start_time.minute
                     end_minutes = end_time.hour * 60 + end_time.minute
                     duration_min = abs(end_minutes - start_minutes)
+
+                    # Si hay horarios extendidos, sumar su duración
+                    if start_time_ext and end_time_ext:
+                        start_ext_minutes = start_time_ext.hour * 60 + start_time_ext.minute
+                        end_ext_minutes = end_time_ext.hour * 60 + end_time_ext.minute
+                        duration_ext_min = abs(end_ext_minutes - start_ext_minutes)
+                        duration_min += duration_ext_min
 
                     # Verificar si ya existe
                     existing = await session.execute(
@@ -181,6 +212,8 @@ async def seed_schedule_times(session: AsyncSession) -> None:
                             CatalogScheduleTime.days_array == days_array,
                             CatalogScheduleTime.start_time == start_time,
                             CatalogScheduleTime.end_time == end_time,
+                            CatalogScheduleTime.start_time_ext == start_time_ext,
+                            CatalogScheduleTime.end_time_ext == end_time_ext,
                         )
                     )
 
@@ -195,6 +228,8 @@ async def seed_schedule_times(session: AsyncSession) -> None:
                         range_text=range_text,
                         start_time=start_time,
                         end_time=end_time,
+                        start_time_ext=start_time_ext,
+                        end_time_ext=end_time_ext,
                         duration_min=duration_min,
                         is_active=True,
                     )
@@ -202,7 +237,13 @@ async def seed_schedule_times(session: AsyncSession) -> None:
                     session.add(schedule_time)
                     created_records += 1
 
-                    logger.info(f"Created schedule: {day_group_name} - {range_text} ({duration_min} min)")
+                    # Log más descriptivo para horarios extendidos
+                    if start_time_ext and end_time_ext:
+                        logger.info(
+                            f"Created extended schedule: {day_group_name} - {range_text} ({duration_min} min total)"
+                        )
+                    else:
+                        logger.info(f"Created schedule: {day_group_name} - {range_text} ({duration_min} min)")
 
                 except Exception as e:
                     logger.error(f"Error processing row {total_records}: {row} - {e}")

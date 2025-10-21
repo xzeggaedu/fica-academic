@@ -40,7 +40,7 @@ async def create_subject_with_schools(db: AsyncSession, subject_data: CatalogSub
     subject = CatalogSubject(
         subject_code=subject_data.subject_code,
         subject_name=subject_data.subject_name,
-        department_code=subject_data.department_code,
+        coordination_code=subject_data.coordination_code,
         is_bilingual=subject_data.is_bilingual,
         is_active=subject_data.is_active,
     )
@@ -92,8 +92,8 @@ async def update_subject_with_schools(
         subject.subject_code = subject_data.subject_code
     if subject_data.subject_name is not None:
         subject.subject_name = subject_data.subject_name
-    if subject_data.department_code is not None:
-        subject.department_code = subject_data.department_code
+    if subject_data.coordination_code is not None:
+        subject.coordination_code = subject_data.coordination_code
     if subject_data.is_bilingual is not None:
         subject.is_bilingual = subject_data.is_bilingual
     if subject_data.is_active is not None:

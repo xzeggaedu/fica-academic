@@ -84,6 +84,7 @@ async def list_coordinations(
     is_active: bool | None = None,
     include_deleted: bool = False,
     faculty_id: int | None = None,
+    school_id: int | None = None,
 ) -> dict:
     """Obtener lista paginada de coordinaciones - Accesible para todos los usuarios autenticados.
 
@@ -97,6 +98,7 @@ async def list_coordinations(
         is_active: Filtrar por estado activo (opcional)
         include_deleted: Incluir coordinaciones eliminadas (soft delete)
         faculty_id: Filtrar por facultad (opcional)
+        school_id: Filtrar por escuela (opcional)
 
     Returns:
     -------
@@ -115,6 +117,12 @@ async def list_coordinations(
     if faculty_id is not None:
         # Aplicar filtro adicional
         coordinations_data["data"] = [c for c in coordinations_data["data"] if c.get("faculty_id") == faculty_id]
+        coordinations_data["total_count"] = len(coordinations_data["data"])
+
+    # Filtrar por school_id si se proporciona
+    if school_id is not None:
+        # Aplicar filtro adicional
+        coordinations_data["data"] = [c for c in coordinations_data["data"] if c.get("school_id") == school_id]
         coordinations_data["total_count"] = len(coordinations_data["data"])
 
     response: dict[str, Any] = paginated_response(

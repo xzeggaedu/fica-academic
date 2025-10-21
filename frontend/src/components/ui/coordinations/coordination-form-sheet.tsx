@@ -7,12 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/forms/textarea";
 import { useFacultiesCrud } from "@/hooks/useFacultiesCrud";
 import { useProfessorsCrud } from "@/hooks/useProfessorsCrud";
+import { useSchoolsCrud } from "@/hooks/useSchoolsCrud";
+import type { School } from "@/types/api";
 
 interface CoordinationFormData {
   code: string;
   name: string;
   description: string;
   faculty_id: number | null;
+  school_id: number | null;
   coordinator_professor_id: number | null;
   is_active: boolean;
 }
@@ -23,6 +26,7 @@ interface Coordination {
   name: string;
   description: string | null;
   faculty_id: number;
+  school_id: number;
   coordinator_professor_id: number | null;
   is_active: boolean;
   deleted: boolean;
@@ -76,7 +80,13 @@ export function CoordinationFormSheet({
     enabled: isOpen
   });
 
-  const isFormValid = formData.code && formData.name && formData.faculty_id;
+  // Cargar escuelas activas solo cuando el sheet está abierto
+  const { itemsList: schools } = useSchoolsCrud({
+    isActiveOnly: true,
+    enabled: isOpen
+  });
+
+  const isFormValid = formData.code && formData.name && formData.faculty_id && formData.school_id;
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -139,7 +149,7 @@ export function CoordinationFormSheet({
               <label className="text-sm font-medium">Facultad *</label>
               <Select
                 value={formData.faculty_id?.toString() || undefined}
-                onValueChange={(value) => onFormChange({ ...formData, faculty_id: parseInt(value) })}
+                onValueChange={(value) => onFormChange({ ...formData, faculty_id: parseInt(value), school_id: null })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccione una facultad" />
@@ -150,6 +160,29 @@ export function CoordinationFormSheet({
                       {faculty.acronym} - {faculty.name}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Escuela */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Escuela *</label>
+              <Select
+                value={formData.school_id?.toString() || undefined}
+                onValueChange={(value) => onFormChange({ ...formData, school_id: parseInt(value) })}
+                disabled={!formData.faculty_id}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione una escuela" />
+                </SelectTrigger>
+                <SelectContent>
+                  {schools
+                    .filter((school) => school.fk_faculty === formData.faculty_id)
+                    .map((school) => (
+                      <SelectItem key={school.id} value={school.id.toString()}>
+                        {school.acronym} - {school.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

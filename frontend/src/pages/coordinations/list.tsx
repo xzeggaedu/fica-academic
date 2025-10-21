@@ -11,6 +11,7 @@ import {
 } from "../../components/ui/data/table";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
 import { Unauthorized } from "../unauthorized";
 import { Button } from "../../components/ui/button";
 import { DeleteConfirmDialog } from "../../components/ui/delete-confirm-dialog";
@@ -29,6 +30,7 @@ import { CoordinationFormSheet } from "../../components/ui/coordinations/coordin
 import { useTablePagination } from "../../hooks/useTablePagination";
 import { useCoordinationsCrud } from "../../hooks/useCoordinationsCrud";
 import { useFacultiesCrud } from "../../hooks/useFacultiesCrud";
+import { useSchoolsCrud } from "../../hooks/useSchoolsCrud";
 import { useProfessorsCrud } from "../../hooks/useProfessorsCrud";
 
 interface Coordination {
@@ -37,6 +39,7 @@ interface Coordination {
     name: string;
     description: string | null;
     faculty_id: number;
+    school_id: number;
     coordinator_professor_id: number | null;
     is_active: boolean;
     deleted: boolean;
@@ -97,8 +100,9 @@ export const CoordinationList = () => {
         initialPageSize: 10,
     });
 
-    // Cargar facultades y profesores usando sus hooks
+    // Cargar facultades, escuelas y profesores usando sus hooks
     const { itemsList: faculties } = useFacultiesCrud();
+    const { itemsList: schools } = useSchoolsCrud();
     const { itemsList: professors } = useProfessorsCrud();
 
     // Helpers para obtener nombres
@@ -107,10 +111,29 @@ export const CoordinationList = () => {
         return faculty ? `${faculty.acronym} - ${faculty.name}` : `ID: ${facultyId}`;
     };
 
+    const getFacultyData = (facultyId: number) => {
+        const faculty = faculties.find(f => f.id === facultyId);
+        return faculty ? { acronym: faculty.acronym, name: faculty.name } : { acronym: `ID: ${facultyId}`, name: '' };
+    };
+
+    const getSchoolName = (schoolId: number) => {
+        const school = schools.find(s => s.id === schoolId);
+        return school ? `${school.acronym} - ${school.name}` : `ID: ${schoolId}`;
+    };
+
+    const getSchoolData = (schoolId: number) => {
+        const school = schools.find(s => s.id === schoolId);
+        return school ? { acronym: school.acronym, name: school.name } : { acronym: `ID: ${schoolId}`, name: '' };
+    };
+
     const getProfessorName = (professorId: number | null) => {
         if (!professorId) return "Sin coordinador";
         const professor = professors.find(p => p.id === professorId);
-        return professor ? professor.professor_name : `ID: ${professorId}`;
+        if (!professor) return `ID: ${professorId}`;
+
+        // Concatenar título académico con el nombre
+        const title = professor.academic_title ? `${professor.academic_title} ` : '';
+        return `${title}${professor.professor_name}`;
     };
 
     // Función para abrir el sheet en modo crear
@@ -121,6 +144,7 @@ export const CoordinationList = () => {
             name: "",
             description: "",
             faculty_id: null,
+            school_id: null,
             coordinator_professor_id: null,
             is_active: true,
         });
@@ -135,6 +159,7 @@ export const CoordinationList = () => {
             name: coordination.name,
             description: coordination.description || "",
             faculty_id: coordination.faculty_id,
+            school_id: coordination.school_id,
             coordinator_professor_id: coordination.coordinator_professor_id,
             is_active: coordination.is_active,
         });
@@ -156,6 +181,7 @@ export const CoordinationList = () => {
                 name: editingItem.name,
                 description: editingItem.description || "",
                 faculty_id: editingItem.faculty_id,
+                school_id: editingItem.school_id,
                 coordinator_professor_id: editingItem.coordinator_professor_id,
                 is_active: editingItem.is_active,
             });
@@ -172,6 +198,7 @@ export const CoordinationList = () => {
         name: "",
         description: "",
         faculty_id: null as number | null,
+        school_id: null as number | null,
         coordinator_professor_id: null as number | null,
         is_active: true,
     });
@@ -180,6 +207,7 @@ export const CoordinationList = () => {
         code: true,
         name: true,
         faculty: true,
+        school: true,
         coordinator: true,
         is_active: true,
     });
@@ -269,6 +297,14 @@ export const CoordinationList = () => {
                                         Facultad
                                     </DropdownMenuCheckboxItem>
                                     <DropdownMenuCheckboxItem
+                                        checked={visibleColumns.school}
+                                        onCheckedChange={(checked) =>
+                                            setVisibleColumns((prev) => ({ ...prev, school: checked }))
+                                        }
+                                    >
+                                        Escuela
+                                    </DropdownMenuCheckboxItem>
+                                    <DropdownMenuCheckboxItem
                                         checked={visibleColumns.coordinator}
                                         onCheckedChange={(checked) =>
                                             setVisibleColumns((prev) => ({ ...prev, coordinator: checked }))
@@ -301,6 +337,9 @@ export const CoordinationList = () => {
                                         )}
                                         {visibleColumns.faculty && (
                                             <TableHead className="w-[200px]">Facultad</TableHead>
+                                        )}
+                                        {visibleColumns.school && (
+                                            <TableHead className="w-[200px]">Escuela</TableHead>
                                         )}
                                         {visibleColumns.coordinator && (
                                             <TableHead className="w-[200px]">Coordinador</TableHead>
@@ -350,9 +389,34 @@ export const CoordinationList = () => {
                                                 )}
                                                 {visibleColumns.faculty && (
                                                     <TableCell>
-                                                        <Badge variant="outline">
-                                                            {getFacultyName(coordination.faculty_id)}
-                                                        </Badge>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Badge variant="outline" className="cursor-help">
+                                                                        {getFacultyData(coordination.faculty_id).acronym}
+                                                                    </Badge>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>{getFacultyData(coordination.faculty_id).name}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.school && (
+                                                    <TableCell>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Badge variant="secondary" className="cursor-help">
+                                                                        {getSchoolData(coordination.school_id).acronym}
+                                                                    </Badge>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>{getSchoolData(coordination.school_id).name}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
                                                     </TableCell>
                                                 )}
                                                 {visibleColumns.coordinator && (

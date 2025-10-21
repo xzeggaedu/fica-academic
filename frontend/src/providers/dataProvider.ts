@@ -112,8 +112,6 @@ const apiRequest = async <T>(
 // DataProvider implementation
 export const dataProvider: DataProvider = {
   getList: async ({ resource, pagination, filters, sorters, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     switch (resource) {
       case "users": {
@@ -378,8 +376,6 @@ export const dataProvider: DataProvider = {
   },
 
   getOne: async ({ resource, id, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     switch (resource) {
       case "users": {
@@ -422,8 +418,6 @@ export const dataProvider: DataProvider = {
   },
 
   create: async ({ resource, variables, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     switch (resource) {
       case "users": {
@@ -697,8 +691,6 @@ export const dataProvider: DataProvider = {
   },
 
   deleteOne: async ({ resource, id, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     switch (resource) {
       case "users": {
@@ -787,8 +779,6 @@ export const dataProvider: DataProvider = {
   },
 
   getMany: async ({ resource, ids, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     // For now, we'll fetch users individually
     // In a real implementation, you might want to add a bulk endpoint
@@ -801,8 +791,6 @@ export const dataProvider: DataProvider = {
   },
 
   createMany: async ({ resource, variables, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     // For now, we'll create users individually
     // In a real implementation, you might want to add a bulk endpoint
@@ -821,8 +809,6 @@ export const dataProvider: DataProvider = {
   },
 
   updateMany: async ({ resource, ids, variables, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     // For now, we'll update users individually
     const promises = ids.map(id =>
@@ -840,8 +826,6 @@ export const dataProvider: DataProvider = {
   },
 
   deleteMany: async ({ resource, ids, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     // For now, we'll delete users individually
     const promises = ids.map(id =>
@@ -862,8 +846,6 @@ export const dataProvider: DataProvider = {
   },
 
   custom: async ({ url, method, filters, sorters, payload, query, headers, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     let requestUrl = `${API_BASE_URL}${url}`;
 

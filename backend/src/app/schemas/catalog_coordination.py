@@ -32,6 +32,7 @@ class CatalogCoordinationBase(BaseModel):
         Field(default=None, examples=["Área de conocimiento de matemáticas y estadística"]),
     ]
     faculty_id: Annotated[int, Field(gt=0, examples=[1], description="ID de la facultad")]
+    school_id: Annotated[int, Field(gt=0, examples=[1], description="ID de la escuela")]
     coordinator_professor_id: Annotated[
         int | None, Field(default=None, gt=0, examples=[1], description="ID del profesor coordinador")
     ]
@@ -70,6 +71,7 @@ class CatalogCoordinationUpdate(BaseModel):
     name: Annotated[str | None, Field(default=None, min_length=1, max_length=100)]
     description: str | None = None
     faculty_id: Annotated[int | None, Field(default=None, gt=0)]
+    school_id: Annotated[int | None, Field(default=None, gt=0)]
     coordinator_professor_id: int | None = None
     is_active: bool | None = None
     deleted: bool | None = None

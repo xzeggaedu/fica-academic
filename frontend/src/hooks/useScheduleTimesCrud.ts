@@ -8,6 +8,8 @@ export interface ScheduleTimeCreatePayload {
   days_array: number[];
   start_time: string;
   end_time: string;
+  start_time_ext?: string | null;
+  end_time_ext?: string | null;
   is_active?: boolean;
 }
 
@@ -16,6 +18,8 @@ export interface ScheduleTimeUpdatePayload {
   days_array?: number[];
   start_time?: string;
   end_time?: string;
+  start_time_ext?: string | null;
+  end_time_ext?: string | null;
   is_active?: boolean;
 }
 
