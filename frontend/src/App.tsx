@@ -38,6 +38,8 @@ import { ScheduleTimesList } from "./pages/schedule-times";
 import { ProfessorList } from "./pages/professors";
 import { CoordinationList } from "./pages/coordinations";
 import { RecycleBinList } from "./pages/recycle-bin";
+import { AcademicLevelsList } from "./pages/academic-levels";
+import { HourlyRatesList } from "./pages/hourly-rates";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -146,12 +148,44 @@ function App() {
                       },
                     },
                     {
+                      name: "separator-config",
+                      meta: {
+                        group: true,
+                        label: "separator",
+                      },
+                    },
+                    {
+                      name: "configuration",
+                      meta: {
+                        label: "Configuración",
+                        group: true,
+                      },
+                    },
+                    {
+                      name: "academic-levels",
+                      list: "/configuration/academic-levels",
+                      meta: {
+                        label: "Niveles Académicos",
+                        parent: "configuration",
+                        icon: "GraduationCap",
+                      },
+                    },
+                    {
+                      name: "hourly-rates",
+                      list: "/configuration/hourly-rates",
+                      meta: {
+                        label: "Tarifas Horarias",
+                        parent: "configuration",
+                        icon: "DollarSign",
+                      },
+                    },
+                    {
                       name: "recycle-bin",
-                      list: "/recycle-bin",
+                      list: "/configuration/recycle-bin",
                       meta: {
                         label: "Papelera",
                         canDelete: true,
-                        parent: "catalogs",
+                        parent: "configuration",
                         icon: "Trash2",
                       },
                     },
@@ -203,8 +237,10 @@ function App() {
                         <Route path="professors" element={<ProfessorList />} />
                         <Route path="coordinations" element={<CoordinationList />} />
                       </Route>
-                      <Route path="/recycle-bin">
-                        <Route index element={<RecycleBinList />} />
+                      <Route path="/configuration">
+                        <Route path="academic-levels" element={<AcademicLevelsList />} />
+                        <Route path="hourly-rates" element={<HourlyRatesList />} />
+                        <Route path="recycle-bin" element={<RecycleBinList />} />
                       </Route>
                       <Route path="*" element={<ErrorComponent />} />
                     </Route>

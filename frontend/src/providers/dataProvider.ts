@@ -13,6 +13,12 @@ import type {
   Subject,
   SubjectCreate,
   SubjectUpdate,
+  AcademicLevel,
+  AcademicLevelCreate,
+  AcademicLevelUpdate,
+  HourlyRateHistory,
+  HourlyRateHistoryCreate,
+  HourlyRateHistoryUpdate,
   PaginatedResponse
 } from "../types/api";
 
@@ -54,6 +60,8 @@ const ENDPOINTS = {
   SUBJECTS_ACTIVE: `${API_BASE_PATH}/catalog/subjects/active`,
   SCHEDULE_TIMES: `${API_BASE_PATH}/catalog/schedule-times`,
   SCHEDULE_TIMES_ACTIVE: `${API_BASE_PATH}/catalog/schedule-times/active`,
+  ACADEMIC_LEVELS: `${API_BASE_PATH}/academic-levels`,
+  HOURLY_RATES: `${API_BASE_PATH}/hourly-rates`,
 };
 
 // Helper function to get auth headers
@@ -335,6 +343,74 @@ export const dataProvider: DataProvider = {
         };
       }
 
+      case "academic-levels": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        // Construir URL con parámetros de paginación
+        const searchParams = new URLSearchParams();
+        searchParams.append("skip", String((current - 1) * pageSize));  // Backend usa "skip", no "offset"
+        searchParams.append("limit", String(pageSize));
+
+        // Agregar filtros si existen
+        if (filters && Array.isArray(filters)) {
+          filters.forEach((f: any) => {
+            if (f.field === "is_active" && f.value !== undefined) {
+              searchParams.append("is_active", String(f.value));
+            }
+            if (f.field === "priority" && f.value !== undefined) {
+              searchParams.append("priority", String(f.value));
+            }
+          });
+        }
+
+        const response = await apiRequest<{ data: AcademicLevel[]; total: number }>(
+          `${ENDPOINTS.ACADEMIC_LEVELS}/?${searchParams.toString()}`
+        );
+
+        return {
+          data: response.data as any[],
+          total: response.total,
+        };
+      }
+
+      case "hourly-rates": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        // Construir URL con parámetros de paginación
+        const searchParams = new URLSearchParams();
+        searchParams.append("skip", String((current - 1) * pageSize));  // Backend usa "skip", no "offset"
+        searchParams.append("limit", String(pageSize));
+
+        // Agregar filtros si existen
+        if (filters && Array.isArray(filters)) {
+          filters.forEach((f: any) => {
+            if (f.field === "level_id" && f.value !== undefined) {
+              searchParams.append("level_id", String(f.value));
+            }
+            if (f.field === "is_active" && f.value !== undefined) {
+              searchParams.append("is_active", String(f.value));
+            }
+            if (f.field === "start_date" && f.value !== undefined) {
+              searchParams.append("start_date", String(f.value));
+            }
+            if (f.field === "end_date" && f.value !== undefined) {
+              searchParams.append("end_date", String(f.value));
+            }
+          });
+        }
+
+        const response = await apiRequest<{ data: HourlyRateHistory[]; total: number }>(
+          `${ENDPOINTS.HOURLY_RATES}/?${searchParams.toString()}`
+        );
+
+        return {
+          data: response.data as any[],
+          total: response.total,
+        };
+      }
+
       case "catalog/schedule-times/active": {
         const response = await apiRequest<any[]>(ENDPOINTS.SCHEDULE_TIMES_ACTIVE);
         return {
@@ -409,6 +485,16 @@ export const dataProvider: DataProvider = {
 
       case "school": {
         const response = await apiRequest<School>(`${ENDPOINTS.SCHOOL}/${id}`);
+        return { data: response as any };
+      }
+
+      case "academic-levels": {
+        const response = await apiRequest<AcademicLevel>(`${ENDPOINTS.ACADEMIC_LEVELS}/${id}`);
+        return { data: response as any };
+      }
+
+      case "hourly-rates": {
+        const response = await apiRequest<HourlyRateHistory>(`${ENDPOINTS.HOURLY_RATES}/${id}`);
         return { data: response as any };
       }
 
@@ -503,6 +589,28 @@ export const dataProvider: DataProvider = {
           {
             method: "POST",
             body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "academic-levels": {
+        const response = await apiRequest<AcademicLevel>(
+          `${ENDPOINTS.ACADEMIC_LEVELS}/`,  // Agregar slash final para evitar 307 redirect
+          {
+            method: "POST",
+            body: JSON.stringify(variables as AcademicLevelCreate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "hourly-rates": {
+        const response = await apiRequest<HourlyRateHistory>(
+          `${ENDPOINTS.HOURLY_RATES}/`,  // Agregar slash final para evitar 307 redirect
+          {
+            method: "POST",
+            body: JSON.stringify(variables as HourlyRateHistoryCreate),
           }
         );
         return { data: response as any };
@@ -685,6 +793,28 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "academic-levels": {
+        const response = await apiRequest<AcademicLevel>(
+          `${ENDPOINTS.ACADEMIC_LEVELS}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables as AcademicLevelUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "hourly-rates": {
+        const response = await apiRequest<HourlyRateHistory>(
+          `${ENDPOINTS.HOURLY_RATES}/${id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(variables as HourlyRateHistoryUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported for update`);
     }
@@ -766,6 +896,26 @@ export const dataProvider: DataProvider = {
       case "coordinations": {
         const response = await apiRequest<{ message: string }>(
           `${ENDPOINTS.COORDINATIONS}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "academic-levels": {
+        const response = await apiRequest<AcademicLevel>(
+          `${ENDPOINTS.ACADEMIC_LEVELS}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "hourly-rates": {
+        const response = await apiRequest<HourlyRateHistory>(
+          `${ENDPOINTS.HOURLY_RATES}/${id}`,
           {
             method: "DELETE",
           }
