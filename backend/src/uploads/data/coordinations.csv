@@ -1,0 +1,7 @@
+Field Name,Data Type,Key/Index,Description (ES)
+id,INT,Primary Key (PK),Identificador único de la coordinación/cátedra.
+code,VARCHAR(10),Unique,Código corto o abreviatura de la cátedra (ej: RED, MATE).
+name,VARCHAR(100),Unique,Nombre oficial de la Coordinación (ej: "Coordination of Calculus").
+description,TEXT,,Breve descripción del área de conocimiento que abarca.
+faculty_id,INT,Foreign Key (FK),ID de la Facultad a la que pertenece esta coordinación (apunta a la tabla 'faculties').
+coordinator_professor_id,INT,Foreign Key (FK),ID del profesor que actúa como coordinador/jefe de cátedra (apunta a la tabla 'professors').
