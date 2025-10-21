@@ -1,0 +1,6 @@
+Field Name,Data Type,Key/Index,Description (ES)
+id,INT,Primary Key (PK),ID único de esta versión de la tarifa histórica.
+level_id,INT,Foreign Key (FK),ID del nivel académico al que pertenece esta tarifa (apunta a academic_levels.id).
+rate_per_hour,DECIMAL(5,2),Not Null,Monto pagado por hora en USD.
+start_date,DATE,Not Null,Fecha de inicio de vigencia de este monto.
+end_date,DATE,,Fecha de fin de vigencia (NULL si está activo).

@@ -1,0 +1,6 @@
+
+Field Name,Data Type,Key/Index,Description (ES)
+id,INT,Primary Key (PK),ID numérico inmutable del nivel académico.
+code,VARCHAR(10),Unique,Código fijo para cruce de datos y lógica (ej: BLG, DR, GDO).
+name,VARCHAR(50),Unique,Nombre descriptivo del nivel.
+priority,INT,Not Null,Nivel de prioridad de pago (5 es la más alta, 1 la base).

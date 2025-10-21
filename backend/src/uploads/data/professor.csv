@@ -1,0 +1,15 @@
+Campo Normalizado,Tipo de Dato Sugerido,Propósito (Descripción)
+professor_name,VARCHAR(150),Clave Principal (PK) de facto. Nombre completo del catedrático.
+professor_id,VARCHAR(20),Código único institucional.
+institutional_email,VARCHAR(100),Correo electrónico institucional.
+personal_email,VARCHAR(100),Correo electrónico personal.
+phone_number,VARCHAR(20),Número de teléfono.
+professor_category,VARCHAR(10),"Categoría del profesor (DHC, ADM, etc.)."
+is_paid,BOOLEAN,Indicador de si está en nómina.
+academic_title,VARCHAR(20),"Título profesional (Ing., Arq., Dr., Lic., etc.)."
+doctorates,INTEGER,Número de doctorados poseídos.
+masters,INTEGER,Número de maestrías poseídas.
+is_bilingual,BOOLEAN,Indica si el profesor está certificado para enseñar en otro idioma.
+is_active,BOOLEAN,Indica si el profesor está actualmente activo.
+deleted,BOOLEAN,Indicador de eliminación lógica (Soft Delete).
+deleted_at,TIMESTAMP,Fecha y hora en que el registro fue marcado como eliminado.
