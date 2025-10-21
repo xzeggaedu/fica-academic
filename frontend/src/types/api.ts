@@ -308,6 +308,68 @@ export interface ScheduleTimeUpdate {
   is_active?: boolean;
 }
 
+// Academic Level Types
+export interface AcademicLevel {
+  id: number;
+  code: string;
+  name: string;
+  priority: number;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface AcademicLevelCreate {
+  code: string;
+  name: string;
+  priority: number;
+  description?: string | null;
+  is_active?: boolean;
+}
+
+export interface AcademicLevelUpdate {
+  code?: string;
+  name?: string;
+  priority?: number;
+  description?: string | null;
+  is_active?: boolean;
+}
+
+// Hourly Rate History Types
+export interface HourlyRateHistory {
+  id: number;
+  level_id: number;
+  rate_per_hour: string;  // Backend devuelve como string (Decimal)
+  start_date: string;
+  end_date: string | null;
+  created_by_id: string | null;
+  created_at: string;
+  updated_at: string | null;
+  academic_level?: AcademicLevel;
+}
+
+export interface HourlyRateHistoryCreate {
+  level_id: number;
+  rate_per_hour: number;
+  start_date: string;
+}
+
+export interface HourlyRateHistoryUpdate {
+  rate_per_hour?: number;
+  start_date?: string;
+  end_date?: string | null;
+}
+
+export interface HourlyRateTimelineItem {
+  id: number;
+  rate_per_hour: number;
+  start_date: string;
+  end_date: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 // API Endpoints
 export const API_ENDPOINTS = {
   LOGIN: "/api/v1/login",

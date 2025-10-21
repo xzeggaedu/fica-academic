@@ -141,6 +141,42 @@ async def seed_professors():
         return False
 
 
+async def seed_academic_levels():
+    """Seed academic levels catalog."""
+    logger.info("Seeding academic levels catalog...")
+    try:
+        # Import and run the seeding
+        from src.app.core.db.database import local_session
+        from src.scripts.seed_academic_levels import seed_academic_levels
+
+        async with local_session() as session:
+            await seed_academic_levels(session)
+
+        logger.info("Academic levels seeding completed")
+        return True
+    except Exception as e:
+        logger.error(f"Academic levels seeding failed: {e}")
+        return False
+
+
+async def seed_hourly_rates():
+    """Seed hourly rates history."""
+    logger.info("Seeding hourly rates history...")
+    try:
+        # Import and run the seeding
+        from src.app.core.db.database import local_session
+        from src.scripts.seed_hourly_rates import seed_hourly_rates
+
+        async with local_session() as session:
+            await seed_hourly_rates(session)
+
+        logger.info("Hourly rates seeding completed")
+        return True
+    except Exception as e:
+        logger.error(f"Hourly rates seeding failed: {e}")
+        return False
+
+
 async def wait_for_db(max_retries=60, delay=2):
     """Wait for database to be ready."""
     logger.info("Waiting for database to be ready...")
@@ -193,6 +229,16 @@ async def main():
     # Seed professors (debe ir antes de coordinations)
     if not await seed_professors():
         logger.error("Failed to seed professors")
+        sys.exit(1)
+
+    # Seed academic levels (debe ir antes de hourly rates)
+    if not await seed_academic_levels():
+        logger.error("Failed to seed academic levels")
+        sys.exit(1)
+
+    # Seed hourly rates (depende de academic levels)
+    if not await seed_hourly_rates():
+        logger.error("Failed to seed hourly rates")
         sys.exit(1)
 
     # Seed coordinations (depende de professors, debe ir antes de subjects)
