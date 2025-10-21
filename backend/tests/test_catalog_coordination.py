@@ -19,62 +19,73 @@ class TestCatalogCoordinationValidation:
             code="MATE",
             name="Coordinación de Matemáticas",
             faculty_id=1,
+            school_id=1,
             is_active=True,
         )
 
         assert coordination.code == "MATE"
         assert coordination.name == "Coordinación de Matemáticas"
         assert coordination.faculty_id == 1
+        assert coordination.school_id == 1
 
     def test_code_uppercase_normalization(self):
         """Prueba que los códigos se normalicen a mayúsculas."""
-        coordination = CatalogCoordinationBase(code="mate", name="Coordinación de Matemáticas", faculty_id=1)
+        coordination = CatalogCoordinationBase(
+            code="mate", name="Coordinación de Matemáticas", faculty_id=1, school_id=1
+        )
 
         assert coordination.code == "MATE"
 
     def test_code_no_spaces(self):
         """Prueba que el código no pueda contener espacios."""
         with pytest.raises(ValidationError) as exc_info:
-            CatalogCoordinationBase(code="MA TE", name="Test", faculty_id=1)
+            CatalogCoordinationBase(code="MA TE", name="Test", faculty_id=1, school_id=1)
 
         assert "El código no puede contener espacios" in str(exc_info.value)
 
     def test_name_trimming(self):
         """Prueba que el nombre se limpie de espacios."""
-        coordination = CatalogCoordinationBase(code="MATE", name="  Coordinación de Matemáticas  ", faculty_id=1)
+        coordination = CatalogCoordinationBase(
+            code="MATE", name="  Coordinación de Matemáticas  ", faculty_id=1, school_id=1
+        )
 
         assert coordination.name == "Coordinación de Matemáticas"
 
     def test_code_required(self):
         """Prueba que code sea requerido."""
         with pytest.raises(ValidationError):
-            CatalogCoordinationBase(name="Test", faculty_id=1)
+            CatalogCoordinationBase(name="Test", faculty_id=1, school_id=1)
 
     def test_name_required(self):
         """Prueba que name sea requerido."""
         with pytest.raises(ValidationError):
-            CatalogCoordinationBase(code="MATE", faculty_id=1)
+            CatalogCoordinationBase(code="MATE", faculty_id=1, school_id=1)
 
     def test_faculty_id_required(self):
         """Prueba que faculty_id sea requerido."""
         with pytest.raises(ValidationError):
-            CatalogCoordinationBase(code="MATE", name="Test")
+            CatalogCoordinationBase(code="MATE", name="Test", school_id=1)
+
+    def test_school_id_required(self):
+        """Prueba que school_id sea requerido."""
+        with pytest.raises(ValidationError):
+            CatalogCoordinationBase(code="MATE", name="Test", faculty_id=1)
 
     def test_is_active_default_value(self):
         """Prueba que is_active tenga valor por defecto True."""
-        coordination = CatalogCoordinationBase(code="MATE", name="Test", faculty_id=1)
+        coordination = CatalogCoordinationBase(code="MATE", name="Test", faculty_id=1, school_id=1)
 
         assert coordination.is_active is True
 
     def test_description_optional(self):
         """Prueba que description sea opcional."""
-        coordination = CatalogCoordinationBase(code="MATE", name="Test", faculty_id=1)
+        coordination = CatalogCoordinationBase(code="MATE", name="Test", faculty_id=1, school_id=1)
 
         assert coordination.description is None
 
     def test_coordinator_professor_id_optional(self):
         """Prueba que coordinator_professor_id sea opcional."""
-        coordination = CatalogCoordinationBase(code="MATE", name="Test", faculty_id=1)
+        coordination = CatalogCoordinationBase(code="MATE", name="Test", faculty_id=1, school_id=1)
 
         assert coordination.coordinator_professor_id is None
 
@@ -89,6 +100,7 @@ class TestCatalogCoordinationCreate:
             name="Coordinación de Matemáticas",
             description="Área de matemáticas y estadística",
             faculty_id=1,
+            school_id=1,
             coordinator_professor_id=5,
             is_active=True,
         )
@@ -97,11 +109,14 @@ class TestCatalogCoordinationCreate:
         assert coordination_data.name == "Coordinación de Matemáticas"
         assert coordination_data.description == "Área de matemáticas y estadística"
         assert coordination_data.faculty_id == 1
+        assert coordination_data.school_id == 1
         assert coordination_data.coordinator_professor_id == 5
 
     def test_create_coordination_minimal_fields(self):
         """Prueba crear una coordinación solo con campos requeridos."""
-        coordination_data = CatalogCoordinationCreate(code="PROG", name="Coordinación de Programación", faculty_id=1)
+        coordination_data = CatalogCoordinationCreate(
+            code="PROG", name="Coordinación de Programación", faculty_id=1, school_id=1
+        )
 
         assert coordination_data.code == "PROG"
         assert coordination_data.description is None
@@ -143,6 +158,7 @@ class TestCatalogCoordinationUpdate:
             name="Nuevo Nombre",
             description="Nueva descripción",
             faculty_id=2,
+            school_id=2,
             coordinator_professor_id=10,
             is_active=False,
         )
@@ -190,7 +206,7 @@ class TestCoordinationCodeValidation:
         valid_codes = ["MATE", "PROG", "RED", "FIS", "QUIM"]
 
         for code in valid_codes:
-            coordination = CatalogCoordinationBase(code=code, name="Test", faculty_id=1)
+            coordination = CatalogCoordinationBase(code=code, name="Test", faculty_id=1, school_id=1)
             assert coordination.code == code
 
     def test_code_max_length(self):
@@ -205,7 +221,7 @@ class TestCoordinationCodeValidation:
     def test_code_min_length(self):
         """Prueba que el código tenga al menos 1 carácter."""
         with pytest.raises(ValidationError):
-            CatalogCoordinationBase(code="", name="Test", faculty_id=1)
+            CatalogCoordinationBase(code="", name="Test", faculty_id=1, school_id=1)
 
 
 class TestCoordinationNameValidation:
@@ -223,10 +239,12 @@ class TestCoordinationNameValidation:
     def test_name_min_length(self):
         """Prueba que el nombre tenga al menos 1 carácter."""
         with pytest.raises(ValidationError):
-            CatalogCoordinationBase(code="MATE", name="", faculty_id=1)
+            CatalogCoordinationBase(code="MATE", name="", faculty_id=1, school_id=1)
 
     def test_name_with_special_characters(self):
         """Prueba que el nombre pueda contener caracteres especiales."""
-        coordination = CatalogCoordinationBase(code="MATE", name="Coordinación de Matemáticas & Física", faculty_id=1)
+        coordination = CatalogCoordinationBase(
+            code="MATE", name="Coordinación de Matemáticas & Física", faculty_id=1, school_id=1
+        )
 
         assert coordination.name == "Coordinación de Matemáticas & Física"

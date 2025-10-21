@@ -114,7 +114,7 @@ export const accessControlProvider: AccessControlProvider = {
               return { can: false, reason: "Acción no permitida" };
           }
 
-        case "courses":
+        case "subjects":
           switch (action) {
             case "list":
             case "show":

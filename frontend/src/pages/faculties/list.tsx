@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useList, CanAccess, useCan, useUpdate, useCreate, useInvalidate } from "@refinedev/core";
-import { toast } from "sonner";
+import { CanAccess } from "@refinedev/core";
 import {
   Table,
   TableBody,
@@ -18,68 +17,27 @@ import { FacultyCreateButton } from "../../components/ui/faculties/faculty-creat
 import { FacultySchoolsSheet } from "../../components/ui/faculties/faculty-schools-sheet";
 import { getTableColumnClass } from "../../components/refine-ui/theme/theme-table";
 import { Unauthorized } from "../unauthorized";
+import { useFacultiesCrud } from "../../hooks/useFacultiesCrud";
 
 export const FacultyList = () => {
-  // Verificar permisos primero
-  const { data: canAccess } = useCan({
-    resource: "faculty",
-    action: "list",
-  });
-
-  const { query, result } = useList({
-    resource: "faculty",
-    sorters: [
-      {
-        field: "name",
-        order: "asc",
-      },
-    ],
-    queryOptions: {
-      enabled: canAccess?.can ?? false, // Solo hacer fetch si tiene permisos
-    },
-  });
-
-  // Hooks de Refine para CRUD
-  const { mutate: softDeleteFaculty, mutation: deleteState } = useUpdate();
-  const { mutate: createFaculty, mutation: createState } = useCreate();
-  const invalidate = useInvalidate();
-  const isDeleting = deleteState.isPending;
-  const isCreating = createState.isPending;
+  // Hook principal de facultades con todas las operaciones CRUD
+  const {
+    canAccess,
+    itemsList: facultiesData,
+    isLoading,
+    isError,
+    createItem: createFaculty,
+    softDeleteItem: softDeleteFaculty,
+    isCreating,
+    isDeleting,
+  } = useFacultiesCrud();
 
   // Función para manejar creación de facultad
   const handleCreateFaculty = (
     facultyData: { name: string; acronym: string; is_active: boolean },
     onSuccessCallback?: () => void
   ) => {
-    createFaculty(
-      {
-        resource: "faculty",
-        values: facultyData,
-        successNotification: false,
-        errorNotification: false,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Facultad creada exitosamente', {
-            description: `La facultad "${facultyData.name}" ha sido creada correctamente.`,
-            richColors: true,
-          });
-
-          if (onSuccessCallback) {
-            onSuccessCallback();
-          }
-        },
-        onError: (error) => {
-          console.error("FacultyList - Create error:", error);
-          const errorMessage = error?.message || "Error desconocido al crear facultad";
-
-          toast.error('Error al crear facultad', {
-            description: errorMessage,
-            richColors: true,
-          });
-        },
-      }
-    );
+    createFaculty(facultyData, onSuccessCallback);
   };
 
   // Estados para filtros y columnas
@@ -106,16 +64,16 @@ export const FacultyList = () => {
 
   // Filtrar datos basado en búsqueda
   const filteredData = useMemo(() => {
-    if (!result.data) return [];
+    if (!facultiesData) return [];
 
-    if (!searchValue.trim()) return result.data;
+    if (!searchValue.trim()) return facultiesData;
 
     const searchLower = searchValue.toLowerCase();
-    return result.data.filter((faculty: any) =>
+    return facultiesData.filter((faculty: any) =>
       faculty.name?.toLowerCase().includes(searchLower) ||
       faculty.acronym?.toLowerCase().includes(searchLower)
     );
-  }, [result.data, searchValue]);
+  }, [facultiesData, searchValue]);
 
   // Helper function para formatear fechas
   const formatDate = (dateString: string | undefined) => {
@@ -150,34 +108,7 @@ export const FacultyList = () => {
 
   // Función para manejar eliminación de facultad (soft delete)
   const handleDeleteFaculty = (facultyId: number, facultyName: string) => {
-    softDeleteFaculty(
-      {
-        resource: "soft-delete",
-        id: facultyId,
-        values: { type: "faculty" },
-        successNotification: false,
-      },
-      {
-        onSuccess: () => {
-          invalidate({
-            resource: "faculty",
-            invalidates: ["list"],
-          });
-
-          toast.success('Facultad movida a papelera', {
-            description: `La facultad "${facultyName}" ha sido movida a la papelera de reciclaje.`,
-            richColors: true,
-          });
-        },
-        onError: (error) => {
-          console.error("Error deleting faculty:", error);
-          toast.error('Error al mover a papelera', {
-            description: error?.message || 'Error desconocido',
-            richColors: true,
-          });
-        },
-      }
-    );
+    softDeleteFaculty(facultyId, facultyName);
   };
 
   // Función para manejar click en la fila
@@ -249,16 +180,16 @@ export const FacultyList = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {query.isLoading ? (
+                  {isLoading ? (
                     <TableRow>
                       <TableCell colSpan={visibleColumns.length} className="text-center py-8">
                         Cargando facultades...
                       </TableCell>
                     </TableRow>
-                  ) : query.error ? (
+                  ) : isError ? (
                     <TableRow>
                       <TableCell colSpan={visibleColumns.length} className="text-center py-8 text-red-600">
-                        Error al cargar facultades: {query.error.message}
+                        Error al cargar facultades
                       </TableCell>
                     </TableRow>
                   ) : filteredData.length === 0 ? (
@@ -323,10 +254,10 @@ export const FacultyList = () => {
             </div>
 
             {/* Información de resultados */}
-            {!query.isLoading && !query.error && (
+            {!isLoading && !isError && (
               <div className="flex items-center justify-between px-2 py-4 text-sm text-muted-foreground">
                 <div>
-                  Mostrando {filteredData.length} de {result.data?.length || 0} facultades
+                  Mostrando {filteredData.length} de {facultiesData?.length || 0} facultades
                   {searchValue && ` (filtradas por "${searchValue}")`}
                 </div>
               </div>

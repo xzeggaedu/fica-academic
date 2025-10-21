@@ -166,10 +166,10 @@ async def restore_from_recycle_bin(
         from ...crud.crud_catalog_professor import restore_professor
 
         restore_success = await restore_professor(db=db, id=int(entity_id))
-    elif entity_type == "course":
-        from ...crud.crud_catalog_course import restore_course
+    elif entity_type == "subject":
+        from ...crud.crud_catalog_subject import restore_subject
 
-        restore_success = await restore_course(db=db, course_id=int(entity_id))
+        restore_success = await restore_subject(db=db, subject_id=int(entity_id))
     elif entity_type == "schedule-time":
         from ...crud.crud_catalog_schedule_time import restore_schedule_time
 
@@ -254,10 +254,10 @@ async def mark_as_permanently_deleted(
 
         await hard_delete_professor(db=db, id=int(entity_id))
         # hard_delete_professor ya hace commit internamente
-    elif entity_type == "course":
-        from ...crud.crud_catalog_course import crud_catalog_course
+    elif entity_type == "subject":
+        from ...crud.crud_catalog_subject import crud_catalog_subject
 
-        await crud_catalog_course.delete(db=db, id=int(entity_id))
+        await crud_catalog_subject.delete(db=db, id=int(entity_id))
         await db.commit()
     elif entity_type == "schedule-time":
         from ...crud.crud_catalog_schedule_time import crud_catalog_schedule_time

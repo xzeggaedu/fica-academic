@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useOne, useUpdate } from "@refinedev/core";
+import { useOne } from "@refinedev/core";
 import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useFacultiesCrud } from "@/hooks/useFacultiesCrud";
 
 interface FacultyEditFormProps {
   facultyId: number;
@@ -28,7 +29,10 @@ interface FormErrors {
 }
 
 export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFormProps) {
-  // Refine hooks
+  // Hook para operaciones CRUD de facultades
+  const { updateItem: updateFaculty, isUpdating } = useFacultiesCrud();
+
+  // Refine hook para obtener los datos de la facultad
   const { result: faculty, query: facultyQuery } = useOne({
     resource: "faculty",
     id: facultyId,
@@ -36,8 +40,6 @@ export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFo
       enabled: !!facultyId,
     },
   });
-
-  const { mutate: updateFaculty, mutation: updateMutation } = useUpdate();
 
   // Estados
   const [formData, setFormData] = useState({
@@ -122,34 +124,22 @@ export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFo
     setShowConfirmDialog(false);
     setErrors({});
 
-    updateFaculty({
-      resource: "faculty",
-      id: facultyId,
-      values: {
+    updateFaculty(
+      facultyId,
+      {
         name: formData.name,
         acronym: formData.acronym,
         is_active: formData.is_active,
       },
-      successNotification: () => ({
-        message: 'Facultad actualizada exitosamente',
-        description: `La facultad "${formData.name}" ha sido actualizada correctamente.`,
-        type: 'success',
-      }),
-      errorNotification: (error) => ({
-        message: 'Error al actualizar facultad',
-        description: error?.message || 'Error desconocido',
-        type: 'error',
-      }),
-    }, {
-      onSuccess: () => {
+      () => {
         if (onSuccess) {
           onSuccess();
         }
       },
-      onError: (error) => {
+      (error) => {
         setErrors({ submit: error?.message || 'Error al actualizar la facultad' });
       }
-    });
+    );
   };
 
   if (isLoading) {
@@ -183,7 +173,7 @@ export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFo
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
               className={`h-11 mt-3 ${errors.name ? 'border-red-500' : ''}`}
-              disabled={updateMutation.isPending}
+              disabled={isUpdating}
             />
             {errors.name && (
               <p className="text-sm text-red-500">{errors.name}</p>
@@ -201,7 +191,7 @@ export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFo
               value={formData.acronym}
               onChange={(e) => handleChange('acronym', e.target.value.toUpperCase())}
               className={`h-11 mt-3 font-mono ${errors.acronym ? 'border-red-500' : ''}`}
-              disabled={updateMutation.isPending}
+              disabled={isUpdating}
               maxLength={20}
             />
             {errors.acronym && (
@@ -217,7 +207,7 @@ export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFo
             <Select
               value={formData.is_active ? "true" : "false"}
               onValueChange={(value) => handleChange('is_active', value === "true")}
-              disabled={updateMutation.isPending}
+              disabled={isUpdating}
             >
               <SelectTrigger id="is_active" className={`h-11 mt-3 ${errors.is_active ? 'border-red-500' : ''}`}>
                 <SelectValue />
@@ -253,8 +243,8 @@ export function FacultyEditForm({ facultyId, onSuccess, onClose }: FacultyEditFo
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSubmit} disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? 'Actualizando...' : 'Confirmar'}
+            <AlertDialogAction onClick={handleConfirmSubmit} disabled={isUpdating}>
+              {isUpdating ? 'Actualizando...' : 'Confirmar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

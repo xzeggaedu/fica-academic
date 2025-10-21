@@ -13,7 +13,24 @@ vi.mock('sonner', () => ({
 
 // Mock de Refine hooks
 vi.mock('@refinedev/core', () => ({
-  useList: vi.fn(() => ({ result: { data: [] } })),
+  useList: vi.fn(() => ({
+    result: { data: [] },
+    query: { isLoading: false, isError: false }
+  })),
+  useCan: vi.fn(() => ({ data: { can: true } })),
+  useCreate: vi.fn(() => ({
+    mutate: vi.fn(),
+    mutation: { isPending: false },
+  })),
+  useUpdate: vi.fn(() => ({
+    mutate: vi.fn(),
+    mutation: { isPending: false },
+  })),
+  useDelete: vi.fn(() => ({
+    mutate: vi.fn(),
+    mutation: { isPending: false },
+  })),
+  useInvalidate: vi.fn(() => vi.fn()),
 }));
 
 // Mock data
@@ -33,6 +50,7 @@ const mockCoordination = {
   name: 'Redes',
   description: 'Coordinación de redes',
   faculty_id: 1,
+  school_id: 1,
   coordinator_professor_id: 1,
   is_active: true,
   deleted: false,
@@ -51,6 +69,7 @@ describe('CoordinationFormSheet - Renderizado Básico', () => {
       name: '',
       description: '',
       faculty_id: null,
+      school_id: null,
       coordinator_professor_id: null,
       is_active: true,
     },
@@ -81,7 +100,7 @@ describe('CoordinationFormSheet - Renderizado Básico', () => {
     expect(screen.getByPlaceholderText('Ej: RED')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Ej: Coordinación de Redes')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Área de conocimiento que agrupa la coordinación...')).toBeInTheDocument();
-    expect(screen.getAllByRole('combobox')).toHaveLength(2);
+    expect(screen.getAllByRole('combobox')).toHaveLength(3);
     expect(screen.getByRole('switch')).toBeInTheDocument();
   });
 
@@ -133,6 +152,7 @@ describe('CoordinationFormSheet - Modo Edición', () => {
       name: 'Redes',
       description: 'Coordinación de redes',
       faculty_id: 1,
+      school_id: 1,
       coordinator_professor_id: 1,
       is_active: true,
     },

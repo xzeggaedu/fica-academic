@@ -1,0 +1,1 @@
+export { SubjectsList } from "./list";

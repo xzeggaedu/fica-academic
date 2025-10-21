@@ -10,9 +10,9 @@ import type {
   SchoolCreate,
   SchoolUpdate,
   Task,
-  Course,
-  CourseCreate,
-  CourseUpdate,
+  Subject,
+  SubjectCreate,
+  SubjectUpdate,
   PaginatedResponse
 } from "../types/api";
 
@@ -46,12 +46,12 @@ const ENDPOINTS = {
   FACULTY: `${API_BASE_PATH}/catalog/faculties`,    // ✅ Movido a catalog
   SCHOOLS: `${API_BASE_PATH}/catalog/schools`,    // ✅ Movido a catalog
   SCHOOL: `${API_BASE_PATH}/catalog/schools`,     // ✅ Movido a catalog
-  COURSES: `${API_BASE_PATH}/catalog/courses`,
+  SUBJECTS: `${API_BASE_PATH}/catalog/subjects`,
   PROFESSORS: `${API_BASE_PATH}/catalog/professors`,
   COORDINATIONS: `${API_BASE_PATH}/catalog/coordinations`,
   RECYCLE_BIN: `${API_BASE_PATH}/recycle-bin`,
   RESTORE_ITEM: `${API_BASE_PATH}/recycle-bin/restore`,
-  COURSES_ACTIVE: `${API_BASE_PATH}/catalog/courses/active`,
+  SUBJECTS_ACTIVE: `${API_BASE_PATH}/catalog/subjects/active`,
   SCHEDULE_TIMES: `${API_BASE_PATH}/catalog/schedule-times`,
   SCHEDULE_TIMES_ACTIVE: `${API_BASE_PATH}/catalog/schedule-times/active`,
 };
@@ -112,8 +112,6 @@ const apiRequest = async <T>(
 // DataProvider implementation
 export const dataProvider: DataProvider = {
   getList: async ({ resource, pagination, filters, sorters, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     switch (resource) {
       case "users": {
@@ -256,7 +254,7 @@ export const dataProvider: DataProvider = {
         };
       }
 
-      case "courses": {
+      case "subjects": {
         const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
         const pageSize = pagination?.pageSize || 10;
 
@@ -273,8 +271,8 @@ export const dataProvider: DataProvider = {
           }
         }
 
-        const response = await apiRequest<PaginatedResponse<Course>>(
-          `${ENDPOINTS.COURSES}?${searchParams.toString()}`
+        const response = await apiRequest<PaginatedResponse<Subject>>(
+          `${ENDPOINTS.SUBJECTS}?${searchParams.toString()}`
         );
 
         return {
@@ -378,8 +376,6 @@ export const dataProvider: DataProvider = {
   },
 
   getOne: async ({ resource, id, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     switch (resource) {
       case "users": {
@@ -422,8 +418,6 @@ export const dataProvider: DataProvider = {
   },
 
   create: async ({ resource, variables, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     switch (resource) {
       case "users": {
@@ -470,12 +464,12 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
-      case "courses": {
-        const response = await apiRequest<Course>(
-          ENDPOINTS.COURSES,
+      case "subjects": {
+        const response = await apiRequest<Subject>(
+          ENDPOINTS.SUBJECTS,
           {
             method: "POST",
-            body: JSON.stringify(variables as CourseCreate),
+            body: JSON.stringify(variables as SubjectCreate),
           }
         );
         return { data: response as any };
@@ -542,10 +536,21 @@ export const dataProvider: DataProvider = {
         // Handle user password endpoint
         if (id && id.toString().includes('/password')) {
           const userId = id.toString().replace('/password', '');
+          const passwordUrl = `${API_BASE_PATH}/user/${userId}/password`;
+
+          if (DEBUG_MODE) {
+            console.log('Password update request:', {
+              userId,
+              url: passwordUrl,
+              variables,
+              method: "PATCH"
+            });
+          }
+
           const response = await apiRequest<{ message: string }>(
-            `${API_BASE_PATH}/user/${userId}/password`,
+            passwordUrl,
             {
-              method: meta?.method || "PATCH",
+              method: "PATCH", // ✅ Forzar PATCH para password
               body: JSON.stringify(variables),
             }
           );
@@ -593,12 +598,12 @@ export const dataProvider: DataProvider = {
         return { data: updatedSchool as any };
       }
 
-      case "courses": {
-        const response = await apiRequest<Course>(
-          `${ENDPOINTS.COURSES}/${id}`,
+      case "subjects": {
+        const response = await apiRequest<Subject>(
+          `${ENDPOINTS.SUBJECTS}/${id}`,
           {
             method: "PATCH",
-            body: JSON.stringify(variables as CourseUpdate),
+            body: JSON.stringify(variables as SubjectUpdate),
           }
         );
         return { data: response as any };
@@ -651,8 +656,8 @@ export const dataProvider: DataProvider = {
           normalizedType = "catalog/faculties";
         } else if (type === "catalog/professors") {
           normalizedType = "catalog/professors";
-        } else if (type === "catalog/courses") {
-          normalizedType = "catalog/courses";
+        } else if (type === "catalog/subjects") {
+          normalizedType = "catalog/subjects";
         } else if (type === "catalog/schedule-times") {
           normalizedType = "catalog/schedule-times";
         } else if (type === "catalog/coordinations") {
@@ -686,8 +691,6 @@ export const dataProvider: DataProvider = {
   },
 
   deleteOne: async ({ resource, id, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     switch (resource) {
       case "users": {
@@ -720,9 +723,9 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
-      case "courses": {
+      case "subjects": {
         const response = await apiRequest<{ message: string }>(
-          `${ENDPOINTS.COURSES}/${id}`,
+          `${ENDPOINTS.SUBJECTS}/${id}`,
           {
             method: "DELETE",
           }
@@ -776,8 +779,6 @@ export const dataProvider: DataProvider = {
   },
 
   getMany: async ({ resource, ids, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     // For now, we'll fetch users individually
     // In a real implementation, you might want to add a bulk endpoint
@@ -790,8 +791,6 @@ export const dataProvider: DataProvider = {
   },
 
   createMany: async ({ resource, variables, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     // For now, we'll create users individually
     // In a real implementation, you might want to add a bulk endpoint
@@ -810,8 +809,6 @@ export const dataProvider: DataProvider = {
   },
 
   updateMany: async ({ resource, ids, variables, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     // For now, we'll update users individually
     const promises = ids.map(id =>
@@ -829,8 +826,6 @@ export const dataProvider: DataProvider = {
   },
 
   deleteMany: async ({ resource, ids, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     // For now, we'll delete users individually
     const promises = ids.map(id =>
@@ -851,8 +846,6 @@ export const dataProvider: DataProvider = {
   },
 
   custom: async ({ url, method, filters, sorters, payload, query, headers, meta }) => {
-    if (DEBUG_MODE) {
-    }
 
     let requestUrl = `${API_BASE_URL}${url}`;
 

@@ -11,8 +11,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..core.db.database import Base
 
 if TYPE_CHECKING:
-    from .course_school import CourseSchool
     from .faculty import Faculty
+    from .subject_school import SubjectSchool
 
 
 class School(Base):
@@ -44,8 +44,8 @@ class School(Base):
 
     # Relaciones
     faculty: Mapped[Faculty] = relationship("Faculty", back_populates="schools", lazy="selectin", init=False)
-    courses: Mapped[list[CourseSchool]] = relationship(
-        "CourseSchool", back_populates="school", cascade="all, delete-orphan", init=False
+    subjects: Mapped[list[SubjectSchool]] = relationship(
+        "SubjectSchool", back_populates="school", cascade="all, delete-orphan", init=False
     )
 
     def __repr__(self) -> str:

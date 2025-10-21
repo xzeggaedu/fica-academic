@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useList, CanAccess, useCan, useUpdate, useInvalidate, useCreate } from "@refinedev/core";
-import { toast } from "sonner";
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../../components/ui/pagination";
+import { useList, CanAccess } from "@refinedev/core";
+import { TablePagination } from "../../components/ui/data/table-pagination";
 import {
     Table,
     TableBody,
@@ -12,6 +11,7 @@ import {
 } from "../../components/ui/data/table";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
 import { Unauthorized } from "../unauthorized";
 import { Button } from "../../components/ui/button";
 import { DeleteConfirmDialog } from "../../components/ui/delete-confirm-dialog";
@@ -27,6 +27,11 @@ import {
     DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { CoordinationFormSheet } from "../../components/ui/coordinations/coordination-form-sheet";
+import { useTablePagination } from "../../hooks/useTablePagination";
+import { useCoordinationsCrud } from "../../hooks/useCoordinationsCrud";
+import { useFacultiesCrud } from "../../hooks/useFacultiesCrud";
+import { useSchoolsCrud } from "../../hooks/useSchoolsCrud";
+import { useProfessorsCrud } from "../../hooks/useProfessorsCrud";
 
 interface Coordination {
     id: number;
@@ -34,6 +39,7 @@ interface Coordination {
     name: string;
     description: string | null;
     faculty_id: number;
+    school_id: number;
     coordinator_professor_id: number | null;
     is_active: boolean;
     deleted: boolean;
@@ -55,68 +61,49 @@ interface Professor {
 }
 
 export const CoordinationList = () => {
-    // Verificar permisos primero
-    const { data: canAccess } = useCan({
-        resource: "coordinations",
-        action: "list",
+    // Hook CRUD de coordinations
+    const {
+        canAccess,
+        itemsList: coordinationsList,
+        total: totalItems,
+        isLoading,
+        isError,
+        createItem,
+        updateItem,
+        softDeleteItem,
+        editingItem,
+        setEditingItem,
+        isCreateModalOpen,
+        setIsCreateModalOpen,
+        isEditModalOpen,
+        setIsEditModalOpen,
+        isCreating,
+        isUpdating,
+        isDeleting,
+    } = useCoordinationsCrud();
+
+    // Hook de paginación y búsqueda (stateless)
+    const {
+        paginatedData: coordinations,
+        total,
+        currentPage,
+        totalPages,
+        canPrevPage,
+        canNextPage,
+        nextPage,
+        prevPage,
+        goToPage,
+        searchValue: searchTerm,
+        setSearchValue: setSearchTerm,
+    } = useTablePagination<Coordination>({
+        data: coordinationsList,
+        initialPageSize: 10,
     });
 
-    // Estados para paginación, filtros y columnas
-    const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
-
-    // Debounce para búsqueda
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(searchTerm);
-            setCurrentPage(1); // Reset a página 1 cuando cambia la búsqueda
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
-
-    // Configurar filtros para useList
-    const filters = debouncedSearch
-        ? [{ field: "search", operator: "contains" as const, value: debouncedSearch }]
-        : [];
-
-    const { query, result } = useList<Coordination>({
-        resource: "coordinations",
-        pagination: {
-            currentPage: currentPage,
-            pageSize: pageSize,
-            mode: "server",
-        },
-        filters: filters,
-        queryOptions: {
-            enabled: canAccess?.can ?? false,
-        },
-        successNotification: false,
-        errorNotification: false,
-    });
-
-    const coordinations = result.data || [];
-    const total = result.total || 0;
-    const isLoading = query.isLoading;
-
-    // Cargar facultades para mostrar nombres
-    const { result: facultiesResult } = useList<Faculty>({
-        resource: "faculties",
-        pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
-        queryOptions: { enabled: canAccess?.can ?? false },
-    });
-
-    // Cargar profesores para mostrar nombres
-    const { result: professorsResult } = useList<Professor>({
-        resource: "professors",
-        pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
-        queryOptions: { enabled: canAccess?.can ?? false },
-    });
-
-    const faculties = facultiesResult?.data || [];
-    const professors = professorsResult?.data || [];
+    // Cargar facultades, escuelas y profesores usando sus hooks
+    const { itemsList: faculties } = useFacultiesCrud();
+    const { itemsList: schools } = useSchoolsCrud();
+    const { itemsList: professors } = useProfessorsCrud();
 
     // Helpers para obtener nombres
     const getFacultyName = (facultyId: number) => {
@@ -124,162 +111,94 @@ export const CoordinationList = () => {
         return faculty ? `${faculty.acronym} - ${faculty.name}` : `ID: ${facultyId}`;
     };
 
+    const getFacultyData = (facultyId: number) => {
+        const faculty = faculties.find(f => f.id === facultyId);
+        return faculty ? { acronym: faculty.acronym, name: faculty.name } : { acronym: `ID: ${facultyId}`, name: '' };
+    };
+
+    const getSchoolName = (schoolId: number) => {
+        const school = schools.find(s => s.id === schoolId);
+        return school ? `${school.acronym} - ${school.name}` : `ID: ${schoolId}`;
+    };
+
+    const getSchoolData = (schoolId: number) => {
+        const school = schools.find(s => s.id === schoolId);
+        return school ? { acronym: school.acronym, name: school.name } : { acronym: `ID: ${schoolId}`, name: '' };
+    };
+
     const getProfessorName = (professorId: number | null) => {
         if (!professorId) return "Sin coordinador";
         const professor = professors.find(p => p.id === professorId);
-        return professor ? professor.professor_name : `ID: ${professorId}`;
-    };
+        if (!professor) return `ID: ${professorId}`;
 
-    // Hooks para operaciones CRUD
-    const { mutate: softDeleteCoordination, mutation: deleteState } = useUpdate();
-    const { mutate: createCoordination, mutation: createState } = useCreate();
-    const { mutate: updateCoordination, mutation: updateState } = useUpdate();
-    const invalidate = useInvalidate();
-    const isDeleting = deleteState.isPending;
-    const isCreating = createState.isPending;
-    const isUpdating = updateState.isPending;
-
-    // Función para manejar eliminación de coordinación (soft delete)
-    const handleDeleteCoordination = (coordinationId: number, coordinationName: string) => {
-        softDeleteCoordination(
-            {
-                resource: "soft-delete",
-                id: coordinationId,
-                values: { type: "catalog/coordinations" },
-                successNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    invalidate({
-                        resource: "coordinations",
-                        invalidates: ["list"],
-                    });
-
-                    toast.success('Coordinación movida a papelera', {
-                        description: `La coordinación "${coordinationName}" ha sido movida a la papelera de reciclaje.`,
-                        richColors: true,
-                    });
-                },
-                onError: (error) => {
-                    console.error("CoordinationList - Soft delete error:", error);
-                    toast.error('Error al mover a papelera', {
-                        description: error.message,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para manejar creación de coordinación
-    const handleCreateCoordination = (coordinationData: any, onSuccessCallback?: () => void) => {
-        createCoordination(
-            {
-                resource: "coordinations",
-                values: coordinationData,
-                successNotification: false,
-                errorNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    toast.success('Coordinación creada exitosamente', {
-                        description: `La coordinación "${coordinationData.name}" ha sido creada correctamente.`,
-                        richColors: true,
-                    });
-                    if (onSuccessCallback) {
-                        onSuccessCallback();
-                    }
-                },
-                onError: (error) => {
-                    console.error("CoordinationList - Create error:", error);
-                    const errorMessage = error?.message || "Error desconocido al crear coordinación";
-                    toast.error('Error al crear coordinación', {
-                        description: errorMessage,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para manejar actualización de coordinación
-    const handleUpdateCoordination = (coordinationId: number, coordinationData: any, onSuccessCallback?: () => void) => {
-        updateCoordination(
-            {
-                resource: "coordinations",
-                id: coordinationId,
-                values: coordinationData,
-                successNotification: false,
-                errorNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    toast.success('Coordinación actualizada exitosamente', {
-                        description: `La coordinación "${coordinationData.name}" ha sido actualizada correctamente.`,
-                        richColors: true,
-                    });
-                    if (onSuccessCallback) {
-                        onSuccessCallback();
-                    }
-                },
-                onError: (error) => {
-                    console.error("CoordinationList - Update error:", error);
-                    const errorMessage = error?.message || "Error desconocido al actualizar coordinación";
-                    toast.error('Error al actualizar coordinación', {
-                        description: errorMessage,
-                        richColors: true,
-                    });
-                },
-            }
-        );
+        // Concatenar título académico con el nombre
+        const title = professor.academic_title ? `${professor.academic_title} ` : '';
+        return `${title}${professor.professor_name}`;
     };
 
     // Función para abrir el sheet en modo crear
     const handleOpenCreateSheet = () => {
-        setEditingCoordination(null);
+        setEditingItem(null);
         setFormData({
             code: "",
             name: "",
             description: "",
             faculty_id: null,
+            school_id: null,
             coordinator_professor_id: null,
             is_active: true,
         });
-        setSheetOpen(true);
+        setIsCreateModalOpen(true);
     };
 
     // Función para abrir el sheet en modo editar
     const handleOpenEditSheet = (coordination: Coordination) => {
-        setEditingCoordination(coordination);
+        setEditingItem(coordination);
         setFormData({
             code: coordination.code,
             name: coordination.name,
             description: coordination.description || "",
             faculty_id: coordination.faculty_id,
+            school_id: coordination.school_id,
             coordinator_professor_id: coordination.coordinator_professor_id,
             is_active: coordination.is_active,
         });
-        setSheetOpen(true);
+        setIsEditModalOpen(true);
     };
 
     // Función para cerrar el sheet
     const handleCloseSheet = () => {
-        setSheetOpen(false);
-        setEditingCoordination(null);
+        setIsCreateModalOpen(false);
+        setIsEditModalOpen(false);
+        setEditingItem(null);
     };
+
+    // Sincronizar formData cuando cambie editingItem
+    useEffect(() => {
+        if (editingItem) {
+            setFormData({
+                code: editingItem.code,
+                name: editingItem.name,
+                description: editingItem.description || "",
+                faculty_id: editingItem.faculty_id,
+                school_id: editingItem.school_id,
+                coordinator_professor_id: editingItem.coordinator_professor_id,
+                is_active: editingItem.is_active,
+            });
+        }
+    }, [editingItem]);
 
     // Estados para el diálogo de eliminación
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedCoordination, setSelectedCoordination] = useState<{ id: number; name: string } | null>(null);
 
-    // Estados para el sheet de crear/editar
-    const [sheetOpen, setSheetOpen] = useState(false);
-    const [editingCoordination, setEditingCoordination] = useState<Coordination | null>(null);
+    // Estado para el formulario
     const [formData, setFormData] = useState({
         code: "",
         name: "",
         description: "",
         faculty_id: null as number | null,
+        school_id: null as number | null,
         coordinator_professor_id: null as number | null,
         is_active: true,
     });
@@ -288,6 +207,7 @@ export const CoordinationList = () => {
         code: true,
         name: true,
         faculty: true,
+        school: true,
         coordinator: true,
         is_active: true,
     });
@@ -377,6 +297,14 @@ export const CoordinationList = () => {
                                         Facultad
                                     </DropdownMenuCheckboxItem>
                                     <DropdownMenuCheckboxItem
+                                        checked={visibleColumns.school}
+                                        onCheckedChange={(checked) =>
+                                            setVisibleColumns((prev) => ({ ...prev, school: checked }))
+                                        }
+                                    >
+                                        Escuela
+                                    </DropdownMenuCheckboxItem>
+                                    <DropdownMenuCheckboxItem
                                         checked={visibleColumns.coordinator}
                                         onCheckedChange={(checked) =>
                                             setVisibleColumns((prev) => ({ ...prev, coordinator: checked }))
@@ -409,6 +337,9 @@ export const CoordinationList = () => {
                                         )}
                                         {visibleColumns.faculty && (
                                             <TableHead className="w-[200px]">Facultad</TableHead>
+                                        )}
+                                        {visibleColumns.school && (
+                                            <TableHead className="w-[200px]">Escuela</TableHead>
                                         )}
                                         {visibleColumns.coordinator && (
                                             <TableHead className="w-[200px]">Coordinador</TableHead>
@@ -458,9 +389,34 @@ export const CoordinationList = () => {
                                                 )}
                                                 {visibleColumns.faculty && (
                                                     <TableCell>
-                                                        <Badge variant="outline">
-                                                            {getFacultyName(coordination.faculty_id)}
-                                                        </Badge>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Badge variant="outline" className="cursor-help">
+                                                                        {getFacultyData(coordination.faculty_id).acronym}
+                                                                    </Badge>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>{getFacultyData(coordination.faculty_id).name}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.school && (
+                                                    <TableCell>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Badge variant="secondary" className="cursor-help">
+                                                                        {getSchoolData(coordination.school_id).acronym}
+                                                                    </Badge>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>{getSchoolData(coordination.school_id).name}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
                                                     </TableCell>
                                                 )}
                                                 {visibleColumns.coordinator && (
@@ -520,100 +476,20 @@ export const CoordinationList = () => {
                         </div>
 
                         {/* Paginación */}
-                        {(() => {
-                            const totalPages = Math.max(1, Math.ceil(total / pageSize));
-                            const canPrev = currentPage > 1;
-                            const canNext = currentPage < totalPages;
-
-                            // Calcular ventana de páginas (máx 5)
-                            const windowSize = 5;
-                            const half = Math.floor(windowSize / 2);
-                            let start = Math.max(1, currentPage - half);
-                            let end = Math.min(totalPages, start + windowSize - 1);
-                            if (end - start + 1 < windowSize) {
-                                start = Math.max(1, end - windowSize + 1);
-                            }
-
-                            const pages = [];
-                            for (let i = start; i <= end; i++) {
-                                pages.push(i);
-                            }
-
-                            return (
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4">
-                                    <div className="text-sm text-muted-foreground">
-                                        Mostrando {coordinations.length} de {total} coordinaciones
-                                    </div>
-                                    <Pagination>
-                                        <PaginationContent>
-                                            <PaginationItem>
-                                                <PaginationPrevious
-                                                    href="#"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        if (canPrev) setCurrentPage(currentPage - 1);
-                                                    }}
-                                                    className={!canPrev ? "pointer-events-none opacity-50" : ""}
-                                                />
-                                            </PaginationItem>
-
-                                            {start > 1 && (
-                                                <>
-                                                    <PaginationItem>
-                                                        <PaginationLink
-                                                            href="#"
-                                                            onClick={(e) => { e.preventDefault(); setCurrentPage(1); }}
-                                                        >1</PaginationLink>
-                                                    </PaginationItem>
-                                                    {start > 2 && (
-                                                        <PaginationItem>
-                                                            <PaginationEllipsis />
-                                                        </PaginationItem>
-                                                    )}
-                                                </>
-                                            )}
-
-                                            {pages.map((p) => (
-                                                <PaginationItem key={p}>
-                                                    <PaginationLink
-                                                        href="#"
-                                                        isActive={p === currentPage}
-                                                        onClick={(e) => { e.preventDefault(); setCurrentPage(p); }}
-                                                    >{p}</PaginationLink>
-                                                </PaginationItem>
-                                            ))}
-
-                                            {end < totalPages && (
-                                                <>
-                                                    {end < totalPages - 1 && (
-                                                        <PaginationItem>
-                                                            <PaginationEllipsis />
-                                                        </PaginationItem>
-                                                    )}
-                                                    <PaginationItem>
-                                                        <PaginationLink
-                                                            href="#"
-                                                            onClick={(e) => { e.preventDefault(); setCurrentPage(totalPages); }}
-                                                        >{totalPages}</PaginationLink>
-                                                    </PaginationItem>
-                                                </>
-                                            )}
-
-                                            <PaginationItem>
-                                                <PaginationNext
-                                                    href="#"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        if (canNext) setCurrentPage(currentPage + 1);
-                                                    }}
-                                                    className={!canNext ? "pointer-events-none opacity-50" : ""}
-                                                />
-                                            </PaginationItem>
-                                        </PaginationContent>
-                                    </Pagination>
-                                </div>
-                            );
-                        })()}
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4">
+                            <div className="text-sm text-muted-foreground">
+                                Mostrando {coordinations.length} de {total} coordinaciones
+                            </div>
+                            <TablePagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                canPrevPage={canPrevPage}
+                                canNextPage={canNextPage}
+                                onPageChange={goToPage}
+                                onPrevPage={prevPage}
+                                onNextPage={nextPage}
+                            />
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -623,8 +499,16 @@ export const CoordinationList = () => {
                         entityType="coordinación"
                         entityName={selectedCoordination.name}
                         isOpen={deleteDialogOpen}
-                        onClose={() => setDeleteDialogOpen(false)}
-                        onConfirm={() => handleDeleteCoordination(selectedCoordination.id, selectedCoordination.name)}
+                        onClose={() => {
+                            setDeleteDialogOpen(false);
+                            setSelectedCoordination(null);
+                        }}
+                        onConfirm={() => {
+                            softDeleteItem(selectedCoordination.id, selectedCoordination.name, () => {
+                                setDeleteDialogOpen(false);
+                                setSelectedCoordination(null);
+                            });
+                        }}
                         isDeleting={isDeleting}
                         gender="f"
                     />
@@ -632,16 +516,24 @@ export const CoordinationList = () => {
 
                 {/* Sheet de crear/editar coordinación */}
                 <CoordinationFormSheet
-                    isOpen={sheetOpen}
+                    isOpen={isCreateModalOpen || isEditModalOpen}
                     onClose={handleCloseSheet}
-                    editingCoordination={editingCoordination}
+                    editingCoordination={editingItem}
                     formData={formData}
                     onFormChange={setFormData}
                     onSubmit={() => {
-                        if (editingCoordination) {
-                            handleUpdateCoordination(editingCoordination.id, formData, handleCloseSheet);
+                        // Limpiar espacios en blanco al inicio y final
+                        const cleanedFormData = {
+                            ...formData,
+                            code: formData.code.trim(),
+                            name: formData.name.trim(),
+                            description: formData.description.trim(),
+                        };
+
+                        if (editingItem) {
+                            updateItem(editingItem.id, cleanedFormData, handleCloseSheet);
                         } else {
-                            handleCreateCoordination(formData, handleCloseSheet);
+                            createItem(cleanedFormData, handleCloseSheet);
                         }
                     }}
                     isSubmitting={isCreating || isUpdating}

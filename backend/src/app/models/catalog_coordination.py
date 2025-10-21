@@ -21,6 +21,7 @@ class CatalogCoordination(Base):
         name: Nombre oficial de la coordinación
         description: Descripción del área de conocimiento
         faculty_id: ID de la facultad a la que pertenece
+        school_id: ID de la escuela a la que pertenece
         coordinator_professor_id: ID del profesor coordinador
         is_active: Estado del registro
         deleted: Indica si fue eliminado (soft delete)
@@ -41,6 +42,7 @@ class CatalogCoordination(Base):
 
     # Relaciones
     faculty_id: Mapped[int] = mapped_column(ForeignKey("faculty.id"), nullable=False, index=True)
+    school_id: Mapped[int] = mapped_column(ForeignKey("school.id"), nullable=False, index=True)
     coordinator_professor_id: Mapped[int | None] = mapped_column(
         ForeignKey("catalog_professor.id"), nullable=True, index=True
     )

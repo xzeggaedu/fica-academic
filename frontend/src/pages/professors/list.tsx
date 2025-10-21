@@ -1,7 +1,6 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useList, CanAccess, useCan, useUpdate, useInvalidate, useCreate } from "@refinedev/core";
-import { toast } from "sonner";
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../../components/ui/pagination";
+import React, { useState, useMemo, useEffect, use } from "react";
+import { CanAccess } from "@refinedev/core";
+import { TablePagination } from "../../components/ui/data/table-pagination";
 import {
     Table,
     TableBody,
@@ -28,6 +27,8 @@ import {
     DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { ProfessorFormSheet } from "../../components/ui/professors/professor-form-sheet";
+import { useTablePagination } from "../../hooks/useTablePagination";
+import { useProfessorsCrud } from "../../hooks/useProfessorsCrud";
 
 interface Professor {
     id: number;
@@ -50,209 +51,49 @@ interface Professor {
 }
 
 export const ProfessorList = () => {
-    // Verificar permisos primero
-    const { data: canAccess } = useCan({
-        resource: "professors",
-        action: "list",
+    // Hook CRUD centralizado
+    const {
+        canAccess,
+        itemsList: professorsList,
+        total,
+        isLoading,
+        createItem,
+        updateItem,
+        softDeleteItem,
+        editingItem: editingProfessor,
+        setEditingItem: setEditingProfessor,
+        isCreateModalOpen,
+        setIsCreateModalOpen,
+        isEditModalOpen,
+        setIsEditModalOpen,
+        isCreating,
+        isUpdating,
+        isDeleting,
+    } = useProfessorsCrud();
+
+
+    // Hook de paginación y búsqueda (stateless)
+    const {
+        paginatedData: professors,
+        currentPage,
+        totalPages,
+        canPrevPage,
+        canNextPage,
+        nextPage,
+        prevPage,
+        goToPage,
+        searchValue: searchTerm,
+        setSearchValue: setSearchTerm,
+    } = useTablePagination<Professor>({
+        data: professorsList,
+        initialPageSize: 10,
     });
-
-    // Estados para paginación, filtros y columnas
-    const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
-
-    // Debounce para búsqueda
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(searchTerm);
-            setCurrentPage(1); // Reset a página 1 cuando cambia la búsqueda
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
-
-    // Configurar filtros para useList
-    const filters = debouncedSearch
-        ? [{ field: "search", operator: "contains" as const, value: debouncedSearch }]
-        : [];
-
-    const { query, result } = useList<Professor>({
-        resource: "professors",
-        pagination: {
-            currentPage: currentPage,
-            pageSize: pageSize,
-            mode: "server",
-        },
-        filters: filters,
-        queryOptions: {
-            enabled: canAccess?.can ?? false,
-        },
-        successNotification: false,
-        errorNotification: false,
-    });
-
-    const professors = result.data || [];
-    const total = result.total || 0;
-    const isLoading = query.isLoading;
-
-    // Hooks para operaciones CRUD
-    const { mutate: softDeleteProfessor, mutation: deleteState } = useUpdate();
-    const { mutate: createProfessor, mutation: createState } = useCreate();
-    const { mutate: updateProfessor, mutation: updateState } = useUpdate();
-    const invalidate = useInvalidate();
-    const isDeleting = deleteState.isPending;
-    const isCreating = createState.isPending;
-    const isUpdating = updateState.isPending;
-
-    // Función para manejar eliminación de profesor (soft delete)
-    const handleDeleteProfessor = (professorId: number, professorName: string) => {
-        softDeleteProfessor(
-            {
-                resource: "soft-delete",
-                id: professorId,
-                values: { type: "catalog/professors" },
-                successNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    invalidate({
-                        resource: "professors",
-                        invalidates: ["list"],
-                    });
-
-                    toast.success('Profesor movido a papelera', {
-                        description: `El profesor "${professorName}" ha sido movido a la papelera de reciclaje.`,
-                        richColors: true,
-                    });
-                },
-                onError: (error) => {
-                    console.error("ProfessorList - Soft delete error:", error);
-                    toast.error('Error al mover a papelera', {
-                        description: error.message,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para manejar creación de profesor
-    const handleCreateProfessor = (professorData: any, onSuccessCallback?: () => void) => {
-        createProfessor(
-            {
-                resource: "professors",
-                values: professorData,
-                successNotification: false,
-                errorNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    toast.success('Profesor creado exitosamente', {
-                        description: `El profesor "${professorData.professor_name}" ha sido creado correctamente.`,
-                        richColors: true,
-                    });
-                    if (onSuccessCallback) {
-                        onSuccessCallback();
-                    }
-                },
-                onError: (error) => {
-                    console.error("ProfessorList - Create error:", error);
-                    const errorMessage = error?.message || "Error desconocido al crear profesor";
-                    toast.error('Error al crear profesor', {
-                        description: errorMessage,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para manejar actualización de profesor
-    const handleUpdateProfessor = (professorId: number, professorData: any, onSuccessCallback?: () => void) => {
-        updateProfessor(
-            {
-                resource: "professors",
-                id: professorId,
-                values: professorData,
-                successNotification: false,
-                errorNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    toast.success('Profesor actualizado exitosamente', {
-                        description: `El profesor "${professorData.professor_name}" ha sido actualizado correctamente.`,
-                        richColors: true,
-                    });
-                    if (onSuccessCallback) {
-                        onSuccessCallback();
-                    }
-                },
-                onError: (error) => {
-                    console.error("ProfessorList - Update error:", error);
-                    const errorMessage = error?.message || "Error desconocido al actualizar profesor";
-                    toast.error('Error al actualizar profesor', {
-                        description: errorMessage,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para abrir el sheet en modo crear
-    const handleOpenCreateSheet = () => {
-        setEditingProfessor(null);
-        setFormData({
-            professor_id: "",
-            professor_name: "",
-            institutional_email: "",
-            personal_email: "",
-            phone_number: "",
-            professor_category: "",
-            academic_title: "",
-            doctorates: 0,
-            masters: 0,
-            is_bilingual: false,
-            is_paid: true,
-            is_active: true,
-        });
-        setSheetOpen(true);
-    };
-
-    // Función para abrir el sheet en modo editar
-    const handleOpenEditSheet = (professor: Professor) => {
-        setEditingProfessor(professor);
-        setFormData({
-            professor_id: professor.professor_id,
-            professor_name: professor.professor_name,
-            institutional_email: professor.institutional_email || "",
-            personal_email: professor.personal_email || "",
-            phone_number: professor.phone_number || "",
-            professor_category: professor.professor_category || "",
-            academic_title: professor.academic_title || "",
-            doctorates: professor.doctorates || 0,
-            masters: professor.masters || 0,
-            is_bilingual: professor.is_bilingual || false,
-            is_paid: professor.is_paid || true,
-            is_active: professor.is_active || true,
-        });
-        setSheetOpen(true);
-    };
-
-    // Función para cerrar el sheet
-    const handleCloseSheet = () => {
-        setSheetOpen(false);
-        setEditingProfessor(null);
-    };
 
     // Estados para el diálogo de eliminación
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedProfessor, setSelectedProfessor] = useState<{ id: number; name: string } | null>(null);
 
-    // Estados para el sheet de crear/editar
-    const [sheetOpen, setSheetOpen] = useState(false);
-    const [editingProfessor, setEditingProfessor] = useState<Professor | null>(null);
+    // Estado para el formulario
     const [formData, setFormData] = useState({
         professor_id: "",
         professor_name: "",
@@ -280,6 +121,73 @@ export const ProfessorList = () => {
         is_paid: true,
         is_active: true,
     });
+
+    // Función para abrir el sheet en modo crear
+    const handleOpenCreateSheet = () => {
+        setEditingProfessor(null);
+        setFormData({
+            professor_id: "",
+            professor_name: "",
+            institutional_email: "",
+            personal_email: "",
+            phone_number: "",
+            professor_category: "",
+            academic_title: "",
+            doctorates: 0,
+            masters: 0,
+            is_bilingual: false,
+            is_paid: true,
+            is_active: true,
+        });
+        setIsCreateModalOpen(true);
+    };
+
+    // Función para abrir el sheet en modo editar
+    const handleOpenEditSheet = (professor: Professor) => {
+        setEditingProfessor(professor);
+        setFormData({
+            professor_id: professor.professor_id,
+            professor_name: professor.professor_name,
+            institutional_email: professor.institutional_email || "",
+            personal_email: professor.personal_email || "",
+            phone_number: professor.phone_number || "",
+            professor_category: professor.professor_category || "",
+            academic_title: professor.academic_title || "",
+            doctorates: professor.doctorates || 0,
+            masters: professor.masters || 0,
+            is_bilingual: professor.is_bilingual || false,
+            is_paid: professor.is_paid || true,
+            is_active: professor.is_active || true,
+        });
+        setIsEditModalOpen(true);
+    };
+
+    // Función para cerrar el sheet
+    const handleCloseSheet = () => {
+        setIsCreateModalOpen(false);
+        setIsEditModalOpen(false);
+        setEditingProfessor(null);
+    };
+
+    // Sincronizar formData cuando cambie editingProfessor
+    useEffect(() => {
+        if (editingProfessor) {
+            setFormData({
+                professor_id: editingProfessor.professor_id,
+                professor_name: editingProfessor.professor_name,
+                institutional_email: editingProfessor.institutional_email || "",
+                personal_email: editingProfessor.personal_email || "",
+                phone_number: editingProfessor.phone_number || "",
+                professor_category: editingProfessor.professor_category || "",
+                academic_title: editingProfessor.academic_title || "",
+                doctorates: editingProfessor.doctorates || 0,
+                masters: editingProfessor.masters || 0,
+                is_bilingual: editingProfessor.is_bilingual || false,
+                is_paid: editingProfessor.is_paid || true,
+                is_active: editingProfessor.is_active || true,
+            });
+        }
+    }, [editingProfessor]);
 
     // Verificar si el usuario no tiene permisos
     if (canAccess?.can === false) {
@@ -592,100 +500,20 @@ export const ProfessorList = () => {
                         </div>
 
                         {/* Paginación */}
-                        {(() => {
-                            const totalPages = Math.max(1, Math.ceil(total / pageSize));
-                            const canPrev = currentPage > 1;
-                            const canNext = currentPage < totalPages;
-
-                            // Calcular ventana de páginas (máx 5)
-                            const windowSize = 5;
-                            const half = Math.floor(windowSize / 2);
-                            let start = Math.max(1, currentPage - half);
-                            let end = Math.min(totalPages, start + windowSize - 1);
-                            if (end - start + 1 < windowSize) {
-                                start = Math.max(1, end - windowSize + 1);
-                            }
-
-                            const pages = [];
-                            for (let i = start; i <= end; i++) {
-                                pages.push(i);
-                            }
-
-                            return (
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4">
-                                    <div className="text-sm text-muted-foreground">
-                                        Mostrando {professors.length} de {total} profesores
-                                    </div>
-                                    <Pagination>
-                                        <PaginationContent>
-                                            <PaginationItem>
-                                                <PaginationPrevious
-                                                    href="#"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        if (canPrev) setCurrentPage(currentPage - 1);
-                                                    }}
-                                                    className={!canPrev ? "pointer-events-none opacity-50" : ""}
-                                                />
-                                            </PaginationItem>
-
-                                            {start > 1 && (
-                                                <>
-                                                    <PaginationItem>
-                                                        <PaginationLink
-                                                            href="#"
-                                                            onClick={(e) => { e.preventDefault(); setCurrentPage(1); }}
-                                                        >1</PaginationLink>
-                                                    </PaginationItem>
-                                                    {start > 2 && (
-                                                        <PaginationItem>
-                                                            <PaginationEllipsis />
-                                                        </PaginationItem>
-                                                    )}
-                                                </>
-                                            )}
-
-                                            {pages.map((p) => (
-                                                <PaginationItem key={p}>
-                                                    <PaginationLink
-                                                        href="#"
-                                                        isActive={p === currentPage}
-                                                        onClick={(e) => { e.preventDefault(); setCurrentPage(p); }}
-                                                    >{p}</PaginationLink>
-                                                </PaginationItem>
-                                            ))}
-
-                                            {end < totalPages && (
-                                                <>
-                                                    {end < totalPages - 1 && (
-                                                        <PaginationItem>
-                                                            <PaginationEllipsis />
-                                                        </PaginationItem>
-                                                    )}
-                                                    <PaginationItem>
-                                                        <PaginationLink
-                                                            href="#"
-                                                            onClick={(e) => { e.preventDefault(); setCurrentPage(totalPages); }}
-                                                        >{totalPages}</PaginationLink>
-                                                    </PaginationItem>
-                                                </>
-                                            )}
-
-                                            <PaginationItem>
-                                                <PaginationNext
-                                                    href="#"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        if (canNext) setCurrentPage(currentPage + 1);
-                                                    }}
-                                                    className={!canNext ? "pointer-events-none opacity-50" : ""}
-                                                />
-                                            </PaginationItem>
-                                        </PaginationContent>
-                                    </Pagination>
-                                </div>
-                            );
-                        })()}
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4">
+                            <div className="text-sm text-muted-foreground">
+                                Mostrando {professors.length} de {total} profesores
+                            </div>
+                            <TablePagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                canPrevPage={canPrevPage}
+                                canNextPage={canNextPage}
+                                onPageChange={goToPage}
+                                onPrevPage={prevPage}
+                                onNextPage={nextPage}
+                            />
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -695,8 +523,16 @@ export const ProfessorList = () => {
                         entityType="profesor"
                         entityName={selectedProfessor.name}
                         isOpen={deleteDialogOpen}
-                        onClose={() => setDeleteDialogOpen(false)}
-                        onConfirm={() => handleDeleteProfessor(selectedProfessor.id, selectedProfessor.name)}
+                        onClose={() => {
+                            setDeleteDialogOpen(false);
+                            setSelectedProfessor(null);
+                        }}
+                        onConfirm={() => {
+                            softDeleteItem(selectedProfessor.id, selectedProfessor.name, () => {
+                                setDeleteDialogOpen(false);
+                                setSelectedProfessor(null);
+                            });
+                        }}
                         isDeleting={isDeleting}
                         gender="m"
                     />
@@ -704,16 +540,28 @@ export const ProfessorList = () => {
 
                 {/* Sheet de crear/editar profesor */}
                 <ProfessorFormSheet
-                    isOpen={sheetOpen}
+                    isOpen={isCreateModalOpen || isEditModalOpen}
                     onClose={handleCloseSheet}
                     editingProfessor={editingProfessor}
                     formData={formData}
                     onFormChange={setFormData}
                     onSubmit={() => {
+                        // Limpiar espacios en blanco al inicio y final
+                        const cleanedFormData = {
+                            ...formData,
+                            professor_id: formData.professor_id.trim(),
+                            professor_name: formData.professor_name.trim(),
+                            institutional_email: formData.institutional_email.trim(),
+                            personal_email: formData.personal_email.trim(),
+                            phone_number: formData.phone_number.trim(),
+                            professor_category: formData.professor_category.trim(),
+                            academic_title: formData.academic_title.trim(),
+                        };
+
                         if (editingProfessor) {
-                            handleUpdateProfessor(editingProfessor.id, formData, handleCloseSheet);
+                            updateItem(editingProfessor.id, cleanedFormData, handleCloseSheet);
                         } else {
-                            handleCreateProfessor(formData, handleCloseSheet);
+                            createItem(cleanedFormData, handleCloseSheet);
                         }
                     }}
                     isSubmitting={isCreating || isUpdating}

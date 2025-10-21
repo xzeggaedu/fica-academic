@@ -1,17 +1,21 @@
 import React from "react";
-import { useList } from "@refinedev/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
 import { Textarea } from "@/components/ui/forms/textarea";
+import { useFacultiesCrud } from "@/hooks/useFacultiesCrud";
+import { useProfessorsCrud } from "@/hooks/useProfessorsCrud";
+import { useSchoolsCrud } from "@/hooks/useSchoolsCrud";
+import type { School } from "@/types/api";
 
 interface CoordinationFormData {
   code: string;
   name: string;
   description: string;
   faculty_id: number | null;
+  school_id: number | null;
   coordinator_professor_id: number | null;
   is_active: boolean;
 }
@@ -22,6 +26,7 @@ interface Coordination {
   name: string;
   description: string | null;
   faculty_id: number;
+  school_id: number;
   coordinator_professor_id: number | null;
   is_active: boolean;
   deleted: boolean;
@@ -63,25 +68,25 @@ export function CoordinationFormSheet({
   onSubmit,
   isSubmitting,
 }: CoordinationFormSheetProps) {
-  // Cargar facultades activas
-  const { result: facultiesResult } = useList<Faculty>({
-    resource: "faculties",
-    pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
-    filters: [{ field: "is_active", operator: "eq", value: true }],
-    queryOptions: { enabled: isOpen },
+  // Cargar facultades activas solo cuando el sheet está abierto
+  const { itemsList: faculties } = useFacultiesCrud({
+    isActiveOnly: true,
+    enabled: isOpen
   });
 
-  // Cargar profesores activos
-  const { result: professorsResult } = useList<Professor>({
-    resource: "professors",
-    pagination: { currentPage: 1, pageSize: 1000, mode: "server" },
-    queryOptions: { enabled: isOpen },
+  // Cargar profesores activos solo cuando el sheet está abierto
+  const { itemsList: professors } = useProfessorsCrud({
+    isActiveOnly: true,
+    enabled: isOpen
   });
 
-  const faculties = facultiesResult?.data || [];
-  const professors = professorsResult?.data || [];
+  // Cargar escuelas activas solo cuando el sheet está abierto
+  const { itemsList: schools } = useSchoolsCrud({
+    isActiveOnly: true,
+    enabled: isOpen
+  });
 
-  const isFormValid = formData.code && formData.name && formData.faculty_id;
+  const isFormValid = formData.code && formData.name && formData.faculty_id && formData.school_id;
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -110,7 +115,7 @@ export function CoordinationFormSheet({
                 <Input
                   placeholder="Ej: RED"
                   value={formData.code}
-                  onChange={(e) => onFormChange({ ...formData, code: e.target.value.toUpperCase() })}
+                  onChange={(e) => onFormChange({ ...formData, code: e.target.value.trim().toUpperCase() })}
                   maxLength={10}
                 />
               </div>
@@ -119,7 +124,7 @@ export function CoordinationFormSheet({
                 <Input
                   placeholder="Ej: Coordinación de Redes"
                   value={formData.name}
-                  onChange={(e) => onFormChange({ ...formData, name: e.target.value })}
+                  onChange={(e) => onFormChange({ ...formData, name: e.target.value.trim() })}
                   maxLength={100}
                 />
               </div>
@@ -131,7 +136,7 @@ export function CoordinationFormSheet({
               <Textarea
                 placeholder="Área de conocimiento que agrupa la coordinación..."
                 value={formData.description}
-                onChange={(e) => onFormChange({ ...formData, description: e.target.value })}
+                onChange={(e) => onFormChange({ ...formData, description: e.target.value.trim() })}
                 rows={3}
               />
             </div>
@@ -144,7 +149,7 @@ export function CoordinationFormSheet({
               <label className="text-sm font-medium">Facultad *</label>
               <Select
                 value={formData.faculty_id?.toString() || undefined}
-                onValueChange={(value) => onFormChange({ ...formData, faculty_id: parseInt(value) })}
+                onValueChange={(value) => onFormChange({ ...formData, faculty_id: parseInt(value), school_id: null })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccione una facultad" />
@@ -155,6 +160,29 @@ export function CoordinationFormSheet({
                       {faculty.acronym} - {faculty.name}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Escuela */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Escuela *</label>
+              <Select
+                value={formData.school_id?.toString() || undefined}
+                onValueChange={(value) => onFormChange({ ...formData, school_id: parseInt(value) })}
+                disabled={!formData.faculty_id}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione una escuela" />
+                </SelectTrigger>
+                <SelectContent>
+                  {schools
+                    .filter((school) => school.fk_faculty === formData.faculty_id)
+                    .map((school) => (
+                      <SelectItem key={school.id} value={school.id.toString()}>
+                        {school.acronym} - {school.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

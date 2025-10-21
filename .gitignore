@@ -375,6 +375,9 @@ secrets/
 credentials/
 
 # Application specific
-uploads/
+uploads/*
+!uploads/data/
+!uploads/data/*.csv
+!uploads/data/**/*.csv
 media/
 staticfiles/

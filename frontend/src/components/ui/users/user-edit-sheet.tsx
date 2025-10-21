@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { UserEditForm } from "./user-edit-form";
-import { useUpdate, useOne } from "@refinedev/core";
+import { useOne } from "@refinedev/core";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useUsersCrud } from "@/hooks/useUsersCrud";
 
 interface UserEditSheetProps {
   userId: string;  // Cambiado de number a string para UUID
@@ -41,6 +42,13 @@ interface UpdateState {
 }
 
 export function UserEditSheet({ userId, userName, isOpen, onClose, onSuccess }: UserEditSheetProps) {
+  // Hook CRUD para usuarios
+  const {
+    updateItem: updateUser,
+    updatePassword: updateUserPassword,
+    isUpdating,
+    isUpdatingPassword,
+  } = useUsersCrud();
 
   const [activeTab, setActiveTab] = useState("profile");
   const [updateState, setUpdateState] = useState<UpdateState>({
@@ -49,9 +57,6 @@ export function UserEditSheet({ userId, userName, isOpen, onClose, onSuccess }: 
     enable: false
   });
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-
-  const { mutate: updateUser } = useUpdate();
-  const { mutate: updatePassword } = useUpdate();
 
   const { result, query } = useOne({
     resource: "users",
@@ -92,30 +97,14 @@ export function UserEditSheet({ userId, userName, isOpen, onClose, onSuccess }: 
   };
 
   const handleUpdateUser: UpdateFunction = (userData: any) => {
-    updateUser({
-      resource: "users",
-      id: userId,
-      values: userData,
-    }, {
-      onSuccess: () => {
-        handleSuccess();
-      }
+    updateUser(userId, userData, () => {
+      handleSuccess();
     });
   };
 
   const handleUpdatePassword: PasswordUpdateFunction = (passwordData: any) => {
-    updatePassword({
-      resource: "users",
-      id: `${userId}/password`,
-      values: passwordData,
-      meta: {
-        method: "patch"
-      },
-      invalidates: []
-    }, {
-      onSuccess: () => {
-        handleSuccess();
-      }
+    updateUserPassword(userId, passwordData, () => {
+      handleSuccess();
     });
   };
 
