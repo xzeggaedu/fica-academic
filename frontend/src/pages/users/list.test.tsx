@@ -103,7 +103,7 @@ describe('UserList - Lista de Usuarios', () => {
     renderWithProviders(<UserList />);
 
     // Buscar el h1 con el título (puede haber múltiples "Usuarios" en el DOM)
-    const heading = screen.getByRole('heading', { level: 1, name: 'Usuarios' });
+    const heading = screen.getByRole('heading', { level: 1, name: 'Coordinaciones' });
     expect(heading).toBeInTheDocument();
     expect(screen.getByTestId('create-user-button')).toBeInTheDocument();
   });

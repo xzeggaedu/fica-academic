@@ -1,4 +1,4 @@
-"""Modelo para la relación entre cursos y escuelas."""
+"""Modelo para la relación entre asignaturas y escuelas."""
 
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -9,12 +9,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..core.db.database import Base
 
 if TYPE_CHECKING:
-    from .catalog_course import CatalogCourse
+    from .catalog_subject import CatalogSubject
     from .school import School
 
 
-class CourseSchool(Base):
-    """Modelo para la relación entre cursos y escuelas.
+class SubjectSchool(Base):
+    """Modelo para la relación entre asignaturas y escuelas.
 
     Una asignatura puede pertenecer a varias escuelas.
     A través de las escuelas se puede determinar las facultades.
@@ -22,16 +22,16 @@ class CourseSchool(Base):
     Attributes
     ----------
         id: Identificador único
-        course_id: ID del curso
+        subject_id: ID de la asignatura
         school_id: ID de la escuela
         created_at: Fecha de creación
     """
 
-    __tablename__ = "course_school"
+    __tablename__ = "subject_school"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, init=False)
-    course_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("catalog_course.id", ondelete="CASCADE"), nullable=False, index=True
+    subject_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("catalog_subject.id", ondelete="CASCADE"), nullable=False, index=True
     )
     school_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("school.id", ondelete="CASCADE"), nullable=False, index=True
@@ -41,5 +41,5 @@ class CourseSchool(Base):
     )
 
     # Relaciones (init=False para evitar conflictos con dataclasses)
-    course: Mapped["CatalogCourse"] = relationship("CatalogCourse", back_populates="schools", init=False)
-    school: Mapped["School"] = relationship("School", back_populates="courses", init=False)
+    subject: Mapped["CatalogSubject"] = relationship("CatalogSubject", back_populates="schools", init=False)
+    school: Mapped["School"] = relationship("School", back_populates="subjects", init=False)

@@ -3,37 +3,41 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Integer, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
 
 if TYPE_CHECKING:
-    from .course_school import CourseSchool
+    from .subject_school import SubjectSchool
 
 
-class CatalogCourse(Base):
+class CatalogSubject(Base):
     """Modelo para el catálogo de asignaturas.
 
     Attributes
     ----------
-        id: Identificador único del curso
-        course_code: Código único del curso
-        course_name: Nombre del curso
-        department_code: Código del departamento (string por ahora)
+        id: Identificador único de la asignatura
+        subject_code: Código único de la asignatura
+        subject_name: Nombre de la asignatura
+        coordination_code: Código de la coordinación (FK a catalog_coordination.code)
+        is_bilingual: Indica si la asignatura es bilingüe
         is_active: Estado del registro
-        deleted: Indica si el curso fue eliminado (soft delete)
+        deleted: Indica si la asignatura fue eliminada (soft delete)
         deleted_at: Fecha de eliminación (soft delete)
         created_at: Fecha de creación
         updated_at: Fecha de última actualización
     """
 
-    __tablename__ = "catalog_course"
+    __tablename__ = "catalog_subject"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, init=False)
-    course_code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
-    course_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    department_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    subject_code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
+    subject_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    coordination_code: Mapped[str] = mapped_column(
+        String(10), ForeignKey("catalog_coordination.code"), nullable=False, index=True
+    )
+    is_bilingual: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default="now()", nullable=False, init=False
@@ -47,6 +51,6 @@ class CatalogCourse(Base):
     )
 
     # Relaciones (init=False para evitar conflictos con dataclasses)
-    schools: Mapped[list["CourseSchool"]] = relationship(
-        "CourseSchool", back_populates="course", cascade="all, delete-orphan", default_factory=list, init=False
+    schools: Mapped[list["SubjectSchool"]] = relationship(
+        "SubjectSchool", back_populates="subject", cascade="all, delete-orphan", default_factory=list, init=False
     )

@@ -74,14 +74,33 @@ async def create_schedule_time_with_auto_fields(
     day_group_name = generate_day_group_name_from_array(schedule_time_data.days_array)
 
     # Generar range_text automáticamente
-    start_str = schedule_time_data.start_time.strftime("%I:%M %p").lower().replace(" 0", " ")
-    end_str = schedule_time_data.end_time.strftime("%I:%M %p").lower().replace(" 0", " ")
-    range_text = f"{start_str} a {end_str}"
+    if schedule_time_data.start_time_ext and schedule_time_data.end_time_ext:
+        # Horario extendido (dos rangos)
+        start_str = schedule_time_data.start_time.strftime("%I:%M %p").lower().replace(" 0", " ")
+        end_str = schedule_time_data.end_time.strftime("%I:%M %p").lower().replace(" 0", " ")
+        start_ext_str = schedule_time_data.start_time_ext.strftime("%I:%M %p").lower().replace(" 0", " ")
+        end_ext_str = schedule_time_data.end_time_ext.strftime("%I:%M %p").lower().replace(" 0", " ")
+        range_text = f"{start_str} a {end_str} y {start_ext_str} a {end_ext_str}"
 
-    # Calcular duration_min
-    start_minutes = schedule_time_data.start_time.hour * 60 + schedule_time_data.start_time.minute
-    end_minutes = schedule_time_data.end_time.hour * 60 + schedule_time_data.end_time.minute
-    duration_min = abs(end_minutes - start_minutes)
+        # Calcular duration_min total (ambos rangos)
+        start_minutes = schedule_time_data.start_time.hour * 60 + schedule_time_data.start_time.minute
+        end_minutes = schedule_time_data.end_time.hour * 60 + schedule_time_data.end_time.minute
+        start_ext_minutes = schedule_time_data.start_time_ext.hour * 60 + schedule_time_data.start_time_ext.minute
+        end_ext_minutes = schedule_time_data.end_time_ext.hour * 60 + schedule_time_data.end_time_ext.minute
+
+        duration_first = abs(end_minutes - start_minutes)
+        duration_second = abs(end_ext_minutes - start_ext_minutes)
+        duration_min = duration_first + duration_second
+    else:
+        # Horario normal (un solo rango)
+        start_str = schedule_time_data.start_time.strftime("%I:%M %p").lower().replace(" 0", " ")
+        end_str = schedule_time_data.end_time.strftime("%I:%M %p").lower().replace(" 0", " ")
+        range_text = f"{start_str} a {end_str}"
+
+        # Calcular duration_min
+        start_minutes = schedule_time_data.start_time.hour * 60 + schedule_time_data.start_time.minute
+        end_minutes = schedule_time_data.end_time.hour * 60 + schedule_time_data.end_time.minute
+        duration_min = abs(end_minutes - start_minutes)
 
     # Crear objeto del modelo con todos los campos
     schedule_time = CatalogScheduleTime(
@@ -90,6 +109,8 @@ async def create_schedule_time_with_auto_fields(
         range_text=range_text,
         start_time=schedule_time_data.start_time,
         end_time=schedule_time_data.end_time,
+        start_time_ext=schedule_time_data.start_time_ext,
+        end_time_ext=schedule_time_data.end_time_ext,
         duration_min=duration_min,
         is_active=schedule_time_data.is_active,
     )
@@ -127,20 +148,45 @@ async def update_schedule_time_with_auto_fields(
     if "days_array" in update_dict:
         update_dict["day_group_name"] = generate_day_group_name_from_array(update_dict["days_array"])
 
-    # Si se actualiza start_time o end_time, recalcular duration_min y range_text
+    # Si se actualiza start_time, end_time, start_time_ext o end_time_ext, recalcular duration_min y range_text
     start_time = update_dict.get("start_time", current_schedule["start_time"])
     end_time = update_dict.get("end_time", current_schedule["end_time"])
+    start_time_ext = update_dict.get("start_time_ext", current_schedule.get("start_time_ext"))
+    end_time_ext = update_dict.get("end_time_ext", current_schedule.get("end_time_ext"))
 
-    if "start_time" in update_dict or "end_time" in update_dict:
-        # Calcular duration_min
-        start_minutes = start_time.hour * 60 + start_time.minute
-        end_minutes = end_time.hour * 60 + end_time.minute
-        update_dict["duration_min"] = abs(end_minutes - start_minutes)
+    if (
+        "start_time" in update_dict
+        or "end_time" in update_dict
+        or "start_time_ext" in update_dict
+        or "end_time_ext" in update_dict
+    ):
+        if start_time_ext and end_time_ext:
+            # Horario extendido (dos rangos)
+            start_str = start_time.strftime("%I:%M %p").lower().replace(" 0", " ")
+            end_str = end_time.strftime("%I:%M %p").lower().replace(" 0", " ")
+            start_ext_str = start_time_ext.strftime("%I:%M %p").lower().replace(" 0", " ")
+            end_ext_str = end_time_ext.strftime("%I:%M %p").lower().replace(" 0", " ")
+            update_dict["range_text"] = f"{start_str} a {end_str} y {start_ext_str} a {end_ext_str}"
 
-        # Generar range_text
-        start_str = start_time.strftime("%I:%M %p").lower().replace(" 0", " ")
-        end_str = end_time.strftime("%I:%M %p").lower().replace(" 0", " ")
-        update_dict["range_text"] = f"{start_str} a {end_str}"
+            # Calcular duration_min total (ambos rangos)
+            start_minutes = start_time.hour * 60 + start_time.minute
+            end_minutes = end_time.hour * 60 + end_time.minute
+            start_ext_minutes = start_time_ext.hour * 60 + start_time_ext.minute
+            end_ext_minutes = end_time_ext.hour * 60 + end_time_ext.minute
+
+            duration_first = abs(end_minutes - start_minutes)
+            duration_second = abs(end_ext_minutes - start_ext_minutes)
+            update_dict["duration_min"] = duration_first + duration_second
+        else:
+            # Horario normal (un solo rango)
+            start_str = start_time.strftime("%I:%M %p").lower().replace(" 0", " ")
+            end_str = end_time.strftime("%I:%M %p").lower().replace(" 0", " ")
+            update_dict["range_text"] = f"{start_str} a {end_str}"
+
+            # Calcular duration_min
+            start_minutes = start_time.hour * 60 + start_time.minute
+            end_minutes = end_time.hour * 60 + end_time.minute
+            update_dict["duration_min"] = abs(end_minutes - start_minutes)
 
     # Actualizar horario
     return await crud_catalog_schedule_time.update(db=db, object=update_dict, id=schedule_time_id)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Clock, Plus, Trash2, ChevronDown, List, Grid3X3 } from "lucide-react";
+import { Plus, Trash2, ChevronDown, List, Grid3X3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
@@ -8,15 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/forms/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useNotification, CanAccess, useCan, useInvalidate, useList, useCreate, useUpdate } from "@refinedev/core";
-import { useQueryClient } from "@tanstack/react-query";
+import { CanAccess } from "@refinedev/core";
 import { toast } from "sonner";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Unauthorized } from "../unauthorized";
+import { useScheduleTimesCrud } from "@/hooks/useScheduleTimesCrud";
+import type { ScheduleTimeCreatePayload, ScheduleTimeUpdatePayload } from "@/hooks/useScheduleTimesCrud";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 // Constantes para los días de la semana (0=Lunes, 6=Domingo)
@@ -53,7 +53,7 @@ const generateDayGroupName = (selectedDayIndexes: number[]): string => {
 };
 
 // Función para generar range_text basado en las horas
-const generateRangeText = (startTime: string, endTime: string): string => {
+const generateRangeText = (startTime: string, endTime: string, startTimeExt?: string | null, endTimeExt?: string | null): string => {
   if (!startTime || !endTime) return '';
 
   const formatTime = (time: string) => {
@@ -67,7 +67,14 @@ const generateRangeText = (startTime: string, endTime: string): string => {
     return `${hour - 12}:${min.toString().padStart(2, '0')} p.m.`;
   };
 
-  return `${formatTime(startTime)} a ${formatTime(endTime)}`;
+  const mainRange = `${formatTime(startTime)} a ${formatTime(endTime)}`;
+
+  if (startTimeExt && endTimeExt) {
+    const extRange = `${formatTime(startTimeExt)} a ${formatTime(endTimeExt)}`;
+    return `${mainRange} y ${extRange}`;
+  }
+
+  return mainRange;
 };
 
 // Función para parsear day_group_name de vuelta a array de índices
@@ -106,6 +113,8 @@ interface ScheduleTime {
   range_text: string;
   start_time: string;
   end_time: string;
+  start_time_ext: string | null;
+  end_time_ext: string | null;
   duration_min: number;
   is_active: boolean;
   created_at: string;
@@ -115,22 +124,33 @@ interface ScheduleTime {
 interface NewScheduleTime {
   start_time: string;
   end_time: string;
+  start_time_ext: string | null;
+  end_time_ext: string | null;
   is_active: boolean;
 }
 
 export function ScheduleTimesList() {
-  // Verificar permisos primero
-  const { data: canAccess } = useCan({
-    resource: "schedule-times",
-    action: "list",
-  });
+  // Hook personalizado para CRUD de horarios
+  const {
+    canCreate,
+    itemsList: scheduleTimesList,
+    isLoading,
+    isError,
+    createItem,
+    updateItem,
+    softDeleteItem,
+    isCreating,
+    isDeleting,
+  } = useScheduleTimesCrud();
 
+  // Estados locales para la UI
   const [scheduleTimes, setScheduleTimes] = useState<ScheduleTime[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newScheduleTime, setNewScheduleTime] = useState<NewScheduleTime>({
-    start_time: "",
-    end_time: "",
+    start_time: "00:00",
+    end_time: "01:00",
+    start_time_ext: null,
+    end_time_ext: null,
     is_active: true,
   });
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
@@ -143,38 +163,43 @@ export function ScheduleTimesList() {
   const [viewMode, setViewMode] = useState<'table' | 'grouped'>('table');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [scheduleToDelete, setScheduleToDelete] = useState<{ id: number, range: string, dayGroup: string } | null>(null);
+  const [hasExtendedTimes, setHasExtendedTimes] = useState(false);
 
-  const { open } = useNotification();
+  // Estado para animación de highlight
+  const [highlightedId, setHighlightedId] = useState<number | null>(null);
 
-  // Hooks de Refine para eliminación
-  const { mutate: softDeleteSchedule, mutation: softDeleteState } = useUpdate();
-  const invalidate = useInvalidate();
-  const queryClient = useQueryClient();
-  const isDeleting = softDeleteState.isPending;
+  // Los hooks de eliminación ya están disponibles desde useScheduleTimesCrud
 
-  // Función helper para ordenar los horarios por days_array
-  const sortScheduleTimes = (scheduleTimes: ScheduleTime[]): ScheduleTime[] => {
-    // Validar que scheduleTimes sea un array válido
-    if (!Array.isArray(scheduleTimes)) {
-      console.warn('sortScheduleTimes received non-array:', scheduleTimes);
-      return [];
-    }
+  // Función para manejar highlight con animación
+  const highlightRow = (id: number) => {
+    setHighlightedId(id);
+    // Remover highlight después de 3 segundos
+    setTimeout(() => {
+      setHighlightedId(null);
+    }, 3000);
+  };
 
+  // Función para ordenar horarios por days_array y luego por start_time
+  const sortScheduleTimesByDaysArray = (scheduleTimes: ScheduleTime[]): ScheduleTime[] => {
     return [...scheduleTimes].sort((a, b) => {
-      // Validar que a y b tengan days_array
-      if (!a?.days_array || !b?.days_array) {
-        console.warn('Invalid schedule time object:', { a, b });
-        return 0;
-      }
+      const aDays = a.days_array || [];
+      const bDays = b.days_array || [];
 
-      // Comparar arrays de días elemento por elemento
-      for (let i = 0; i < Math.min(a.days_array.length, b.days_array.length); i++) {
-        if (a.days_array[i] !== b.days_array[i]) {
-          return a.days_array[i] - b.days_array[i];
+      // Primero comparar por days_array (elemento por elemento)
+      for (let i = 0; i < Math.min(aDays.length, bDays.length); i++) {
+        if (aDays[i] !== bDays[i]) {
+          return aDays[i] - bDays[i];
         }
       }
-      // Si los primeros elementos son iguales, comparar por longitud
-      return a.days_array.length - b.days_array.length;
+
+      // Si los days_array son iguales, comparar por longitud
+      const daysComparison = aDays.length - bDays.length;
+      if (daysComparison !== 0) {
+        return daysComparison;
+      }
+
+      // Si los days_array son completamente iguales, ordenar por start_time
+      return a.start_time.localeCompare(b.start_time);
     });
   };
 
@@ -200,71 +225,137 @@ export function ScheduleTimesList() {
 
   // Cargar horarios al montar el componente solo si tiene permisos
 
-  // Usar useList para cargar TODOS los schedule times (activos e inactivos)
-  const { query: scheduleTimesQuery, result: scheduleTimesResult } = useList({
-    resource: "schedule-times",
-    pagination: {
-      currentPage: 1,
-      pageSize: 1000,
-      mode: "server",
-    },
-    queryOptions: {
-      // Habilitar siempre la carga; la autorización se maneja a nivel de ruta/proveedor
-      enabled: true,
-      refetchOnWindowFocus: true,
-      refetchOnMount: true,
-      staleTime: 0,
-      gcTime: 0,
-    },
-    successNotification: false,
-    errorNotification: false,
-  });
-
-  // Actualizar scheduleTimes cuando cambien los datos (evitar loops)
-  useEffect(() => {
-    // dataProvider.getList retorna { data, total }
-    const raw = (scheduleTimesResult as any)?.data ?? (scheduleTimesResult as any)?.data?.data;
-    const data: any[] = Array.isArray(raw) ? raw : ((scheduleTimesResult as any)?.data?.data || []);
-    if (!Array.isArray(data)) {
-      console.warn('Invalid data received from useList:', scheduleTimesResult);
-      return;
-    }
-
-    const next = sortScheduleTimes(data);
-
-    setScheduleTimes((prev) => {
-      // Evitar actualizaciones si no hay cambios reales
-      if (
-        prev.length === next.length &&
-        prev.every((item, idx) => item.id === next[idx]?.id && item.updated_at === (next[idx] as any)?.updated_at)
-      ) {
-        return prev; // sin cambios
-      }
-      return next;
+  // Función para convertir ScheduleTime del API al formato local
+  const convertAPIToLocal = (apiData: any[]): ScheduleTime[] => {
+    return apiData.map(item => {
+      // La data ya viene con todos los campos necesarios
+      return {
+        id: item.id,
+        days_array: item.days_array || [],
+        day_group_name: item.day_group_name || '',
+        range_text: item.range_text || '',
+        start_time: item.start_time || '',
+        end_time: item.end_time || '',
+        start_time_ext: item.start_time_ext || null,
+        end_time_ext: item.end_time_ext || null,
+        duration_min: item.duration_min || 0,
+        is_active: item.is_active || false,
+        created_at: item.created_at || '',
+        updated_at: item.updated_at || null,
+      };
     });
-  }, [scheduleTimesResult?.data]);
+  };
+
+  // Sincronizar datos del hook con estado local
+  useEffect(() => {
+    if (scheduleTimesList && Array.isArray(scheduleTimesList)) {
+      // Convertir datos y ordenar por days_array
+      const convertedData = convertAPIToLocal(scheduleTimesList);
+      const sortedTimes = sortScheduleTimesByDaysArray(convertedData);
+      setScheduleTimes((prev) => {
+        // Evitar actualizaciones si no hay cambios reales
+        if (
+          prev.length === sortedTimes.length &&
+          prev.every((item, idx) => item.id === sortedTimes[idx]?.id && item.updated_at === sortedTimes[idx]?.updated_at)
+        ) {
+          return prev; // sin cambios
+        }
+        return sortedTimes;
+      });
+    }
+  }, [scheduleTimesList]);
 
   // Manejar errores
   useEffect(() => {
-    if (scheduleTimesQuery.error) {
-      setError(scheduleTimesQuery.error.message);
-      open?.({
-        type: "error",
-        message: "Error",
-        description: scheduleTimesQuery.error.message,
+    if (isError) {
+      setError("Error al cargar horarios");
+      toast.error("Error al cargar horarios");
+    }
+  }, [isError]);
+
+  // Función para manejar cambio de hora de inicio con auto-incremento
+  const handleStartTimeChange = (newStartTime: string) => {
+    // Calcular hora fin automáticamente (+1 hora)
+    const startTime = new Date(`2000-01-01T${newStartTime}`);
+    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // +1 hora
+
+    // Formatear a HH:MM
+    const formattedEndTime = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
+
+    setNewScheduleTime({
+      ...newScheduleTime,
+      start_time: newStartTime,
+      end_time: formattedEndTime,
+    });
+  };
+
+  // Función para manejar cambio de hora fin con validación
+  const handleEndTimeChange = (newEndTime: string) => {
+    // Validar que la hora fin no sea menor que la hora inicio
+    const startTime = new Date(`2000-01-01T${newScheduleTime.start_time}`);
+    const endTime = new Date(`2000-01-01T${newEndTime}`);
+
+    if (endTime <= startTime) {
+      toast.error('Hora inválida', {
+        description: 'La hora de fin debe ser mayor que la hora de inicio',
+        richColors: true,
+      });
+      return;
+    }
+
+    setNewScheduleTime({
+      ...newScheduleTime,
+      end_time: newEndTime,
+    });
+  };
+
+  // Función para manejar cambio de hora inicio extendida
+  const handleStartTimeExtChange = (newStartTimeExt: string) => {
+    setNewScheduleTime({
+      ...newScheduleTime,
+      start_time_ext: newStartTimeExt,
+    });
+  };
+
+  // Función para manejar cambio de hora fin extendida con validación
+  const handleEndTimeExtChange = (newEndTimeExt: string) => {
+    // Validar que la hora fin extendida no sea menor que la hora inicio extendida
+    if (newScheduleTime.start_time_ext) {
+      const startTimeExt = new Date(`2000-01-01T${newScheduleTime.start_time_ext}`);
+      const endTimeExt = new Date(`2000-01-01T${newEndTimeExt}`);
+
+      if (endTimeExt <= startTimeExt) {
+        toast.error('Hora inválida', {
+          description: 'La hora de fin extendida debe ser mayor que la hora de inicio extendida',
+          richColors: true,
+        });
+        return;
+      }
+    }
+
+    setNewScheduleTime({
+      ...newScheduleTime,
+      end_time_ext: newEndTimeExt,
+    });
+  };
+
+  // Función para toggle de horarios extendidos
+  const toggleExtendedTimes = (enabled: boolean) => {
+    setHasExtendedTimes(enabled);
+    if (!enabled) {
+      setNewScheduleTime({
+        ...newScheduleTime,
+        start_time_ext: null,
+        end_time_ext: null,
+      });
+    } else {
+      setNewScheduleTime({
+        ...newScheduleTime,
+        start_time_ext: "07:00",
+        end_time_ext: "09:00",
       });
     }
-  }, [scheduleTimesQuery.error, open]);
-
-  // Hooks de Refine para operaciones CRUD
-  const { mutate: createScheduleTime, mutation: createMutation } = useCreate();
-  const { mutate: updateScheduleTime, mutation: updateMutation } = useUpdate();
-
-  // Actualizar estado de loading (sin provocar renders extra)
-  useEffect(() => {
-    const nextLoading = scheduleTimesQuery.isLoading || createMutation.isPending || updateMutation.isPending;
-    setIsLoading((prev) => (prev === nextLoading ? prev : nextLoading));
-  }, [scheduleTimesQuery.isLoading, createMutation.isPending, updateMutation.isPending]);
+  };
 
   const handleCreate = () => {
     if (selectedDays.length === 0 || !newScheduleTime.start_time || !newScheduleTime.end_time) {
@@ -275,45 +366,52 @@ export function ScheduleTimesList() {
       return;
     }
 
-    const payload = {
+    // Validación adicional: verificar que la hora fin sea mayor que la hora inicio
+    const startTime = new Date(`2000-01-01T${newScheduleTime.start_time}`);
+    const endTime = new Date(`2000-01-01T${newScheduleTime.end_time}`);
+
+    if (endTime <= startTime) {
+      toast.error('Horarios inválidos', {
+        description: 'La hora de fin debe ser mayor que la hora de inicio',
+        richColors: true,
+      });
+      return;
+    }
+
+    // Validación para horarios extendidos
+    if (hasExtendedTimes && newScheduleTime.start_time_ext && newScheduleTime.end_time_ext) {
+      const startTimeExt = new Date(`2000-01-01T${newScheduleTime.start_time_ext}`);
+      const endTimeExt = new Date(`2000-01-01T${newScheduleTime.end_time_ext}`);
+
+      if (endTimeExt <= startTimeExt) {
+        toast.error('Horarios extendidos inválidos', {
+          description: 'La hora de fin extendida debe ser mayor que la hora de inicio extendida',
+          richColors: true,
+        });
+        return;
+      }
+    }
+
+    const payload: ScheduleTimeCreatePayload = {
       days_array: selectedDays,
       start_time: newScheduleTime.start_time,
       end_time: newScheduleTime.end_time,
+      start_time_ext: hasExtendedTimes ? newScheduleTime.start_time_ext : null,
+      end_time_ext: hasExtendedTimes ? newScheduleTime.end_time_ext : null,
       is_active: newScheduleTime.is_active,
     };
 
-    createScheduleTime({
-      resource: "schedule-times",
-      values: payload,
-      successNotification: false,
-    }, {
-      onSuccess: () => {
-        // Limpiar formulario
-        setNewScheduleTime({
-          start_time: "",
-          end_time: "",
-          is_active: true,
-        });
-        setSelectedDays([]);
-
-        toast.success('Horario creado', {
-          description: 'El horario ha sido creado correctamente.',
-          richColors: true,
-        });
-
-        // Invalidar la lista para refrescar
-        invalidate({
-          resource: "schedule-times",
-          invalidates: ["list"],
-        });
-      },
-      onError: (error) => {
-        const errorMessage = error?.message || "Error desconocido";
-        toast.error('Error al crear horario', {
-          description: errorMessage,
-          richColors: true,
-        });
-      },
+    createItem(payload, () => {
+      // Limpiar formulario con valores por defecto
+      setNewScheduleTime({
+        start_time: "00:00",
+        end_time: "01:00",
+        start_time_ext: null,
+        end_time_ext: null,
+        is_active: true,
+      });
+      setSelectedDays([]);
+      setHasExtendedTimes(false);
     });
   };
 
@@ -329,10 +427,14 @@ export function ScheduleTimesList() {
   };
 
   const handleSaveEdit = (id: number, field: string, value: string) => {
-    const scheduleTime = scheduleTimes.find(st => st.id === id);
-    if (!scheduleTime) return;
 
-    let updateData: any = {};
+    const scheduleTime = scheduleTimes.find(st => st.id === id);
+
+    if (!scheduleTime) {
+      return;
+    }
+
+    let updateData: ScheduleTimeUpdatePayload = {};
 
     if (field === "days_array") {
       // Si estamos editando días, usar el array de índices
@@ -354,100 +456,85 @@ export function ScheduleTimesList() {
         setEditingValue("");
         return;
       }
-      updateData[field] = value;
+
+      // Validación para horas
+      if (field === 'end_time') {
+        // Validar que la hora fin no sea menor o igual que la hora inicio
+        const startTime = new Date(`2000-01-01T${scheduleTime.start_time}`);
+        const endTime = new Date(`2000-01-01T${value}`);
+
+        if (endTime <= startTime) {
+          toast.error('Hora inválida', {
+            description: 'La hora de fin debe ser mayor que la hora de inicio',
+            richColors: true,
+          });
+          return; // No guardar si es inválido
+        }
+        updateData[field] = value;
+      } else if (field === 'start_time') {
+        // Validar que la hora inicio no sea mayor o igual que la hora fin
+        const startTime = new Date(`2000-01-01T${value}`);
+        const endTime = new Date(`2000-01-01T${scheduleTime.end_time}`);
+
+        if (startTime >= endTime) {
+          toast.error('Hora inválida', {
+            description: 'La hora de inicio debe ser menor que la hora de fin',
+            richColors: true,
+          });
+          return; // No guardar si es inválido
+        }
+        updateData[field] = value;
+      } else if (field === 'end_time_ext') {
+        // Validar que la hora fin extendida no sea menor o igual que la hora inicio extendida
+        const startTimeExt = scheduleTime.start_time_ext;
+        if (startTimeExt) {
+          const startTimeExtDate = new Date(`2000-01-01T${startTimeExt}`);
+          const endTimeExtDate = new Date(`2000-01-01T${value}`);
+
+          if (endTimeExtDate <= startTimeExtDate) {
+            toast.error('Hora extendida inválida', {
+              description: 'La hora de fin extendida debe ser mayor que la hora de inicio extendida',
+              richColors: true,
+            });
+            return; // No guardar si es inválido
+          }
+        }
+        updateData[field] = value;
+      } else if (field === 'start_time_ext') {
+        // Validar que la hora inicio extendida no sea mayor o igual que la hora fin extendida
+        const endTimeExt = scheduleTime.end_time_ext;
+        if (endTimeExt) {
+          const startTimeExtDate = new Date(`2000-01-01T${value}`);
+          const endTimeExtDate = new Date(`2000-01-01T${endTimeExt}`);
+
+          if (startTimeExtDate >= endTimeExtDate) {
+            toast.error('Hora extendida inválida', {
+              description: 'La hora de inicio extendida debe ser menor que la hora de fin extendida',
+              richColors: true,
+            });
+            return; // No guardar si es inválido
+          }
+        }
+        updateData[field] = value;
+      } else if (field === 'is_active') {
+        updateData.is_active = value === 'true';
+      }
     }
 
-    console.log(`Updating schedule ${id}, field: ${field}, updateData:`, updateData);
-
-    updateScheduleTime({
-      resource: "schedule-times",
-      id: id,
-      values: updateData,
-      successNotification: false,
-    }, {
-      onSuccess: (updatedScheduleTime) => {
-        console.log(`Updated schedule time:`, updatedScheduleTime);
-        // Validar que updatedScheduleTime tenga la estructura esperada
-        if (!updatedScheduleTime || typeof updatedScheduleTime !== 'object') {
-          console.warn('Invalid updatedScheduleTime received:', updatedScheduleTime);
-          // Si no hay datos válidos, solo refrescar la lista
-          invalidate({
-            resource: "schedule-times",
-            invalidates: ["list"],
-          });
-          return;
-        }
-
-        setScheduleTimes(sortScheduleTimes(scheduleTimes.map(st => st.id === id ? updatedScheduleTime as any : st)));
-
-        toast.success('Horario actualizado', {
-          description: 'El horario ha sido actualizado correctamente.',
-          richColors: true,
-        });
-
-        // Invalidar la lista para refrescar
-        invalidate({
-          resource: "schedule-times",
-          invalidates: ["list"],
-        });
-      },
-      onError: (error) => {
-        console.error(`Error response:`, error);
-        const errorMessage = error?.message || "Error desconocido";
-        toast.error('Error al actualizar horario', {
-          description: errorMessage,
-          richColors: true,
-        });
-      },
-      onSettled: () => {
-        setEditingId(null);
-        setEditingField(null);
-        setEditingValue("");
-        setEditingDays([]);
-      },
+    updateItem(id, updateData, () => {
+      // Activar highlight para mostrar qué fila se editó
+      highlightRow(id);
+      setEditingId(null);
+      setEditingField(null);
+      setEditingValue("");
+      setEditingDays([]);
     });
   };
 
   const handleToggleActive = (id: number, newStatus: boolean) => {
-    updateScheduleTime({
-      resource: "schedule-times",
-      id: id,
-      values: { is_active: newStatus },
-      successNotification: false,
-    }, {
-      onSuccess: (updatedScheduleTime) => {
-        // Validar que updatedScheduleTime tenga la estructura esperada
-        if (!updatedScheduleTime || typeof updatedScheduleTime !== 'object') {
-          console.warn('Invalid updatedScheduleTime received:', updatedScheduleTime);
-          // Si no hay datos válidos, solo refrescar la lista
-          invalidate({
-            resource: "schedule-times",
-            invalidates: ["list"],
-          });
-          return;
-        }
+    const updateData: ScheduleTimeUpdatePayload = { is_active: newStatus };
 
-        setScheduleTimes(sortScheduleTimes(scheduleTimes.map(st => st.id === id ? updatedScheduleTime as any : st)));
-
-        toast.success('Estado actualizado', {
-          description: 'El estado del horario ha sido actualizado correctamente.',
-          richColors: true,
-        });
-
-        // Invalidar la lista para refrescar
-        invalidate({
-          resource: "schedule-times",
-          invalidates: ["list"],
-        });
-      },
-      onError: (error) => {
-        const errorMessage = error?.message || "Error desconocido";
-        toast.error('Error al cambiar estado', {
-          description: errorMessage,
-          richColors: true,
-        });
-      },
-    });
+    updateItem(id, updateData);
   };
 
   const handleDelete = (id: number, range: string, dayGroup: string) => {
@@ -460,38 +547,12 @@ export function ScheduleTimesList() {
     if (!scheduleToDelete) return;
 
     const { id, range, dayGroup } = scheduleToDelete;
+    const entityName = `${dayGroup}: ${range}`;
 
-    softDeleteSchedule(
-      {
-        resource: "soft-delete",
-        id,
-        values: { type: "catalog/schedule-times" },
-        successNotification: false,
-      },
-      {
-        onSuccess: () => {
-          invalidate({
-            resource: "schedule-times",
-            invalidates: ["list"],
-          });
-
-          toast.success('Horario movido a papelera', {
-            description: `El horario "${dayGroup}: ${range}" ha sido movido a la papelera de reciclaje.`,
-            richColors: true,
-          });
-
-          setScheduleToDelete(null);
-          setDeleteDialogOpen(false);
-        },
-        onError: (error: any) => {
-          console.error("Error deleting schedule:", error);
-          toast.error('Error al mover a papelera', {
-            description: error?.message || 'Error desconocido',
-            richColors: true,
-          });
-        },
-      }
-    );
+    softDeleteItem(id, entityName, () => {
+      setScheduleToDelete(null);
+      setDeleteDialogOpen(false);
+    });
   };
 
   const handleDeleteCancel = () => {
@@ -516,15 +577,16 @@ export function ScheduleTimesList() {
       action="list"
       fallback={<Unauthorized resourceName="horarios" message="Solo los administradores pueden gestionar horarios." />}
     >
-      <div className="container mx-auto py-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">Configuración de Horarios</h1>
-          </div>
 
-          {/* Toggle de vista */}
-          <div className="flex items-center gap-2">
+      <div className="container mx-auto py-6 space-y-6 max-w-[98%]">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Horarios</h1>
+            <p className="text-muted-foreground">
+              Establece rangos horarios recurrentes para el sistema
+            </p>
+          </div>
+          <div className="flex items-center gap-2 justify-end">
             <span className="text-sm text-muted-foreground">Vista:</span>
             <div className="flex border rounded-md">
               <Button
@@ -547,100 +609,160 @@ export function ScheduleTimesList() {
               </Button>
             </div>
           </div>
+
         </div>
 
         {/* Formulario para agregar nuevo horario */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Agregar Nuevo Horario
-            </CardTitle>
-            <CardDescription>
-              Establece rangos horarios recurrentes para el sistema
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="day-selector" className="px-1">
-                  Días de la Semana
-                </Label>
-                <Popover open={isDayDropdownOpen} onOpenChange={setIsDayDropdownOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between">
-                      {selectedDays.length === 0 ? "Seleccionar días" : generateDayGroupName(selectedDays)}
-                      <ChevronDown className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-3">
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-sm">Seleccionar días</h4>
+        {canCreate?.can && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                Agregar Nuevo Horario
+              </CardTitle>
+              <CardDescription>
+                Establece rangos horarios recurrentes para el sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex w-full gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="day-selector" className="px-1">
+                    Días de la Semana
+                  </Label>
+                  <Popover open={isDayDropdownOpen} onOpenChange={setIsDayDropdownOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between">
+                        {selectedDays.length === 0 ? "Seleccionar días" : generateDayGroupName(selectedDays)}
+                        <ChevronDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-3">
                       <div className="space-y-2">
-                        {WEEK_DAYS.map((day) => (
-                          <div key={day.index} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={day.key}
-                              checked={selectedDays.includes(day.index)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedDays([...selectedDays, day.index]);
-                                } else {
-                                  setSelectedDays(selectedDays.filter(d => d !== day.index));
-                                }
-                              }}
-                            />
-                            <label htmlFor={day.key} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                              {day.label}
-                            </label>
-                          </div>
-                        ))}
+                        <h4 className="font-medium text-sm">Seleccionar días</h4>
+                        <div className="space-y-2">
+                          {WEEK_DAYS.map((day) => (
+                            <div key={day.index} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={day.key}
+                                checked={selectedDays.includes(day.index)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedDays([...selectedDays, day.index]);
+                                  } else {
+                                    setSelectedDays(selectedDays.filter(d => d !== day.index));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={day.key} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                {day.label}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="start-time" className="px-1">
-                  Hora Inicio
-                </Label>
-                <Input
-                  type="time"
-                  id="start-time"
-                  value={newScheduleTime.start_time}
-                  onChange={(e) => setNewScheduleTime({ ...newScheduleTime, start_time: e.target.value })}
-                  className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="end-time" className="px-1">
-                  Hora Fin
-                </Label>
-                <Input
-                  type="time"
-                  id="end-time"
-                  value={newScheduleTime.end_time}
-                  onChange={(e) => setNewScheduleTime({ ...newScheduleTime, end_time: e.target.value })}
-                  className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                />
-              </div>
-              <div className="flex items-end">
-                <Button onClick={handleCreate} disabled={isLoading} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Agregar
-                </Button>
-              </div>
-            </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
 
-            {/* Mostrar el rango de tiempo generado automáticamente */}
-            {newScheduleTime.start_time && newScheduleTime.end_time && (
-              <div className="mt-4 p-3 bg-muted rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground">Rango de tiempo generado:</div>
-                <div className="text-sm font-semibold">{generateRangeText(newScheduleTime.start_time, newScheduleTime.end_time)}</div>
+                <div className="flex flex-col gap-2  min-w-[125px]">
+                  <Label htmlFor="start-time" className="px-1">
+                    Hora Inicio
+                  </Label>
+                  <Input
+                    type="time"
+                    id="start-time"
+                    value={newScheduleTime.start_time}
+                    onChange={(e) => handleStartTimeChange(e.target.value)}
+                    className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2  min-w-[125px]">
+                  <Label htmlFor="end-time" className="px-1">
+                    Hora Fin
+                  </Label>
+                  <div className="flex gap-2 items-end">
+                    <Input
+                      type="time"
+                      id="end-time"
+                      value={newScheduleTime.end_time}
+                      onChange={(e) => handleEndTimeChange(e.target.value)}
+                      className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none flex-1"
+                    />
+                  </div>
+                </div>
+
+                {hasExtendedTimes && (
+                  <>
+                    <div className="flex flex-col gap-2 min-w-[125px]">
+                      <Label htmlFor="start-time-ext" className="px-1">
+                        Hora Inicio Extendida
+                      </Label>
+                      <Input
+                        type="time"
+                        id="start-time-ext"
+                        value={newScheduleTime.start_time_ext || ""}
+                        onChange={(e) => handleStartTimeExtChange(e.target.value)}
+                        className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-2 min-w-[125px]">
+                      <Label htmlFor="end-time-ext" className="px-1">
+                        Hora Fin Extendida
+                      </Label>
+                      <Input
+                        type="time"
+                        id="end-time-ext"
+                        value={newScheduleTime.end_time_ext || ""}
+                        onChange={(e) => handleEndTimeExtChange(e.target.value)}
+                        className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="flex flex-col gap-3">
+                  <Label htmlFor="extended-times" className="px-1text-sm">
+                    Extendido
+                  </Label>
+                  <Switch
+                    id="extended-times"
+                    checked={hasExtendedTimes}
+                    onCheckedChange={toggleExtendedTimes}
+                    className="mt-1"
+                  />
+                </div>
+
+                {/* Campos de horarios extendidos */}
+
+                <div className="flex">
+                  <Button onClick={handleCreate} disabled={isCreating} className="pr-4 mt-5 ml-4">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Agregar
+                  </Button>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              {/* Mostrar el rango de tiempo generado automáticamente */}
+              {newScheduleTime.start_time && newScheduleTime.end_time && (
+                <div className="mt-4 p-3 bg-muted rounded-lg">
+                  <div className="text-sm font-medium text-muted-foreground">Rango de tiempo generado:</div>
+                  <div className="text-sm font-semibold">
+                    {generateRangeText(
+                      newScheduleTime.start_time,
+                      newScheduleTime.end_time,
+                      hasExtendedTimes ? newScheduleTime.start_time_ext : null,
+                      hasExtendedTimes ? newScheduleTime.end_time_ext : null
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
 
         {/* Tabla de horarios */}
         <Card>
@@ -661,6 +783,8 @@ export function ScheduleTimesList() {
                     <TableHead>Rango de Tiempo</TableHead>
                     <TableHead>Hora Inicio</TableHead>
                     <TableHead>Hora Fin</TableHead>
+                    <TableHead>Hora Inicio Ext</TableHead>
+                    <TableHead>Hora Fin Ext</TableHead>
                     <TableHead>Duración (min)</TableHead>
                     <TableHead className="text-center w-[100px]">Estado</TableHead>
                     <TableHead className="text-center w-[100px]">Acciones</TableHead>
@@ -668,7 +792,13 @@ export function ScheduleTimesList() {
                 </TableHeader>
                 <TableBody>
                   {scheduleTimes.map((scheduleTime) => (
-                    <TableRow key={scheduleTime.id}>
+                    <TableRow
+                      key={scheduleTime.id}
+                      className={`transition-all duration-500 ${highlightedId === scheduleTime.id
+                        ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700'
+                        : ''
+                        }`}
+                    >
                       <TableCell className="font-medium">{scheduleTime.id}</TableCell>
                       <TableCell>
                         {editingId === scheduleTime.id && editingField === "days_array" ? (
@@ -803,6 +933,64 @@ export function ScheduleTimesList() {
                           </span>
                         )}
                       </TableCell>
+                      <TableCell>
+                        {editingId === scheduleTime.id && editingField === "start_time_ext" ? (
+                          <Input
+                            type="time"
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleSaveEdit(scheduleTime.id, "start_time_ext", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleSaveEdit(scheduleTime.id, "start_time_ext", editingValue);
+                              }
+                              if (e.key === "Escape") {
+                                setEditingId(null);
+                                setEditingField(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            autoFocus
+                            className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-muted px-2 py-1 rounded"
+                            onClick={() => handleEdit(scheduleTime.id, "start_time_ext", scheduleTime.start_time_ext || "")}
+                          >
+                            {scheduleTime.start_time_ext || "-"}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingId === scheduleTime.id && editingField === "end_time_ext" ? (
+                          <Input
+                            type="time"
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleSaveEdit(scheduleTime.id, "end_time_ext", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleSaveEdit(scheduleTime.id, "end_time_ext", editingValue);
+                              }
+                              if (e.key === "Escape") {
+                                setEditingId(null);
+                                setEditingField(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            autoFocus
+                            className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-muted px-2 py-1 rounded"
+                            onClick={() => handleEdit(scheduleTime.id, "end_time_ext", scheduleTime.end_time_ext || "")}
+                          >
+                            {scheduleTime.end_time_ext || "-"}
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell>{scheduleTime.duration_min}</TableCell>
                       <TableCell className="text-center">
                         <Switch
@@ -812,20 +1000,20 @@ export function ScheduleTimesList() {
                       </TableCell>
                       <TableCell className="text-center">
                         <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => handleDelete(scheduleTime.id, scheduleTime.range_text, scheduleTime.day_group_name)}
-                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Eliminar</p>
-                            </TooltipContent>
-                          </Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleDelete(scheduleTime.id, scheduleTime.range_text, scheduleTime.day_group_name)}
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Eliminar</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -846,7 +1034,13 @@ export function ScheduleTimesList() {
                 <TableBody>
                   {Object.entries(groupScheduleTimesByDayGroup(scheduleTimes)).map(([dayGroup, times]) => (
                     times.map((scheduleTime, index) => (
-                      <TableRow key={scheduleTime.id}>
+                      <TableRow
+                        key={scheduleTime.id}
+                        className={`transition-all duration-500 ${highlightedId === scheduleTime.id
+                          ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700'
+                          : ''
+                          }`}
+                      >
                         {index === 0 && (
                           <TableCell
                             rowSpan={times.length}

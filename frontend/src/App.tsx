@@ -33,10 +33,13 @@ import {
 import {
   FacultyList,
 } from "./pages/faculties";
-import { CoursesList } from "./pages/courses";
+import { SubjectsList } from "./pages/subjects";
 import { ScheduleTimesList } from "./pages/schedule-times";
 import { ProfessorList } from "./pages/professors";
+import { CoordinationList } from "./pages/coordinations";
 import { RecycleBinList } from "./pages/recycle-bin";
+import { AcademicLevelsList } from "./pages/academic-levels";
+import { HourlyRatesList } from "./pages/hourly-rates";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -59,7 +62,7 @@ function App() {
                   authProvider={authProvider}
                   accessControlProvider={accessControlProvider}
                   resources={[
-                    // Top-level resources in order: Tasks, then Configuration
+                    // Top-level resources in order: Tasks, then Catalogs
                     {
                       name: "tasks",
                       list: "/tasks",
@@ -78,13 +81,13 @@ function App() {
                       },
                     },
                     {
-                      name: "configuration",
+                      name: "catalogs",
                       meta: {
-                        label: "Configuración",
+                        label: "Catálogos",
                         group: true,
                       },
                     },
-                    // Configuration children in required order
+                    // Catalogs children in required order
                     {
                       name: "users",
                       list: "/users",
@@ -94,7 +97,7 @@ function App() {
                       meta: {
                         label: "Usuarios",
                         canDelete: true,
-                        parent: "configuration",
+                        parent: "catalogs",
                         icon: "Users",
                       },
                     },
@@ -104,40 +107,81 @@ function App() {
                       meta: {
                         label: "Facultades y Escuelas",
                         canDelete: true,
-                        parent: "configuration",
+                        parent: "catalogs",
                         icon: "GraduationCap",
                       },
                     },
                     {
-                      name: "courses",
-                      list: "/configuration/courses",
+                      name: "subjects",
+                      list: "/catalogs/subjects",
                       meta: {
                         label: "Asignaturas",
-                        parent: "configuration",
+                        parent: "catalogs",
                         icon: "BookOpen",
                       },
                     },
                     {
                       name: "schedule-times",
-                      list: "/configuration/schedule-times",
+                      list: "/catalogs/schedule-times",
                       meta: {
                         label: "Horarios",
-                        parent: "configuration",
+                        parent: "catalogs",
                         icon: "Clock",
                       },
                     },
                     {
                       name: "professors",
-                      list: "/configuration/professors",
+                      list: "/catalogs/professors",
                       meta: {
                         label: "Profesores",
-                        parent: "configuration",
+                        parent: "catalogs",
                         icon: "UserCheck",
                       },
                     },
                     {
+                      name: "coordinations",
+                      list: "/catalogs/coordinations",
+                      meta: {
+                        label: "Coordinaciones",
+                        parent: "catalogs",
+                        icon: "Users",
+                      },
+                    },
+                    {
+                      name: "separator-config",
+                      meta: {
+                        group: true,
+                        label: "separator",
+                      },
+                    },
+                    {
+                      name: "configuration",
+                      meta: {
+                        label: "Configuración",
+                        group: true,
+                      },
+                    },
+                    {
+                      name: "academic-levels",
+                      list: "/configuration/academic-levels",
+                      meta: {
+                        label: "Niveles Académicos",
+                        parent: "configuration",
+                        icon: "GraduationCap",
+                      },
+                    },
+                    {
+                      name: "hourly-rates",
+                      list: "/configuration/hourly-rates",
+                      meta: {
+                        label: "Tarifas Horarias",
+                        parent: "configuration",
+                        icon: "DollarSign",
+                      },
+                    },
+                    {
                       name: "recycle-bin",
-                      list: "/recycle-bin",
+                      list: "/configuration/recycle-bin",
                       meta: {
                         label: "Papelera",
                         canDelete: true,
@@ -187,13 +231,16 @@ function App() {
                         <Route path="create" element={<TaskCreate />} />
                         <Route path="show/:id" element={<TaskShow />} />
                       </Route>
-                      <Route path="/configuration">
+                      <Route path="/catalogs">
                         <Route path="schedule-times" element={<ScheduleTimesList />} />
-                        <Route path="courses" element={<CoursesList />} />
+                        <Route path="subjects" element={<SubjectsList />} />
                         <Route path="professors" element={<ProfessorList />} />
+                        <Route path="coordinations" element={<CoordinationList />} />
                       </Route>
-                      <Route path="/recycle-bin">
-                        <Route index element={<RecycleBinList />} />
+                      <Route path="/configuration">
+                        <Route path="academic-levels" element={<AcademicLevelsList />} />
+                        <Route path="hourly-rates" element={<HourlyRatesList />} />
+                        <Route path="recycle-bin" element={<RecycleBinList />} />
                       </Route>
                       <Route path="*" element={<ErrorComponent />} />
                     </Route>

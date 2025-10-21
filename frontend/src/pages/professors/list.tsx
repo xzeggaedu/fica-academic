@@ -1,7 +1,6 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useList, CanAccess, useCan, useUpdate, useInvalidate, useCreate } from "@refinedev/core";
-import { toast } from "sonner";
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../../components/ui/pagination";
+import React, { useState, useEffect } from "react";
+import { CanAccess } from "@refinedev/core";
+import { TablePagination } from "../../components/ui/data/table-pagination";
 import {
     Table,
     TableBody,
@@ -12,11 +11,10 @@ import {
 } from "../../components/ui/data/table";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { TableFilters } from "../../components/ui/data/table-filters";
 import { Unauthorized } from "../unauthorized";
 import { Button } from "../../components/ui/button";
 import { DeleteConfirmDialog } from "../../components/ui/delete-confirm-dialog";
-import { Eye, Pencil, Trash2, Search, Plus, Settings2, CheckCircle, XCircle, MoreHorizontal, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, Search, Plus, Settings2, CheckCircle, XCircle, MoreHorizontal, ChevronDown } from "lucide-react";
 import { Input } from "../../components/ui/forms/input";
 import {
     DropdownMenu,
@@ -27,9 +25,9 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet";
-import { Switch } from "../../components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/forms/select";
+import { ProfessorFormSheet } from "../../components/ui/professors/professor-form-sheet";
+import { useTablePagination } from "../../hooks/useTablePagination";
+import { useProfessorsCrud } from "../../hooks/useProfessorsCrud";
 
 interface Professor {
     id: number;
@@ -52,209 +50,49 @@ interface Professor {
 }
 
 export const ProfessorList = () => {
-    // Verificar permisos primero
-    const { data: canAccess } = useCan({
-        resource: "professors",
-        action: "list",
+    // Hook CRUD centralizado
+    const {
+        canCreate,
+        itemsList: professorsList,
+        total,
+        isLoading,
+        createItem,
+        updateItem,
+        softDeleteItem,
+        editingItem: editingProfessor,
+        setEditingItem: setEditingProfessor,
+        isCreateModalOpen,
+        setIsCreateModalOpen,
+        isEditModalOpen,
+        setIsEditModalOpen,
+        isCreating,
+        isUpdating,
+        isDeleting,
+    } = useProfessorsCrud();
+
+
+    // Hook de paginación y búsqueda (stateless)
+    const {
+        paginatedData: professors,
+        currentPage,
+        totalPages,
+        canPrevPage,
+        canNextPage,
+        nextPage,
+        prevPage,
+        goToPage,
+        searchValue: searchTerm,
+        setSearchValue: setSearchTerm,
+    } = useTablePagination<Professor>({
+        data: professorsList,
+        initialPageSize: 10,
     });
-
-    // Estados para paginación, filtros y columnas
-    const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
-
-    // Debounce para búsqueda
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(searchTerm);
-            setCurrentPage(1); // Reset a página 1 cuando cambia la búsqueda
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
-
-    // Configurar filtros para useList
-    const filters = debouncedSearch
-        ? [{ field: "search", operator: "contains" as const, value: debouncedSearch }]
-        : [];
-
-    const { query, result } = useList<Professor>({
-        resource: "professors",
-        pagination: {
-            currentPage: currentPage,
-            pageSize: pageSize,
-            mode: "server",
-        },
-        filters: filters,
-        queryOptions: {
-            enabled: canAccess?.can ?? false,
-        },
-        successNotification: false,
-        errorNotification: false,
-    });
-
-    const professors = result.data || [];
-    const total = result.total || 0;
-    const isLoading = query.isLoading;
-
-    // Hooks para operaciones CRUD
-    const { mutate: softDeleteProfessor, mutation: deleteState } = useUpdate();
-    const { mutate: createProfessor, mutation: createState } = useCreate();
-    const { mutate: updateProfessor, mutation: updateState } = useUpdate();
-    const invalidate = useInvalidate();
-    const isDeleting = deleteState.isPending;
-    const isCreating = createState.isPending;
-    const isUpdating = updateState.isPending;
-
-    // Función para manejar eliminación de profesor (soft delete)
-    const handleDeleteProfessor = (professorId: number, professorName: string) => {
-        softDeleteProfessor(
-            {
-                resource: "soft-delete",
-                id: professorId,
-                values: { type: "catalog/professors" },
-                successNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    invalidate({
-                        resource: "professors",
-                        invalidates: ["list"],
-                    });
-
-                    toast.success('Profesor movido a papelera', {
-                        description: `El profesor "${professorName}" ha sido movido a la papelera de reciclaje.`,
-                        richColors: true,
-                    });
-                },
-                onError: (error) => {
-                    console.error("ProfessorList - Soft delete error:", error);
-                    toast.error('Error al mover a papelera', {
-                        description: error.message,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para manejar creación de profesor
-    const handleCreateProfessor = (professorData: any, onSuccessCallback?: () => void) => {
-        createProfessor(
-            {
-                resource: "professors",
-                values: professorData,
-                successNotification: false,
-                errorNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    toast.success('Profesor creado exitosamente', {
-                        description: `El profesor "${professorData.professor_name}" ha sido creado correctamente.`,
-                        richColors: true,
-                    });
-                    if (onSuccessCallback) {
-                        onSuccessCallback();
-                    }
-                },
-                onError: (error) => {
-                    console.error("ProfessorList - Create error:", error);
-                    const errorMessage = error?.message || "Error desconocido al crear profesor";
-                    toast.error('Error al crear profesor', {
-                        description: errorMessage,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para manejar actualización de profesor
-    const handleUpdateProfessor = (professorId: number, professorData: any, onSuccessCallback?: () => void) => {
-        updateProfessor(
-            {
-                resource: "professors",
-                id: professorId,
-                values: professorData,
-                successNotification: false,
-                errorNotification: false,
-            },
-            {
-                onSuccess: () => {
-                    toast.success('Profesor actualizado exitosamente', {
-                        description: `El profesor "${professorData.professor_name}" ha sido actualizado correctamente.`,
-                        richColors: true,
-                    });
-                    if (onSuccessCallback) {
-                        onSuccessCallback();
-                    }
-                },
-                onError: (error) => {
-                    console.error("ProfessorList - Update error:", error);
-                    const errorMessage = error?.message || "Error desconocido al actualizar profesor";
-                    toast.error('Error al actualizar profesor', {
-                        description: errorMessage,
-                        richColors: true,
-                    });
-                },
-            }
-        );
-    };
-
-    // Función para abrir el sheet en modo crear
-    const handleOpenCreateSheet = () => {
-        setEditingProfessor(null);
-        setFormData({
-            professor_id: "",
-            professor_name: "",
-            institutional_email: "",
-            personal_email: "",
-            phone_number: "",
-            professor_category: "",
-            academic_title: "",
-            doctorates: 0,
-            masters: 0,
-            is_bilingual: false,
-            is_paid: true,
-            is_active: true,
-        });
-        setSheetOpen(true);
-    };
-
-    // Función para abrir el sheet en modo editar
-    const handleOpenEditSheet = (professor: Professor) => {
-        setEditingProfessor(professor);
-        setFormData({
-            professor_id: professor.professor_id,
-            professor_name: professor.professor_name,
-            institutional_email: professor.institutional_email || "",
-            personal_email: professor.personal_email || "",
-            phone_number: professor.phone_number || "",
-            professor_category: professor.professor_category || "",
-            academic_title: professor.academic_title || "",
-            doctorates: professor.doctorates || 0,
-            masters: professor.masters || 0,
-            is_bilingual: professor.is_bilingual || false,
-            is_paid: professor.is_paid || true,
-            is_active: professor.is_active || true,
-        });
-        setSheetOpen(true);
-    };
-
-    // Función para cerrar el sheet
-    const handleCloseSheet = () => {
-        setSheetOpen(false);
-        setEditingProfessor(null);
-    };
 
     // Estados para el diálogo de eliminación
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedProfessor, setSelectedProfessor] = useState<{ id: number; name: string } | null>(null);
 
-    // Estados para el sheet de crear/editar
-    const [sheetOpen, setSheetOpen] = useState(false);
-    const [editingProfessor, setEditingProfessor] = useState<Professor | null>(null);
+    // Estado para el formulario
     const [formData, setFormData] = useState({
         professor_id: "",
         professor_name: "",
@@ -283,21 +121,97 @@ export const ProfessorList = () => {
         is_active: true,
     });
 
-    // Verificar si el usuario no tiene permisos
-    if (canAccess?.can === false) {
-        return <Unauthorized />;
-    }
+    // Función para abrir el sheet en modo crear
+    const handleOpenCreateSheet = () => {
+        setEditingProfessor(null);
+        setFormData({
+            professor_id: "",
+            professor_name: "",
+            institutional_email: "",
+            personal_email: "",
+            phone_number: "",
+            professor_category: "",
+            academic_title: "",
+            doctorates: 0,
+            masters: 0,
+            is_bilingual: false,
+            is_paid: true,
+            is_active: true,
+        });
+        setIsCreateModalOpen(true);
+    };
+
+    // Función para abrir el sheet en modo editar
+    const handleOpenEditSheet = (professor: Professor) => {
+        setEditingProfessor(professor);
+        setFormData({
+            professor_id: professor.professor_id,
+            professor_name: professor.professor_name,
+            institutional_email: professor.institutional_email || "",
+            personal_email: professor.personal_email || "",
+            phone_number: professor.phone_number || "",
+            professor_category: professor.professor_category || "",
+            academic_title: professor.academic_title || "",
+            doctorates: professor.doctorates || 0,
+            masters: professor.masters || 0,
+            is_bilingual: professor.is_bilingual || false,
+            is_paid: professor.is_paid || true,
+            is_active: professor.is_active || true,
+        });
+        setIsEditModalOpen(true);
+    };
+
+    // Función para cerrar el sheet
+    const handleCloseSheet = () => {
+        setIsCreateModalOpen(false);
+        setIsEditModalOpen(false);
+        setEditingProfessor(null);
+    };
+
+    // Sincronizar formData cuando cambie editingProfessor
+    useEffect(() => {
+        if (editingProfessor) {
+            setFormData({
+                professor_id: editingProfessor.professor_id,
+                professor_name: editingProfessor.professor_name,
+                institutional_email: editingProfessor.institutional_email || "",
+                personal_email: editingProfessor.personal_email || "",
+                phone_number: editingProfessor.phone_number || "",
+                professor_category: editingProfessor.professor_category || "",
+                academic_title: editingProfessor.academic_title || "",
+                doctorates: editingProfessor.doctorates || 0,
+                masters: editingProfessor.masters || 0,
+                is_bilingual: editingProfessor.is_bilingual || false,
+                is_paid: editingProfessor.is_paid || true,
+                is_active: editingProfessor.is_active || true,
+            });
+        }
+    }, [editingProfessor]);
+
 
     return (
-        <CanAccess resource="professors" action="list" fallback={<Unauthorized />}>
-            <div className="space-y-6 p-6">
-                {/* Header */}
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Profesores</h1>
-                    <p className="text-muted-foreground">
-                        Gestiona el catálogo de profesores de la institución
-                    </p>
+        <CanAccess
+            resource="professors"
+            action="list"
+            fallback={<Unauthorized resourceName="horarios" message="Solo los administradores pueden gestionar horarios." />}
+        >
+
+            <div className="container mx-auto py-6 space-y-6 max-w-[98%]">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold">Profesores</h1>
+                        <p className="text-muted-foreground">
+                            Gestiona el catálogo de profesores de la institución
+                        </p>
+                    </div>
+                    {canCreate?.can && (
+                        <Button onClick={handleOpenCreateSheet}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Crear Profesor
+                        </Button>
+                    )}
                 </div>
+
 
                 {/* Card with filters and table */}
                 <Card>
@@ -308,13 +222,6 @@ export const ProfessorList = () => {
                                 <CardDescription>
                                     {total} profesor(es) en total
                                 </CardDescription>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {/* Botón Crear */}
-                                <Button onClick={handleOpenCreateSheet}>
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Crear Profesor
-                                </Button>
                             </div>
                         </div>
                     </CardHeader>
@@ -594,100 +501,20 @@ export const ProfessorList = () => {
                         </div>
 
                         {/* Paginación */}
-                        {(() => {
-                            const totalPages = Math.max(1, Math.ceil(total / pageSize));
-                            const canPrev = currentPage > 1;
-                            const canNext = currentPage < totalPages;
-
-                            // Calcular ventana de páginas (máx 5)
-                            const windowSize = 5;
-                            const half = Math.floor(windowSize / 2);
-                            let start = Math.max(1, currentPage - half);
-                            let end = Math.min(totalPages, start + windowSize - 1);
-                            if (end - start + 1 < windowSize) {
-                                start = Math.max(1, end - windowSize + 1);
-                            }
-
-                            const pages = [];
-                            for (let i = start; i <= end; i++) {
-                                pages.push(i);
-                            }
-
-                            return (
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4">
-                                    <div className="text-sm text-muted-foreground">
-                                        Mostrando {professors.length} de {total} profesores
-                                    </div>
-                                    <Pagination>
-                                        <PaginationContent>
-                                            <PaginationItem>
-                                                <PaginationPrevious
-                                                    href="#"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        if (canPrev) setCurrentPage(currentPage - 1);
-                                                    }}
-                                                    className={!canPrev ? "pointer-events-none opacity-50" : ""}
-                                                />
-                                            </PaginationItem>
-
-                                            {start > 1 && (
-                                                <>
-                                                    <PaginationItem>
-                                                        <PaginationLink
-                                                            href="#"
-                                                            onClick={(e) => { e.preventDefault(); setCurrentPage(1); }}
-                                                        >1</PaginationLink>
-                                                    </PaginationItem>
-                                                    {start > 2 && (
-                                                        <PaginationItem>
-                                                            <PaginationEllipsis />
-                                                        </PaginationItem>
-                                                    )}
-                                                </>
-                                            )}
-
-                                            {pages.map((p) => (
-                                                <PaginationItem key={p}>
-                                                    <PaginationLink
-                                                        href="#"
-                                                        isActive={p === currentPage}
-                                                        onClick={(e) => { e.preventDefault(); setCurrentPage(p); }}
-                                                    >{p}</PaginationLink>
-                                                </PaginationItem>
-                                            ))}
-
-                                            {end < totalPages && (
-                                                <>
-                                                    {end < totalPages - 1 && (
-                                                        <PaginationItem>
-                                                            <PaginationEllipsis />
-                                                        </PaginationItem>
-                                                    )}
-                                                    <PaginationItem>
-                                                        <PaginationLink
-                                                            href="#"
-                                                            onClick={(e) => { e.preventDefault(); setCurrentPage(totalPages); }}
-                                                        >{totalPages}</PaginationLink>
-                                                    </PaginationItem>
-                                                </>
-                                            )}
-
-                                            <PaginationItem>
-                                                <PaginationNext
-                                                    href="#"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        if (canNext) setCurrentPage(currentPage + 1);
-                                                    }}
-                                                    className={!canNext ? "pointer-events-none opacity-50" : ""}
-                                                />
-                                            </PaginationItem>
-                                        </PaginationContent>
-                                    </Pagination>
-                                </div>
-                            );
-                        })()}
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4">
+                            <div className="text-sm text-muted-foreground">
+                                Mostrando {professors.length} de {total} profesores
+                            </div>
+                            <TablePagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                canPrevPage={canPrevPage}
+                                canNextPage={canNextPage}
+                                onPageChange={goToPage}
+                                onPrevPage={prevPage}
+                                onNextPage={nextPage}
+                            />
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -697,193 +524,50 @@ export const ProfessorList = () => {
                         entityType="profesor"
                         entityName={selectedProfessor.name}
                         isOpen={deleteDialogOpen}
-                        onClose={() => setDeleteDialogOpen(false)}
-                        onConfirm={() => handleDeleteProfessor(selectedProfessor.id, selectedProfessor.name)}
+                        onClose={() => {
+                            setDeleteDialogOpen(false);
+                            setSelectedProfessor(null);
+                        }}
+                        onConfirm={() => {
+                            softDeleteItem(selectedProfessor.id, selectedProfessor.name, () => {
+                                setDeleteDialogOpen(false);
+                                setSelectedProfessor(null);
+                            });
+                        }}
                         isDeleting={isDeleting}
                         gender="m"
                     />
                 )}
 
                 {/* Sheet de crear/editar profesor */}
-                <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-                    <SheetContent side="right" className="w-[500px] sm:max-w-[90vw] flex flex-col">
-                        <SheetHeader className="flex-shrink-0 px-6">
-                            <SheetTitle className="text-xl font-bold">
-                                {editingProfessor ? 'Editar Profesor' : 'Crear Profesor'}
-                            </SheetTitle>
-                            <SheetDescription>
-                                {editingProfessor
-                                    ? 'Modifica la información del profesor seleccionado.'
-                                    : 'Completa la información para crear un nuevo profesor.'
-                                }
-                            </SheetDescription>
-                        </SheetHeader>
+                <ProfessorFormSheet
+                    isOpen={isCreateModalOpen || isEditModalOpen}
+                    onClose={handleCloseSheet}
+                    editingProfessor={editingProfessor}
+                    formData={formData}
+                    onFormChange={setFormData}
+                    onSubmit={() => {
+                        // Limpiar espacios en blanco al inicio y final
+                        const cleanedFormData = {
+                            ...formData,
+                            professor_id: formData.professor_id.trim(),
+                            professor_name: formData.professor_name.trim(),
+                            institutional_email: formData.institutional_email.trim(),
+                            personal_email: formData.personal_email.trim(),
+                            phone_number: formData.phone_number.trim(),
+                            professor_category: formData.professor_category.trim(),
+                            academic_title: formData.academic_title.trim(),
+                        };
 
-                        <div className="flex-1 overflow-y-auto py-0 px-6 space-y-6">
-                            {/* Formulario */}
-                            <div className="space-y-4">
-                                <div><h2 className="text-md font-bold pb-2 border-b border-gray-200">General</h2></div>
-                                {/* Fila 1: Código, Nombre, Título */}
-                                <div className="flex gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Título</label>
-                                        <Select value={formData.academic_title} onValueChange={(value) => setFormData({ ...formData, academic_title: value })}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Seleccione Título" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Ing.">Ing.</SelectItem>
-                                                <SelectItem value="Lic.">Lic.</SelectItem>
-                                                <SelectItem value="Mg.">Dr.</SelectItem>
-                                                <SelectItem value="Arq.">Arq.</SelectItem>
-                                                <SelectItem value="Arq.">Tec.</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2 flex-1">
-                                        <label className="text-sm font-medium">Nombre *</label>
-                                        <Input
-                                            placeholder=""
-                                            value={formData.professor_name}
-                                            onChange={(e) => setFormData({ ...formData, professor_name: e.target.value })}
-                                        />
-                                    </div>
-
-                                </div>
-
-                                {/* Fila 2: Teléfono, Categoría */}
-                                <div className="flex gap-4 pb-4">
-                                    <div className="space-y-2 flex-1">
-                                        <label className="text-sm font-medium">Código *</label>
-                                        <Input
-                                            placeholder="Ej: P001"
-                                            value={formData.professor_id}
-                                            onChange={(e) => setFormData({ ...formData, professor_id: e.target.value.toUpperCase() })}
-                                            maxLength={20}
-                                        />
-                                    </div>
-                                    <div className="space-y-2 flex-2">
-                                        <label className="text-sm font-medium">Categoría</label>
-                                        <Select value={formData.professor_category} onValueChange={(value) => setFormData({ ...formData, professor_category: value })} className="w-full">
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Seleccionar categoría" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="DHC">DHC - Docente Hora Clase</SelectItem>
-                                                <SelectItem value="ADM">ADM - Administrativo</SelectItem>
-                                                <SelectItem value="DTC">DTC - Docente Tiempo Completo</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-
-                                {/* Fila 3: Emails */}
-                                <div><h2 className="text-md font-bold pt-2 pb-2 border-b border-gray-200">Contacto</h2></div>
-                                <div className="flex flex-col gap-4">
-                                    <div className="space-y-2 flex-1">
-                                        <label className="text-sm font-medium">Teléfono</label>
-                                        <Input
-                                            placeholder="7777-7777"
-                                            value={formData.phone_number}
-                                            onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="space-y-2 flex-1">
-                                        <label className="text-sm font-medium">Email Institucional</label>
-                                        <Input
-                                            type="email"
-                                            className="w-full"
-                                            placeholder="profesor@utec.edu.sv"
-                                            value={formData.institutional_email}
-                                            onChange={(e) => setFormData({ ...formData, institutional_email: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="space-y-2 flex-1">
-                                        <label className="text-sm font-medium">Email Personal</label>
-                                        <Input
-                                            type="email"
-                                            className="w-full"
-                                            placeholder="profesor@gmail.com"
-                                            value={formData.personal_email}
-                                            onChange={(e) => setFormData({ ...formData, personal_email: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Fila 4: Doctorados, Maestrías */}
-                                <div className="flex gap-4">
-                                    <div className="space-y-2 w-32">
-                                        <label className="text-sm font-medium">Doctorados</label>
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            value={formData.doctorates}
-                                            onChange={(e) => setFormData({ ...formData, doctorates: parseInt(e.target.value) || 0 })}
-                                        />
-                                    </div>
-                                    <div className="space-y-2 w-32">
-                                        <label className="text-sm font-medium">Maestrías</label>
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            value={formData.masters}
-                                            onChange={(e) => setFormData({ ...formData, masters: parseInt(e.target.value) || 0 })}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Fila 5: Switches */}
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-3">
-                                        <Switch
-                                            checked={formData.is_bilingual}
-                                            onCheckedChange={(checked) => setFormData({ ...formData, is_bilingual: checked })}
-                                        />
-                                        <label className="text-sm font-medium">Bilingüe</label>
-                                    </div>
-
-                                    <div className="flex items-center gap-3">
-                                        <Switch
-                                            checked={formData.is_paid}
-                                            onCheckedChange={(checked) => setFormData({ ...formData, is_paid: checked })}
-                                        />
-                                        <label className="text-sm font-medium">Remunerado</label>
-                                    </div>
-
-                                    <div className="flex items-center gap-3">
-                                        <Switch
-                                            checked={formData.is_active}
-                                            onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                                        />
-                                        <label className="text-sm font-medium">Activo</label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Footer con botones */}
-                        <div className="flex-shrink-0 px-6 py-4 border-t">
-                            <div className="flex justify-end gap-2">
-                                <Button variant="outline" onClick={handleCloseSheet}>
-                                    Cancelar
-                                </Button>
-                                <Button
-                                    onClick={() => {
-                                        if (editingProfessor) {
-                                            handleUpdateProfessor(editingProfessor.id, formData, handleCloseSheet);
-                                        } else {
-                                            handleCreateProfessor(formData, handleCloseSheet);
-                                        }
-                                    }}
-                                    disabled={isCreating || isUpdating || !formData.professor_id || !formData.professor_name}
-                                >
-                                    {isCreating || isUpdating ? 'Guardando...' : (editingProfessor ? 'Actualizar' : 'Crear')}
-                                </Button>
-                            </div>
-                        </div>
-                    </SheetContent>
-                </Sheet>
+                        if (editingProfessor) {
+                            updateItem(editingProfessor.id, cleanedFormData, handleCloseSheet);
+                        } else {
+                            createItem(cleanedFormData, handleCloseSheet);
+                        }
+                    }}
+                    isSubmitting={isCreating || isUpdating}
+                />
             </div>
-        </CanAccess>
+        </CanAccess >
     );
 };

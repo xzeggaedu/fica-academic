@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { useList, useCreate, useUpdate, useDelete, useInvalidate } from "@refinedev/core";
+import React, { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
@@ -10,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, Check, X, Pencil, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { SchoolDeleteDialog } from "./school-delete-dialog";
+import { useSchoolsCrud } from "@/hooks/useSchoolsCrud";
 
 interface School {
   id: number; // School.id es int, no UUID
@@ -36,38 +36,24 @@ export function FacultySchoolsSheet({
   isOpen,
   onClose,
 }: FacultySchoolsSheetProps) {
-  // Refine hooks
-  const { result: schoolsResult, query: schoolsQuery } = useList({
-    resource: "schools",
-    queryOptions: {
-      enabled: isOpen,
-    },
-    filters: [
-      {
-        field: "faculty_id",
-        operator: "eq",
-        value: facultyId,
-      },
-    ],
-    pagination: {
-      mode: "off", // Cargar todas las escuelas sin paginación
-    },
-  });
+  // Hook CRUD para escuelas con filtro por facultad
+  const {
+    itemsList: schools,
+    isLoading,
+    isError,
+    createItem: createSchool,
+    updateItem: updateSchool,
+    deleteItem: deleteSchool,
+    isCreating,
+    isUpdating,
+    isDeleting,
+  } = useSchoolsCrud({ facultyId, enabled: isOpen });
 
-  const { mutate: createSchool, mutation: createMutation } = useCreate();
-  const { mutate: updateSchool, mutation: updateMutation } = useUpdate();
-  const { mutate: deleteSchool, mutation: deleteMutation } = useDelete();
-  const invalidate = useInvalidate();
   const queryClient = useQueryClient();
 
   // Estado para el diálogo de eliminación
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [schoolToDelete, setSchoolToDelete] = useState<{ id: number; name: string } | null>(null);
-
-  // Datos de las escuelas
-  const schools = (schoolsResult?.data || []) as School[];
-  const isLoading = schoolsQuery.isLoading;
-  const error = schoolsQuery.error?.message || null;
 
   // Estado para nueva escuela
   const [newSchool, setNewSchool] = useState({
@@ -102,36 +88,18 @@ export function FacultySchoolsSheet({
       return;
     }
 
-    createSchool({
-      resource: "schools",
-      values: {
+    createSchool(
+      {
         name: newSchool.name,
         acronym: newSchool.acronym.toUpperCase(),
         fk_faculty: facultyId,
         is_active: newSchool.is_active,
       },
-      successNotification: () => ({
-        message: 'Escuela creada exitosamente',
-        description: `La escuela "${newSchool.name}" ha sido creada.`,
-        type: 'success',
-      }),
-      errorNotification: (error) => ({
-        message: 'Error al crear escuela',
-        description: error?.message || 'Error desconocido',
-        type: 'error',
-      }),
-    }, {
-      onSuccess: () => {
+      () => {
         // Limpiar formulario
         setNewSchool({ name: "", acronym: "", is_active: true });
-
-        // Invalidar la lista de escuelas para refrescar
-        invalidate({
-          resource: "schools",
-          invalidates: ["list"],
-        });
-      },
-    });
+      }
+    );
   };
 
   const handleStartEdit = (school: School) => {
@@ -164,35 +132,17 @@ export function FacultySchoolsSheet({
       return;
     }
 
-    updateSchool({
-      resource: "schools",
-      id: schoolId,
-      values: {
+    updateSchool(
+      schoolId,
+      {
         name: editData.name,
         acronym: editData.acronym.toUpperCase(),
         is_active: editData.is_active,
       },
-      successNotification: () => ({
-        message: 'Escuela actualizada exitosamente',
-        description: `La escuela "${editData.name}" ha sido actualizada.`,
-        type: 'success',
-      }),
-      errorNotification: (error) => ({
-        message: 'Error al actualizar escuela',
-        description: error?.message || 'Error desconocido',
-        type: 'error',
-      }),
-    }, {
-      onSuccess: () => {
+      () => {
         setEditingSchoolId(null);
-
-        // Invalidar la lista de escuelas para refrescar
-        invalidate({
-          resource: "schools",
-          invalidates: ["list"],
-        });
-      },
-    });
+      }
+    );
   };
 
   const handleDeleteSchool = (schoolId: number, schoolName: string) => {
@@ -203,40 +153,24 @@ export function FacultySchoolsSheet({
   const handleConfirmDelete = () => {
     if (!schoolToDelete) return;
 
-    deleteSchool({
-      resource: "schools",
-      id: schoolToDelete.id,
-      successNotification: () => ({
-        message: 'Escuela eliminada exitosamente',
-        description: `La escuela "${schoolToDelete.name}" ha sido eliminada.`,
-        type: 'success',
-      }),
-      errorNotification: (error) => ({
-        message: 'Error al eliminar escuela',
-        description: error?.message || 'Error desconocido',
-        type: 'error',
-      }),
-    }, {
-      onSuccess: () => {
+    deleteSchool(
+      schoolToDelete.id,
+      schoolToDelete.name,
+      () => {
         // Cerrar el diálogo
         setDeleteDialogOpen(false);
         setSchoolToDelete(null);
 
-        // Invalidar y refrescar la lista
-        invalidate({
-          resource: "schools",
-          invalidates: ["list"],
-        });
-
+        // Invalidar queries para refrescar
         queryClient.invalidateQueries({ queryKey: ["schools"] });
         queryClient.refetchQueries({ queryKey: ["schools"] });
       },
-      onError: () => {
+      () => {
         // En caso de error, cerrar el diálogo
         setDeleteDialogOpen(false);
         setSchoolToDelete(null);
       }
-    });
+    );
   };
 
   return (
@@ -272,7 +206,7 @@ export function FacultySchoolsSheet({
                       placeholder="Ingrese el nombre de la escuela"
                       value={newSchool.name}
                       onChange={(e) => setNewSchool({ ...newSchool, name: e.target.value })}
-                      disabled={createMutation.isPending}
+                      disabled={isCreating}
                       className="h-11 mt-3"
                     />
                   </div>
@@ -283,17 +217,17 @@ export function FacultySchoolsSheet({
                       value={newSchool.acronym}
                       onChange={(e) => setNewSchool({ ...newSchool, acronym: e.target.value.toUpperCase() })}
                       maxLength={20}
-                      disabled={createMutation.isPending}
+                      disabled={isCreating}
                       className="h-11 font-mono mt-3"
                     />
                   </div>
                   <div className="flex-shrink-0">
                     <Button
                       onClick={handleAddSchool}
-                      disabled={createMutation.isPending || !newSchool.name || !newSchool.acronym}
+                      disabled={isCreating || !newSchool.name || !newSchool.acronym}
                       className="h-11 px-6"
                     >
-                      {createMutation.isPending ? 'Agregando...' : 'Agregar'}
+                      {isCreating ? 'Agregando...' : 'Agregar'}
                     </Button>
                   </div>
                 </div>
@@ -313,9 +247,9 @@ export function FacultySchoolsSheet({
                     <div className="p-8 text-center text-muted-foreground">
                       Cargando escuelas...
                     </div>
-                  ) : error ? (
+                  ) : isError ? (
                     <div className="p-8 text-center text-red-600">
-                      {error}
+                      Error al cargar escuelas
                     </div>
                   ) : schools.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">
@@ -430,7 +364,7 @@ export function FacultySchoolsSheet({
                 </div>
 
                 {/* Información de resultados */}
-                {!isLoading && !error && schools.length > 0 && (
+                {!isLoading && !isError && schools.length > 0 && (
                   <div className="text-sm text-muted-foreground">
                     Total de escuelas: {schools.length}
                   </div>
@@ -455,7 +389,7 @@ export function FacultySchoolsSheet({
             setSchoolToDelete(null);
           }}
           onConfirm={handleConfirmDelete}
-          isDeleting={deleteMutation.isPending}
+          isDeleting={isDeleting}
         />
       )}
     </>

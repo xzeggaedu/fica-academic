@@ -113,6 +113,82 @@ class TestScheduleTimeUtilityFunctions:
         assert parse_time_string(" 8:30 ") == time(8, 30)
 
 
+class TestCatalogScheduleTimeExtendedTimes:
+    """Pruebas para horarios extendidos."""
+
+    def test_schedule_with_extended_times(self):
+        """Prueba que se puedan crear horarios con tiempos extendidos."""
+        from src.app.schemas.catalog_schedule_time import CatalogScheduleTimeCreate
+
+        schedule = CatalogScheduleTimeCreate(
+            days_array=[5, 6],
+            start_time="13:45:00",
+            end_time="16:00:00",
+            start_time_ext="07:00:00",
+            end_time_ext="10:00:00",
+            is_active=True,
+        )
+
+        assert schedule.start_time_ext is not None
+        assert schedule.end_time_ext is not None
+
+    def test_schedule_without_extended_times(self):
+        """Prueba que los tiempos extendidos sean opcionales."""
+        from src.app.schemas.catalog_schedule_time import CatalogScheduleTimeCreate
+
+        schedule = CatalogScheduleTimeCreate(
+            days_array=[0],
+            start_time="08:00:00",
+            end_time="10:00:00",
+            is_active=True,
+        )
+
+        assert schedule.start_time_ext is None
+        assert schedule.end_time_ext is None
+
+    def test_extended_times_validation_both_required(self):
+        """Prueba que start_time_ext requiera end_time_ext y viceversa."""
+        from pydantic import ValidationError
+
+        from src.app.schemas.catalog_schedule_time import CatalogScheduleTimeCreate
+
+        # start_time_ext sin end_time_ext debe fallar
+        with pytest.raises(ValidationError) as exc_info:
+            CatalogScheduleTimeCreate(
+                days_array=[5, 6],
+                start_time="13:45:00",
+                end_time="16:00:00",
+                start_time_ext="07:00:00",
+                # end_time_ext faltante
+                is_active=True,
+            )
+
+        assert "end_time_ext" in str(exc_info.value).lower()
+
+    def test_extended_times_validation_order(self):
+        """Prueba que end_time_ext debe ser mayor que start_time_ext."""
+        from pydantic import ValidationError
+
+        from src.app.schemas.catalog_schedule_time import CatalogScheduleTimeCreate
+
+        with pytest.raises(ValidationError) as exc_info:
+            CatalogScheduleTimeCreate(
+                days_array=[5, 6],
+                start_time="13:45:00",
+                end_time="16:00:00",
+                start_time_ext="10:00:00",
+                end_time_ext="07:00:00",  # Menor que start_time_ext
+                is_active=True,
+            )
+
+        # La validación puede fallar primero en el check de "ambos requeridos"
+        # pero debemos asegurarnos que eventualmente valide el orden
+        error_message = str(exc_info.value).lower()
+        assert (
+            "end_time_ext" in error_message or "must be after" in error_message or "debe ser posterior" in error_message
+        )
+
+
 class TestCatalogScheduleTimeSoftDelete:
     """Pruebas para soft-delete de horarios."""
 

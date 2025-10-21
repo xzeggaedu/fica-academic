@@ -138,8 +138,12 @@ export function UserEditForm({
         payload.new_password = passwordData.new_password;
       }
 
-      if (isCurrentUser && passwordData.current_password.trim()) {
-        payload.current_password = passwordData.current_password;
+      // Siempre incluir current_password: null si es admin, o el valor si es el usuario actual
+      if (isCurrentUser) {
+        payload.current_password = passwordData.current_password.trim() || null;
+      } else {
+        // Admin cambiando contraseña de otro usuario - enviar null
+        payload.current_password = null;
       }
 
       // Validar formulario de contraseña
@@ -175,10 +179,12 @@ export function UserEditForm({
 
     if (!formData.name.trim()) {
       newErrors.name = "Este campo es obligatorio";
-    } else if (formData.name.length < 2) {
-      newErrors.name = "El nombre debe tener al menos 2 caracteres";
-    } else if (formData.name.length > 30) {
-      newErrors.name = "El nombre debe tener máximo 30 caracteres";
+    } else if (formData.name.length < 1) {
+      newErrors.name = "El nombre debe tener al menos 1 carácter";
+    } else if (formData.name.length > 50) {
+      newErrors.name = "El nombre debe tener máximo 50 caracteres";
+    } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\-'\.\(\)]+$/.test(formData.name)) {
+      newErrors.name = "El nombre solo puede contener letras, espacios, acentos, guiones, apóstrofes, puntos y paréntesis";
     }
 
     if (!formData.username.trim()) {
@@ -311,6 +317,9 @@ export function UserEditForm({
               {errors.name && (
                 <p className="text-sm text-red-600 mt-1">{errors.name}</p>
               )}
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                Solo letras, espacios, acentos, guiones, apóstrofes, puntos y paréntesis.
+              </p>
             </div>
 
             <div className="space-y-3">

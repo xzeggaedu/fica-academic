@@ -10,6 +10,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+      TZ: UTC
     volumes:
       - postgres-data-prod:/var/lib/postgresql/data
     ports:
@@ -20,6 +21,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - prod-network
 
   # Redis Cache & Queue
   redis:
@@ -31,6 +34,8 @@ services:
     ports:
       - "6379:6379"
     command: redis-server --appendonly yes
+    networks:
+      - prod-network
 
   # Backend API (Production)
   api:
@@ -73,6 +78,7 @@ services:
 
       # Environment
       ENVIRONMENT: ${ENVIRONMENT}
+      TZ: UTC
     ports:
       - "8000:8000"
     depends_on:
@@ -86,6 +92,8 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
+    networks:
+      - prod-network
 
   # Frontend (Production) - Refine.dev
   frontend:
@@ -121,6 +129,8 @@ services:
       - VITE_API_RETRY_DELAY=2000
     depends_on:
       - api
+    networks:
+      - prod-network
 
   # Background Worker
   worker:
@@ -163,12 +173,15 @@ services:
 
       # Environment
       ENVIRONMENT: ${ENVIRONMENT}
+      TZ: UTC
     command: arq src.app.core.worker.settings.WorkerSettings
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_started
+    networks:
+      - prod-network
 
   # Database Initialization
   init_db:
@@ -212,12 +225,19 @@ services:
 
       # Environment
       ENVIRONMENT: ${ENVIRONMENT}
+      TZ: UTC
     command: python -m src.scripts.init_db
     depends_on:
       db:
         condition: service_healthy
     restart: "no"
+    networks:
+      - prod-network
 
 volumes:
   postgres-data-prod:
   redis-data-prod:
+
+networks:
+  prod-network:
+    driver: bridge

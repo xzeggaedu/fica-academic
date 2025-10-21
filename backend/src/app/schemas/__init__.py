@@ -1,10 +1,10 @@
 """Schemas package - Pydantic models for API validation."""
 
-from .catalog_course import (
-    CatalogCourseCreate,
-    CatalogCourseRead,
-    CatalogCourseUpdate,
-    CourseSchoolRead,
+from .catalog_subject import (
+    CatalogSubjectCreate,
+    CatalogSubjectRead,
+    CatalogSubjectUpdate,
+    SubjectSchoolRead,
 )
 from .faculty import FacultyCreate, FacultyRead, FacultyReadWithSchools, FacultyUpdate
 from .job import Job
@@ -46,8 +46,8 @@ __all__ = [
     "UserScopeCreate",
     "UserScopeRead",
     "UserScopeAssignment",
-    "CatalogCourseCreate",
-    "CatalogCourseRead",
-    "CatalogCourseUpdate",
-    "CourseSchoolRead",
+    "CatalogSubjectCreate",
+    "CatalogSubjectRead",
+    "CatalogSubjectUpdate",
+    "SubjectSchoolRead",
 ]

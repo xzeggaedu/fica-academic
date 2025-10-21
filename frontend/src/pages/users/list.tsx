@@ -1,8 +1,6 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useList, CanAccess, useGetIdentity, useCan, useUpdate, useInvalidate, useCreate } from "@refinedev/core";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { UserRoleEnum } from "../../types/auth";
+import React, { useState, useMemo } from "react";
+import { CanAccess, useGetIdentity } from "@refinedev/core";
+import { UserRoleEnum } from "../../types/api";
 import {
   Table,
   TableBody,
@@ -20,37 +18,22 @@ import { UserCreateButton } from "../../components/ui/users/user-create-button";
 import { UserViewSheet } from "../../components/ui/users/user-view-sheet";
 import { getTableColumnClass } from "../../components/refine-ui/theme/theme-table";
 import { Unauthorized } from "../unauthorized";
-import { Clock } from "lucide-react";
+import { useUsersCrud } from "../../hooks/useUsersCrud";
 
 export const UserList = () => {
-  // Verificar permisos primero
-  const { data: canAccess } = useCan({
-    resource: "users",
-    action: "list",
-  });
+  // Hook principal de usuarios con todas las operaciones CRUD
+  const {
+    canCreate,
+    itemsList: users,
+    isLoading: queryIsLoading,
+    isError: queryIsError,
+    createItem: createUser,
+    softDeleteItem: softDeleteUser,
+    isCreating,
+    isDeleting,
+  } = useUsersCrud();
 
-  const { query, result } = useList({
-    resource: "users",
-    queryOptions: {
-      enabled: canAccess?.can ?? false,
-    },
-    successNotification: false,
-    errorNotification: false,
-  });
-
-  const users = result.data;
-
-  const queryClient = useQueryClient();
   const { data: identity } = useGetIdentity<{ id: number; username: string }>();
-
-  // Hooks para operaciones CRUD
-  const { mutate: softDeleteUser, mutation: deleteState } = useUpdate();
-  const { mutate: createUser, mutation: createState } = useCreate();
-
-  const invalidate = useInvalidate();
-
-  const isDeleting = deleteState.isPending;
-  const isCreating = createState.isPending;
 
   // Función para manejar creación de usuario
   const handleCreateUser = (
@@ -60,79 +43,16 @@ export const UserList = () => {
       email: string;
       password: string;
       profile_image_url: string;
-      role: string;
+      role: UserRoleEnum;
     },
     onSuccessCallback?: () => void
   ) => {
-    createUser(
-      {
-        resource: "users",
-        values: userData,
-        successNotification: false,
-        errorNotification: false,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Usuario creado exitosamente', {
-            description: `El usuario "${userData.username}" ha sido creado correctamente.`,
-            richColors: true,
-          });
-
-          // Llamar al callback de éxito para cerrar el sheet
-          if (onSuccessCallback) {
-            onSuccessCallback();
-          }
-        },
-        onError: (error) => {
-          console.error("UserList - Create error:", error);
-          const errorMessage = error?.message || "Error desconocido al crear usuario";
-
-          toast.error('Error al crear usuario', {
-            description: errorMessage,
-            richColors: true,
-          });
-
-          // Si es error de autenticación, redirigir al login
-          if (errorMessage.includes("Sesión expirada")) {
-            setTimeout(() => {
-              window.location.href = "/login";
-            }, 2000);
-          }
-        },
-      }
-    );
+    createUser(userData, onSuccessCallback);
   };
 
   // Función para manejar eliminación de usuario (soft delete)
   const handleDeleteUser = (userId: string, userName: string) => {
-    softDeleteUser(
-      {
-        resource: "soft-delete",
-        id: userId,
-        values: { type: "user/uuid" },
-        successNotification: false,
-      },
-      {
-        onSuccess: async () => {
-          invalidate({
-            resource: "users",
-            invalidates: ["all", "list"],
-          });
-
-          toast.success('Usuario movido a papelera', {
-            description: `El usuario "${userName}" ha sido movido a la papelera de reciclaje.`,
-            richColors: true,
-          });
-        },
-        onError: (error) => {
-          console.error("UserList - Soft delete error:", error);
-          toast.error('Error al mover a papelera', {
-            description: error.message,
-            richColors: true,
-          });
-        }
-      }
-    );
+    softDeleteUser(userId, userName);
   };
 
   // Estados para filtros y columnas
@@ -161,13 +81,11 @@ export const UserList = () => {
 
   // Filtrar datos basado en búsqueda
   const filteredData = useMemo(() => {
-    console.log("users", users);
     if (!users) return [];
 
     if (!searchValue.trim()) return users;
 
     const searchLower = searchValue.toLowerCase();
-    console.log("users", users);
     return users.filter((user: any) =>
       user.name?.toLowerCase().includes(searchLower) ||
       user.username?.toLowerCase().includes(searchLower) ||
@@ -264,13 +182,24 @@ export const UserList = () => {
       action="list"
       fallback={<Unauthorized resourceName="usuarios" message="Solo los administradores pueden gestionar usuarios." />}
     >
-      <div className="container mx-auto py-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">Usuarios</h1>
+
+      <div className="container mx-auto py-6 space-y-6 max-w-[98%]">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Coordinaciones</h1>
+            <p className="text-muted-foreground">
+              Gestiona todos los usuarios del sistema
+            </p>
           </div>
+          {canCreate?.can && (
+            <UserCreateButton
+              onSuccess={handleSuccess}
+              onCreate={handleCreateUser}
+              isCreating={isCreating}
+            />
+          )}
         </div>
+
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -280,11 +209,7 @@ export const UserList = () => {
                   Gestiona todos los usuarios del sistema
                 </CardDescription>
               </div>
-              <UserCreateButton
-                onSuccess={handleSuccess}
-                onCreate={handleCreateUser}
-                isCreating={isCreating}
-              />
+
             </div>
           </CardHeader>
           <CardContent>
@@ -313,16 +238,16 @@ export const UserList = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {query.isLoading ? (
+                  {queryIsLoading ? (
                     <TableRow>
                       <TableCell colSpan={visibleColumns.length} className="text-center py-8">
                         Cargando usuarios...
                       </TableCell>
                     </TableRow>
-                  ) : query.error ? (
+                  ) : queryIsError ? (
                     <TableRow>
                       <TableCell colSpan={visibleColumns.length} className="text-center py-8 text-red-600">
-                        Error al cargar usuarios: {query.error.message}
+                        Error al cargar usuarios
                       </TableCell>
                     </TableRow>
                   ) : filteredData.length === 0 ? (
@@ -393,10 +318,10 @@ export const UserList = () => {
             </div>
 
             {/* Información de resultados */}
-            {!query.isLoading && !query.error && (
+            {!queryIsLoading && !queryIsError && (
               <div className="flex items-center justify-between px-2 py-4 text-sm text-muted-foreground">
                 <div>
-                  Mostrando {filteredData.length} de {result.data?.length || 0} usuarios
+                  Mostrando {filteredData.length} de {users?.length || 0} usuarios
                   {searchValue && ` (filtrados por "${searchValue}")`}
                 </div>
               </div>

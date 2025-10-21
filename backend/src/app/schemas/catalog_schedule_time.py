@@ -3,7 +3,7 @@
 from datetime import datetime, time
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # Constantes para los días de la semana (0=Lunes, 6=Domingo)
 WEEK_DAYS_MAP = {0: "Lu", 1: "Ma", 2: "Mi", 3: "Ju", 4: "Vi", 5: "Sá", 6: "Do"}
@@ -34,9 +34,14 @@ class CatalogScheduleTimeBase(BaseModel):
 
     days_array: Annotated[list[int], Field(min_items=1, max_items=7, examples=[[0], [0, 4], [1, 3, 5]])]
     day_group_name: Annotated[str, Field(min_length=1, max_length=50, examples=["Lu", "Lu-Vi", "Ma-Ju-Sá"])]
-    range_text: Annotated[str, Field(min_length=1, max_length=50, examples=["06:30-08:00", "06:30 a 08:00 a.m."])]
+    range_text: Annotated[
+        str,
+        Field(min_length=1, max_length=50, examples=["06:30-08:00", "06:30 a 08:00 a.m.", "13:45-16:00-07:00-09:15"]),
+    ]
     start_time: time
     end_time: time
+    start_time_ext: time | None = None
+    end_time_ext: time | None = None
     is_active: bool = True
 
     @field_validator("days_array")
@@ -89,6 +94,45 @@ class CatalogScheduleTimeBase(BaseModel):
 
         return v
 
+    @field_validator("end_time_ext")
+    @classmethod
+    def validate_end_time_ext_after_start_time_ext(cls, v, info):
+        """Validar que end_time_ext sea posterior a start_time_ext si ambos están presentes."""
+        if v is None:
+            return v
+
+        values = info.data
+        start_time_ext = values.get("start_time_ext")
+
+        if start_time_ext and v <= start_time_ext:
+            raise ValueError("end_time_ext debe ser posterior a start_time_ext")
+
+        return v
+
+    @model_validator(mode="after")
+    def validate_extended_times_consistency(self):
+        """Validar consistencia de horarios extendidos."""
+        start_time_ext = self.start_time_ext
+        end_time_ext = self.end_time_ext
+        start_time = self.start_time
+        end_time = self.end_time
+
+        # Si se proporciona start_time_ext, end_time_ext debe estar presente
+        if start_time_ext and not end_time_ext:
+            raise ValueError("Si se proporciona start_time_ext, end_time_ext también debe estar presente")
+
+        # Si se proporciona end_time_ext, start_time_ext debe estar presente
+        if end_time_ext and not start_time_ext:
+            raise ValueError("Si se proporciona end_time_ext, start_time_ext también debe estar presente")
+
+        # Validar que los horarios extendidos no se superpongan con los horarios principales
+        if start_time_ext and end_time_ext and start_time and end_time:
+            # Verificar que el rango extendido no se superponga con el rango principal
+            if start_time_ext <= end_time and end_time_ext >= start_time:
+                raise ValueError("Los horarios extendidos no pueden superponerse con los horarios principales")
+
+        return self
+
 
 class CatalogScheduleTimeCreate(BaseModel):
     """Schema para crear un nuevo horario."""
@@ -98,6 +142,8 @@ class CatalogScheduleTimeCreate(BaseModel):
     days_array: Annotated[list[int], Field(min_items=1, max_items=7, examples=[[0], [0, 4], [1, 3, 5]])]
     start_time: time
     end_time: time
+    start_time_ext: time | None = None
+    end_time_ext: time | None = None
     is_active: bool = True
 
     @field_validator("days_array")
@@ -123,6 +169,41 @@ class CatalogScheduleTimeCreate(BaseModel):
             raise ValueError("end_time debe ser posterior a start_time")
         return v
 
+    @field_validator("end_time_ext")
+    @classmethod
+    def validate_end_time_ext_after_start_time_ext(cls, v, info):
+        """Validar que end_time_ext sea posterior a start_time_ext si ambos están presentes."""
+        if v is None:
+            return v
+
+        if "start_time_ext" in info.data and info.data["start_time_ext"] and v <= info.data["start_time_ext"]:
+            raise ValueError("end_time_ext debe ser posterior a start_time_ext")
+        return v
+
+    @model_validator(mode="after")
+    def validate_extended_times_consistency(self):
+        """Validar consistencia de horarios extendidos."""
+        start_time_ext = self.start_time_ext
+        end_time_ext = self.end_time_ext
+        start_time = self.start_time
+        end_time = self.end_time
+
+        # Si se proporciona start_time_ext, end_time_ext debe estar presente
+        if start_time_ext and not end_time_ext:
+            raise ValueError("Si se proporciona start_time_ext, end_time_ext también debe estar presente")
+
+        # Si se proporciona end_time_ext, start_time_ext debe estar presente
+        if end_time_ext and not start_time_ext:
+            raise ValueError("Si se proporciona end_time_ext, start_time_ext también debe estar presente")
+
+        # Validar que los horarios extendidos no se superpongan con los horarios principales
+        if start_time_ext and end_time_ext and start_time and end_time:
+            # Verificar que el rango extendido no se superponga con el rango principal
+            if start_time_ext <= end_time and end_time_ext >= start_time:
+                raise ValueError("Los horarios extendidos no pueden superponerse con los horarios principales")
+
+        return self
+
     def model_post_init(self, __context):
         """Generar campos automáticamente después de la validación."""
         # Los campos se generarán en el CRUD layer
@@ -139,6 +220,8 @@ class CatalogScheduleTimeUpdate(BaseModel):
     ]
     start_time: time | None = None
     end_time: time | None = None
+    start_time_ext: time | None = None
+    end_time_ext: time | None = None
     is_active: bool | None = None
     deleted: bool | None = None
     deleted_at: datetime | None = None
@@ -171,6 +254,41 @@ class CatalogScheduleTimeUpdate(BaseModel):
         if "start_time" in info.data and info.data["start_time"] and v <= info.data["start_time"]:
             raise ValueError("end_time debe ser posterior a start_time")
         return v
+
+    @field_validator("end_time_ext")
+    @classmethod
+    def validate_end_time_ext_after_start_time_ext(cls, v, info):
+        """Validar que end_time_ext sea posterior a start_time_ext si ambos están presentes."""
+        if v is None:
+            return v
+
+        if "start_time_ext" in info.data and info.data["start_time_ext"] and v <= info.data["start_time_ext"]:
+            raise ValueError("end_time_ext debe ser posterior a start_time_ext")
+        return v
+
+    @model_validator(mode="after")
+    def validate_extended_times_consistency(self):
+        """Validar consistencia de horarios extendidos."""
+        start_time_ext = self.start_time_ext
+        end_time_ext = self.end_time_ext
+        start_time = self.start_time
+        end_time = self.end_time
+
+        # Si se proporciona start_time_ext, end_time_ext debe estar presente
+        if start_time_ext and not end_time_ext:
+            raise ValueError("Si se proporciona start_time_ext, end_time_ext también debe estar presente")
+
+        # Si se proporciona end_time_ext, start_time_ext debe estar presente
+        if end_time_ext and not start_time_ext:
+            raise ValueError("Si se proporciona end_time_ext, start_time_ext también debe estar presente")
+
+        # Validar que los horarios extendidos no se superpongan con los horarios principales
+        if start_time_ext and end_time_ext and start_time and end_time:
+            # Verificar que el rango extendido no se superponga con el rango principal
+            if start_time_ext <= end_time and end_time_ext >= start_time:
+                raise ValueError("Los horarios extendidos no pueden superponerse con los horarios principales")
+
+        return self
 
 
 class CatalogScheduleTimeRead(CatalogScheduleTimeBase):

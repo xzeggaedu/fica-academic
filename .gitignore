@@ -375,6 +375,12 @@ secrets/
 credentials/
 
 # Application specific
-uploads/
+# Ignore all uploads except data directory and CSV files
+uploads/*
+!uploads/data/
+!uploads/data/**
+uploads/data/**/*
+!uploads/data/**/*.csv
+!uploads/data/**/.gitkeep
 media/
 staticfiles/

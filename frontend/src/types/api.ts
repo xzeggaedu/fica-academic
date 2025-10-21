@@ -151,38 +151,223 @@ export interface RefineUserIdentity {
   avatar?: string;
 }
 
-// Course types
-export interface CourseSchool {
+// Subject types
+export interface SubjectSchool {
   id: number;
   school_id: number;
   created_at: string;
 }
 
-export interface Course {
+export interface Subject {
   id: number;
-  course_code: string;
-  course_name: string;
-  department_code: string;
+  subject_code: string;
+  subject_name: string;
+  coordination_code: string;
+  is_bilingual: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  schools: CourseSchool[];
+  schools: SubjectSchool[];
 }
 
-export interface CourseCreate {
-  course_code: string;
-  course_name: string;
-  department_code: string;
+export interface SubjectCreate {
+  subject_code: string;
+  subject_name: string;
+  coordination_code: string;
+  is_bilingual?: boolean;
   is_active?: boolean;
   school_ids: number[];
 }
 
-export interface CourseUpdate {
-  course_code?: string;
-  course_name?: string;
-  department_code?: string;
+export interface SubjectUpdate {
+  subject_code?: string;
+  subject_name?: string;
+  coordination_code?: string;
+  is_bilingual?: boolean;
   is_active?: boolean;
   school_ids?: number[];
+}
+
+// Professor types
+export interface Professor {
+  id: number;
+  professor_id: string;
+  professor_name: string;
+  institutional_email: string | null;
+  personal_email: string | null;
+  phone_number: string | null;
+  professor_category: string | null;
+  academic_title: string | null;
+  doctorates: number;
+  masters: number;
+  is_bilingual: boolean;
+  is_paid: boolean;
+  is_active: boolean;
+  deleted: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProfessorCreate {
+  professor_id: string;
+  professor_name: string;
+  institutional_email?: string;
+  personal_email?: string;
+  phone_number?: string;
+  professor_category?: string;
+  academic_title?: string;
+  doctorates?: number;
+  masters?: number;
+  is_bilingual?: boolean;
+  is_paid?: boolean;
+  is_active?: boolean;
+}
+
+export interface ProfessorUpdate {
+  professor_id?: string;
+  professor_name?: string;
+  institutional_email?: string;
+  personal_email?: string;
+  phone_number?: string;
+  professor_category?: string;
+  academic_title?: string;
+  doctorates?: number;
+  masters?: number;
+  is_bilingual?: boolean;
+  is_paid?: boolean;
+  is_active?: boolean;
+}
+
+// Coordination types
+export interface Coordination {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  faculty_id: number;
+  school_id: number;
+  coordinator_professor_id: number | null;
+  is_active: boolean;
+  deleted: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface CoordinationCreate {
+  code: string;
+  name: string;
+  description?: string;
+  faculty_id: number;
+  school_id: number;
+  coordinator_professor_id?: number | null;
+  is_active?: boolean;
+}
+
+export interface CoordinationUpdate {
+  code?: string;
+  name?: string;
+  description?: string;
+  faculty_id?: number;
+  school_id?: number;
+  coordinator_professor_id?: number | null;
+  is_active?: boolean;
+}
+
+// ScheduleTime types
+export interface ScheduleTime {
+  id: number;
+  schedule_code: string;
+  start_time: string;
+  end_time: string;
+  start_time_ext: string | null;
+  end_time_ext: string | null;
+  is_active: boolean;
+  deleted: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface ScheduleTimeCreate {
+  schedule_code: string;
+  start_time: string;
+  end_time: string;
+  start_time_ext?: string | null;
+  end_time_ext?: string | null;
+  is_active?: boolean;
+}
+
+export interface ScheduleTimeUpdate {
+  schedule_code?: string;
+  start_time?: string;
+  end_time?: string;
+  start_time_ext?: string | null;
+  end_time_ext?: string | null;
+  is_active?: boolean;
+}
+
+// Academic Level Types
+export interface AcademicLevel {
+  id: number;
+  code: string;
+  name: string;
+  priority: number;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface AcademicLevelCreate {
+  code: string;
+  name: string;
+  priority: number;
+  description?: string | null;
+  is_active?: boolean;
+}
+
+export interface AcademicLevelUpdate {
+  code?: string;
+  name?: string;
+  priority?: number;
+  description?: string | null;
+  is_active?: boolean;
+}
+
+// Hourly Rate History Types
+export interface HourlyRateHistory {
+  id: number;
+  level_id: number;
+  rate_per_hour: string;  // Backend devuelve como string (Decimal)
+  start_date: string;
+  end_date: string | null;
+  created_by_id: string | null;
+  created_at: string;
+  updated_at: string | null;
+  academic_level?: AcademicLevel;
+}
+
+export interface HourlyRateHistoryCreate {
+  level_id: number;
+  rate_per_hour: number;
+  start_date: string;
+}
+
+export interface HourlyRateHistoryUpdate {
+  rate_per_hour?: number;
+  start_date?: string;
+  end_date?: string | null;
+}
+
+export interface HourlyRateTimelineItem {
+  id: number;
+  rate_per_hour: number;
+  start_date: string;
+  end_date: string | null;
+  is_active: boolean;
+  created_at: string;
 }
 
 // API Endpoints
@@ -198,5 +383,5 @@ export const API_ENDPOINTS = {
   SCHOOLS: "/api/v1/schools",
   SCHOOL: "/api/v1/school",
   TASKS: "/api/v1/tasks/task",
-  COURSES: "/api/v1/catalog/courses",
+  SUBJECTS: "/api/v1/catalog/subjects",
 } as const;

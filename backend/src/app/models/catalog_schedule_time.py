@@ -14,7 +14,12 @@ class CatalogScheduleTime(Base):
     Esta tabla almacena horarios predefinidos como:
     - Lunes a Viernes: 06:30-08:00
     - Martes y Jueves: 17:00-18:30
+    - Horarios especiales: 13:45-16:00-07:00-09:15 (dos rangos)
     - etc.
+
+    Attributes:
+        start_time_ext: Hora de inicio del segundo rango (para horarios especiales)
+        end_time_ext: Hora de fin del segundo rango (para horarios especiales)
     """
 
     __tablename__ = "catalog_schedule_time"
@@ -29,6 +34,10 @@ class CatalogScheduleTime(Base):
     start_time: Mapped[time] = mapped_column(Time, nullable=False)
     end_time: Mapped[time] = mapped_column(Time, nullable=False)
     duration_min: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Horarios extendidos para horarios especiales (ej: "13:45-16:00-07:00-09:15")
+    start_time_ext: Mapped[time | None] = mapped_column(Time, nullable=True, default=None)
+    end_time_ext: Mapped[time | None] = mapped_column(Time, nullable=True, default=None)
 
     # Estado
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
