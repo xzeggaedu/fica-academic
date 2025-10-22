@@ -110,15 +110,6 @@ function App() {
                       },
                     },
                     {
-                      name: "fixed-holiday-rules",
-                      list: "/academic-planning/fixed-holiday-rules",
-                      meta: {
-                        label: "Asuetos Fijos",
-                        parent: "academic-planning",
-                        icon: "CalendarCheck",
-                      },
-                    },
-                    {
                       name: "annual-holidays",
                       list: "/academic-planning/annual-holidays/:holidayId",
                       meta: {
@@ -176,15 +167,6 @@ function App() {
                       },
                     },
                     {
-                      name: "schedule-times",
-                      list: "/catalogs/schedule-times",
-                      meta: {
-                        label: "Horarios",
-                        parent: "catalogs",
-                        icon: "Clock",
-                      },
-                    },
-                    {
                       name: "professors",
                       list: "/catalogs/professors",
                       meta: {
@@ -200,6 +182,24 @@ function App() {
                         label: "Coordinaciones",
                         parent: "catalogs",
                         icon: "Users",
+                      },
+                    },
+                    {
+                      name: "schedule-times",
+                      list: "/catalogs/schedule-times",
+                      meta: {
+                        label: "Horarios",
+                        parent: "catalogs",
+                        icon: "Clock",
+                      },
+                    },
+                    {
+                      name: "fixed-holiday-rules",
+                      list: "/academic-planning/fixed-holiday-rules",
+                      meta: {
+                        label: "Asuetos Fijos",
+                        parent: "catalogs",
+                        icon: "CalendarCheck",
                       },
                     },
                     {
