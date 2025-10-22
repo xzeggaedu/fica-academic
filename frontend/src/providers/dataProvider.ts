@@ -19,6 +19,18 @@ import type {
   HourlyRateHistory,
   HourlyRateHistoryCreate,
   HourlyRateHistoryUpdate,
+  Term,
+  TermCreate,
+  TermUpdate,
+  Holiday,
+  HolidayCreate,
+  HolidayUpdate,
+  FixedHolidayRule,
+  FixedHolidayRuleCreate,
+  FixedHolidayRuleUpdate,
+  AnnualHoliday,
+  AnnualHolidayCreate,
+  AnnualHolidayUpdate,
   PaginatedResponse
 } from "../types/api";
 
@@ -62,6 +74,10 @@ const ENDPOINTS = {
   SCHEDULE_TIMES_ACTIVE: `${API_BASE_PATH}/catalog/schedule-times/active`,
   ACADEMIC_LEVELS: `${API_BASE_PATH}/academic-levels`,
   HOURLY_RATES: `${API_BASE_PATH}/hourly-rates`,
+  TERMS: `${API_BASE_PATH}/terms`,
+  HOLIDAYS: `${API_BASE_PATH}/holidays`,
+  FIXED_HOLIDAY_RULES: `${API_BASE_PATH}/fixed-holiday-rules`,
+  ANNUAL_HOLIDAYS: `${API_BASE_PATH}/annual-holidays`,
 };
 
 // Helper function to get auth headers
@@ -411,6 +427,96 @@ export const dataProvider: DataProvider = {
         };
       }
 
+      case "terms": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        // Construir URL con parámetros de paginación
+        const searchParams = new URLSearchParams();
+        searchParams.append("skip", String((current - 1) * pageSize));
+        searchParams.append("limit", String(pageSize));
+
+        // Agregar filtros si existen
+        if (filters && Array.isArray(filters)) {
+          filters.forEach((f: any) => {
+            if (f.field && f.value !== undefined && f.value !== null && f.value !== "") {
+              searchParams.append(f.field, String(f.value));
+            }
+          });
+        }
+
+        const response = await apiRequest<{ data: Term[]; total: number }>(
+          `${ENDPOINTS.TERMS}/?${searchParams.toString()}`
+        );
+        return { data: response.data, total: response.total };
+      }
+
+      case "holidays": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        const searchParams = new URLSearchParams();
+        searchParams.append("skip", String((current - 1) * pageSize));
+        searchParams.append("limit", String(pageSize));
+
+        if (filters && Array.isArray(filters)) {
+          filters.forEach((f: any) => {
+            if (f.field && f.value !== undefined && f.value !== null && f.value !== "") {
+              searchParams.append(f.field, String(f.value));
+            }
+          });
+        }
+
+        const response = await apiRequest<{ data: Holiday[]; total: number }>(
+          `${ENDPOINTS.HOLIDAYS}/?${searchParams.toString()}`
+        );
+        return { data: response.data, total: response.total };
+      }
+
+      case "fixed-holiday-rules": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        const searchParams = new URLSearchParams();
+        searchParams.append("skip", String((current - 1) * pageSize));
+        searchParams.append("limit", String(pageSize));
+
+        if (filters && Array.isArray(filters)) {
+          filters.forEach((f: any) => {
+            if (f.field && f.value !== undefined && f.value !== null && f.value !== "") {
+              searchParams.append(f.field, String(f.value));
+            }
+          });
+        }
+
+        const response = await apiRequest<{ data: FixedHolidayRule[]; total: number }>(
+          `${ENDPOINTS.FIXED_HOLIDAY_RULES}/?${searchParams.toString()}`
+        );
+        return { data: response.data, total: response.total };
+      }
+
+      case "annual-holidays": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        const searchParams = new URLSearchParams();
+        searchParams.append("skip", String((current - 1) * pageSize));
+        searchParams.append("limit", String(pageSize));
+
+        if (filters && Array.isArray(filters)) {
+          filters.forEach((f: any) => {
+            if (f.field && f.value !== undefined && f.value !== null && f.value !== "") {
+              searchParams.append(f.field, String(f.value));
+            }
+          });
+        }
+
+        const response = await apiRequest<{ data: AnnualHoliday[]; total: number }>(
+          `${ENDPOINTS.ANNUAL_HOLIDAYS}/?${searchParams.toString()}`
+        );
+        return { data: response.data, total: response.total };
+      }
+
       case "catalog/schedule-times/active": {
         const response = await apiRequest<any[]>(ENDPOINTS.SCHEDULE_TIMES_ACTIVE);
         return {
@@ -495,6 +601,21 @@ export const dataProvider: DataProvider = {
 
       case "hourly-rates": {
         const response = await apiRequest<HourlyRateHistory>(`${ENDPOINTS.HOURLY_RATES}/${id}`);
+        return { data: response as any };
+      }
+
+      case "terms": {
+        const response = await apiRequest<Term>(`${ENDPOINTS.TERMS}/${id}`);
+        return { data: response as any };
+      }
+
+      case "holidays": {
+        const response = await apiRequest<Holiday>(`${ENDPOINTS.HOLIDAYS}/${id}`);
+        return { data: response as any };
+      }
+
+      case "annual-holidays": {
+        const response = await apiRequest<AnnualHoliday>(`${ENDPOINTS.ANNUAL_HOLIDAYS}/${id}`);
         return { data: response as any };
       }
 
@@ -611,6 +732,50 @@ export const dataProvider: DataProvider = {
           {
             method: "POST",
             body: JSON.stringify(variables as HourlyRateHistoryCreate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "terms": {
+        const response = await apiRequest<Term>(
+          `${ENDPOINTS.TERMS}/`,  // Agregar slash final para evitar 307 redirect
+          {
+            method: "POST",
+            body: JSON.stringify(variables as TermCreate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "holidays": {
+        const response = await apiRequest<Holiday>(
+          `${ENDPOINTS.HOLIDAYS}/`,
+          {
+            method: "POST",
+            body: JSON.stringify(variables as HolidayCreate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "fixed-holiday-rules": {
+        const response = await apiRequest<FixedHolidayRule>(
+          `${ENDPOINTS.FIXED_HOLIDAY_RULES}/`,
+          {
+            method: "POST",
+            body: JSON.stringify(variables as FixedHolidayRuleCreate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "annual-holidays": {
+        const response = await apiRequest<AnnualHoliday>(
+          `${ENDPOINTS.ANNUAL_HOLIDAYS}/`,
+          {
+            method: "POST",
+            body: JSON.stringify(variables as AnnualHolidayCreate),
           }
         );
         return { data: response as any };
@@ -770,6 +935,8 @@ export const dataProvider: DataProvider = {
           normalizedType = "catalog/schedule-times";
         } else if (type === "catalog/coordinations") {
           normalizedType = "catalog/coordinations";
+        } else if (type === "terms") {
+          normalizedType = "terms";
         }
 
         const response = await apiRequest<{ message: string }>(
@@ -810,6 +977,50 @@ export const dataProvider: DataProvider = {
           {
             method: "PATCH",
             body: JSON.stringify(variables as HourlyRateHistoryUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "terms": {
+        const response = await apiRequest<Term>(
+          `${ENDPOINTS.TERMS}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables as TermUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "holidays": {
+        const response = await apiRequest<Holiday>(
+          `${ENDPOINTS.HOLIDAYS}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables as HolidayUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "fixed-holiday-rules": {
+        const response = await apiRequest<FixedHolidayRule>(
+          `${ENDPOINTS.FIXED_HOLIDAY_RULES}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables as FixedHolidayRuleUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "annual-holidays": {
+        const response = await apiRequest<AnnualHoliday>(
+          `${ENDPOINTS.ANNUAL_HOLIDAYS}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables as AnnualHolidayUpdate),
           }
         );
         return { data: response as any };
@@ -921,6 +1132,46 @@ export const dataProvider: DataProvider = {
           }
         );
         return { data: response as any };
+      }
+
+      case "terms": {
+        const response = await apiRequest<Term>(
+          `${ENDPOINTS.TERMS}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "holidays": {
+        await apiRequest(
+          `${ENDPOINTS.HOLIDAYS}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
+      }
+
+      case "fixed-holiday-rules": {
+        await apiRequest(
+          `${ENDPOINTS.FIXED_HOLIDAY_RULES}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
+      }
+
+      case "annual-holidays": {
+        await apiRequest(
+          `${ENDPOINTS.ANNUAL_HOLIDAYS}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
       }
 
       default:

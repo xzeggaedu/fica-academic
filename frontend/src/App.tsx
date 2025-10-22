@@ -40,6 +40,10 @@ import { CoordinationList } from "./pages/coordinations";
 import { RecycleBinList } from "./pages/recycle-bin";
 import { AcademicLevelsList } from "./pages/academic-levels";
 import { HourlyRatesList } from "./pages/hourly-rates";
+import { TermsList } from "./pages/terms/list";
+import { HolidaysList } from "./pages/holidays";
+import { FixedHolidayRulesList } from "./pages/fixed-holiday-rules";
+import { AnnualHolidaysList } from "./pages/annual-holidays";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -62,7 +66,7 @@ function App() {
                   authProvider={authProvider}
                   accessControlProvider={accessControlProvider}
                   resources={[
-                    // Top-level resources in order: Tasks, then Catalogs
+                    // Top-level resources in order: Tasks, Academic Planning, then Catalogs
                     {
                       name: "tasks",
                       list: "/tasks",
@@ -71,6 +75,57 @@ function App() {
                       meta: {
                         label: "Tareas",
                         canDelete: true,
+                      },
+                    },
+                    {
+                      name: "separator-planning",
+                      meta: {
+                        group: true,
+                        label: "separator",
+                      },
+                    },
+                    {
+                      name: "academic-planning",
+                      meta: {
+                        label: "Planificación Académica",
+                        group: true,
+                      },
+                    },
+                    {
+                      name: "terms",
+                      list: "/academic-planning/terms",
+                      meta: {
+                        label: "Ciclos Académicos",
+                        parent: "academic-planning",
+                        icon: "Calendar",
+                      },
+                    },
+                    {
+                      name: "holidays",
+                      list: "/academic-planning/holidays",
+                      meta: {
+                        label: "Asuetos del Año",
+                        parent: "academic-planning",
+                        icon: "CalendarDays",
+                      },
+                    },
+                    {
+                      name: "fixed-holiday-rules",
+                      list: "/academic-planning/fixed-holiday-rules",
+                      meta: {
+                        label: "Asuetos Fijos",
+                        parent: "academic-planning",
+                        icon: "CalendarCheck",
+                      },
+                    },
+                    {
+                      name: "annual-holidays",
+                      list: "/academic-planning/annual-holidays/:holidayId",
+                      meta: {
+                        label: "Asuetos Anuales",
+                        parent: "academic-planning",
+                        icon: "Calendar",
+                        hide: true, // Ocultar del menú principal
                       },
                     },
                     {
@@ -241,6 +296,12 @@ function App() {
                         <Route path="academic-levels" element={<AcademicLevelsList />} />
                         <Route path="hourly-rates" element={<HourlyRatesList />} />
                         <Route path="recycle-bin" element={<RecycleBinList />} />
+                      </Route>
+                      <Route path="/academic-planning">
+                        <Route path="terms" element={<TermsList />} />
+                        <Route path="holidays" element={<HolidaysList />} />
+                        <Route path="fixed-holiday-rules" element={<FixedHolidayRulesList />} />
+                        <Route path="annual-holidays/:holidayId" element={<AnnualHolidaysList />} />
                       </Route>
                       <Route path="*" element={<ErrorComponent />} />
                     </Route>

@@ -19,7 +19,7 @@ async def get_term(session: AsyncSession, term_id: int) -> Term | None:
     Returns:
         Term object or None if not found
     """
-    result = await session.execute(select(Term).where(Term.id == term_id))
+    result = await session.execute(select(Term).where(Term.id == term_id, Term.deleted.is_(False)))
     return result.scalar_one_or_none()
 
 
@@ -40,7 +40,7 @@ async def get_terms(
     Returns:
         List of Term objects
     """
-    stmt = select(Term)
+    stmt = select(Term).where(Term.deleted.is_(False))
 
     # Apply filters
     if year is not None:
@@ -163,7 +163,7 @@ async def update_term(session: AsyncSession, term_id: int, term_data: TermUpdate
 
 
 async def delete_term(session: AsyncSession, term_id: int) -> bool:
-    """Delete a term (hard delete).
+    """Delete a term (soft delete).
 
     Args:
         session: Database session
@@ -176,7 +176,40 @@ async def delete_term(session: AsyncSession, term_id: int) -> bool:
     if not term:
         return False
 
-    await session.delete(term)
+    # Soft delete: mark as deleted
+    term.deleted = True
+    term.deleted_at = datetime.utcnow()
+    term.updated_at = datetime.utcnow()
+    await session.commit()
+
+    return True
+
+
+async def restore_term(session: AsyncSession, term_id: int) -> bool:
+    """Restore a term from soft delete.
+
+    Args:
+        session: Database session
+        term_id: ID of the term to restore
+
+    Returns:
+        True if restored successfully, False if not found or already active
+    """
+    # Get the term including deleted ones
+    result = await session.execute(select(Term).where(Term.id == term_id))
+    term = result.scalar_one_or_none()
+
+    if not term:
+        return False
+
+    # If already active, consider it restored
+    if not term.deleted:
+        return True
+
+    # Restore: mark as not deleted
+    term.deleted = False
+    term.deleted_at = None
+    term.updated_at = datetime.utcnow()
     await session.commit()
 
     return True

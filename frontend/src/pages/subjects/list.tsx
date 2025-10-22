@@ -221,6 +221,15 @@ export const SubjectsList = () => {
 
     const currentValue = (current as any)[field];
 
+    // Verificar si el valor ha cambiado
+    if (value === currentValue) {
+      // No hay cambios, cancelar edición sin hacer save
+      setEditingId(null);
+      setEditingField(null);
+      setEditForm({});
+      return;
+    }
+
     // Usar la función del hook para actualizar con optimistic updates
     updateSingleField(id, field, value, currentValue, () => {
       setEditingId(null);

@@ -107,6 +107,21 @@ function SidebarItem({ item, selectedKey }: MenuItemProps) {
   return <SidebarItemLink item={item} selectedKey={selectedKey} />;
 }
 
+// Componente para manejar permisos de manera correcta
+function SidebarItemWithPermission({ item, selectedKey }: MenuItemProps) {
+  const { data: canAccess } = useCan({
+    resource: item.name,
+    action: "list",
+  });
+
+  // Solo renderizar si tiene permisos
+  if (canAccess && !canAccess.can) {
+    return null;
+  }
+
+  return <SidebarItem item={item} selectedKey={selectedKey} />;
+}
+
 function SidebarItemGroup({ item, selectedKey }: MenuItemProps) {
   const { children } = item;
   const { open } = useShadcnSidebar();
@@ -118,63 +133,18 @@ function SidebarItemGroup({ item, selectedKey }: MenuItemProps) {
     );
   }
 
-  // Verificar si hay hijos con permisos antes de renderizar el grupo
-  const hasVisibleChildren = () => {
-    if (!children || children.length === 0) return false;
-
-    return children.some((child: TreeMenuItem) => {
-      // Para verificar permisos sin renderizar, usamos useCan
-      // Esto es un poco tricky, pero es necesario para la verificación
-      return true; // Asumimos que al menos uno será visible
-    });
-  };
-
-  // Filtrar hijos basado en permisos y verificar si hay alguno visible
-  const VisibleChildren = () => {
+  // Renderizar hijos con verificación de permisos
+  const renderChildren = () => {
     if (!children || children.length === 0) return null;
 
-    const visibleChildren = children.map((child: TreeMenuItem) => {
-      const ChildComponent = () => {
-        const { data: canAccess } = useCan({
-          resource: child.name,
-          action: "list",
-        });
-
-        // Solo renderizar si tiene permisos
-        if (canAccess && !canAccess.can) {
-          return null;
-        }
-
-        return (
-          <SidebarItem
-            key={child.key || child.name}
-            item={child}
-            selectedKey={selectedKey}
-          />
-        );
-      };
-
-      return <ChildComponent key={child.key || child.name} />;
-    });
-
-    return <>{visibleChildren}</>;
+    return children.map((child: TreeMenuItem) => (
+      <SidebarItemWithPermission
+        key={child.key || child.name}
+        item={child}
+        selectedKey={selectedKey}
+      />
+    ));
   };
-
-  // Si no hay hijos visibles, no renderizar el grupo
-  const visibleChildrenElements = children?.map((child: TreeMenuItem) => {
-    const { data: canAccess } = useCan({
-      resource: child.name,
-      action: "list",
-    });
-    return canAccess?.can;
-  }) || [];
-
-  const hasAnyVisibleChild = visibleChildrenElements.some(Boolean);
-
-  // No renderizar el grupo si no tiene hijos visibles
-  if (!hasAnyVisibleChild) {
-    return null;
-  }
 
   return (
     <div className={cn("border-t", "border-sidebar-border", "pt-4")}>
@@ -201,7 +171,7 @@ function SidebarItemGroup({ item, selectedKey }: MenuItemProps) {
         {getDisplayName(item)}
       </span>
       <div className={cn("flex", "flex-col")}>
-        <VisibleChildren />
+        {renderChildren()}
       </div>
     </div>
   );
