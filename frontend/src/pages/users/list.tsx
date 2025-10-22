@@ -19,9 +19,13 @@ import { UserViewSheet } from "../../components/ui/users/user-view-sheet";
 import { getTableColumnClass } from "../../components/refine-ui/theme/theme-table";
 import { Unauthorized } from "../unauthorized";
 import { useUsersCrud } from "../../hooks/useUsersCrud";
+import { Calendar } from "@/components/ui/calendar"
 
 export const UserList = () => {
-  // Hook principal de usuarios con todas las operaciones CRUD
+  const [dates, setDates] = React.useState<Date[] | undefined>([])
+  console.log(dates)
+  // Hook principal de usuarios con todas las
+  // operaciones CRUD
   const {
     canCreate,
     itemsList: users,
@@ -329,6 +333,23 @@ export const UserList = () => {
           </CardContent>
         </Card>
       </div>
+      <Calendar
+        mode="multiple"
+        numberOfMonths={12}
+        selected={dates}
+        onSelect={setDates}
+        defaultMonth={new Date(2025, 0)}
+        className="
+          border shadow-sm
+          max-w-[1200px]
+          mx-auto
+          [&>div]:flex
+          [&>div]:flex-wrap
+          [&>div]:justify-center
+          [&>div]:items-center
+          [&>div]:gap-4
+        "
+      />
 
       {/* Sheet para ver detalles desde la fila */}
       {selectedUserId && (
