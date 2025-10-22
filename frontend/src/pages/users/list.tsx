@@ -333,24 +333,6 @@ export const UserList = () => {
           </CardContent>
         </Card>
       </div>
-      <Calendar
-        mode="multiple"
-        numberOfMonths={12}
-        selected={dates}
-        onSelect={setDates}
-        defaultMonth={new Date(2025, 0)}
-        className="
-          border shadow-sm
-          max-w-[1200px]
-          mx-auto
-          [&>div]:flex
-          [&>div]:flex-wrap
-          [&>div]:justify-center
-          [&>div]:items-center
-          [&>div]:gap-4
-        "
-      />
-
       {/* Sheet para ver detalles desde la fila */}
       {selectedUserId && (
         <UserViewSheet

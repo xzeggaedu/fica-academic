@@ -435,14 +435,9 @@ export const AnnualHolidaysList = () => {
         >
             <div className="container mx-auto py-6 space-y-6 max-w-[98%]">
                 {/* Header */}
-                <div className="flex justify-between items-start space-y-4">
-                    <div>
-                        <h1 className="text-2xl font-bold">Asuetos Anuales</h1>
-                        <p className="text-muted-foreground pb-2">
-                            Gestiona los asuetos específicos para el año seleccionado
-                        </p> {/* Breadcrumbs */}
-                        <Breadcrumb>
-                            <BreadcrumbList className="border-t border-gray-200 pt-2">
+                {/* Breadcrumbs */}
+                <Breadcrumb>
+                            <BreadcrumbList>
                                 <BreadcrumbItem>
                                     <BreadcrumbLink
                                         onClick={() => navigate("/academic-planning/holidays")}
@@ -466,6 +461,12 @@ export const AnnualHolidaysList = () => {
                                 </BreadcrumbItem>
                             </BreadcrumbList>
                         </Breadcrumb>
+                <div className="flex justify-between items-start space-y-4">
+                    <div>
+                        <h1 className="text-2xl font-bold">Asuetos Anuales</h1>
+                        <p className="text-muted-foreground pb-2">
+                            Gestiona los asuetos específicos para el año seleccionado
+                        </p>
                     </div>
                     <div className="flex items-center gap-2 justify-end">
                         <span className="text-sm text-muted-foreground">Vista:</span>

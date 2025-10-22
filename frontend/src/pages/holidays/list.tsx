@@ -28,7 +28,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Plus, Trash2, AlertCircle, CalendarDays, Eye } from "lucide-react";
+import { Calendar, Plus, Trash2, AlertCircle, CalendarDays, Eye, Pencil } from "lucide-react";
 import { CanAccess } from "@refinedev/core";
 import { Unauthorized } from "../unauthorized";
 import { TableFilters } from "@/components/ui/data/table-filters";
@@ -498,8 +498,8 @@ export const HolidaysList = () => {
                                                                     onClick={() => navigate(`/academic-planning/annual-holidays/${item.id}`)}
                                                                     className="flex items-center gap-1"
                                                                 >
-                                                                    <Eye className="h-4 w-4" />
-                                                                    <span className="font-semibold">{item.annual_holidays_count}</span>
+                                                                    <Pencil className="h-4 w-4" />
+                                                                    <span className="font-semibold">Detalle ({item.annual_holidays_count})</span>
                                                                 </Button>
                                                             </TableCell>
                                                         )}
