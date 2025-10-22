@@ -85,6 +85,10 @@ const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem(TOKEN_KEY);
   const headers: HeadersInit = {
     "Content-Type": "application/json",
+    // Prevenir cache del navegador para evitar respuestas obsoletas
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
   };
 
   if (token) {
@@ -99,12 +103,26 @@ const apiRequest = async <T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> => {
+  // Agregar timestamp para evitar cache del navegador en operaciones GET
+  const isGetRequest = options.method === 'GET' || !options.method;
+  // const url = isGetRequest
+  //   ? `${API_BASE_URL}${endpoint}${endpoint.includes('?') ? '&' : '?'}_t=${Date.now()}`
+  //   : `${API_BASE_URL}${endpoint}`;
+
   const url = `${API_BASE_URL}${endpoint}`;
+
+  // Headers específicos para operaciones GET
+  const getHeaders = isGetRequest ? {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+  } : {};
 
   const config: RequestInit = {
     ...options,
     headers: {
       ...getAuthHeaders(),
+      ...getHeaders,
       ...options.headers,
     },
     credentials: "include",

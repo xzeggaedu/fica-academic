@@ -36,6 +36,9 @@ export const useAnnualHolidaysCrud = (holidayId?: number) => {
     },
     queryOptions: {
       enabled: canAccess?.can ?? false,
+      staleTime: 0, // Forzar que los datos siempre se consideren obsoletos
+      refetchOnMount: true, // Siempre refetch al montar
+      refetchOnWindowFocus: false, // No refetch al enfocar ventana
     },
   });
 
@@ -79,7 +82,10 @@ export const useAnnualHolidaysCrud = (holidayId?: number) => {
       },
       {
         onSuccess: () => {
-          invalidate({ resource: "annual-holidays", invalidates: ["list"] });
+          invalidate({
+            resource: "annual-holidays",
+            invalidates: ["list", "detail", "many"]
+          });
           toast.success("Asueto anual creado", {
             description: `El asueto "${data.name}" ha sido creado exitosamente.`,
             richColors: true,
@@ -114,7 +120,10 @@ export const useAnnualHolidaysCrud = (holidayId?: number) => {
       },
       {
         onSuccess: () => {
-          invalidate({ resource: "annual-holidays", invalidates: ["list"] });
+          invalidate({
+            resource: "annual-holidays",
+            invalidates: ["list", "detail", "many"]
+          });
           toast.success("Asueto anual actualizado", {
             description: "El asueto anual ha sido actualizado exitosamente.",
             richColors: true,
@@ -148,7 +157,10 @@ export const useAnnualHolidaysCrud = (holidayId?: number) => {
       },
       {
         onSuccess: () => {
-          invalidate({ resource: "annual-holidays", invalidates: ["list"] });
+          invalidate({
+            resource: "annual-holidays",
+            invalidates: ["list", "detail", "many"]
+          });
           toast.success("Asueto anual eliminado", {
             description: `El asueto "${entityName}" ha sido eliminado permanentemente.`,
             richColors: true,
@@ -184,7 +196,10 @@ export const useAnnualHolidaysCrud = (holidayId?: number) => {
       },
       {
         onSuccess: () => {
-          invalidate({ resource: "annual-holidays", invalidates: ["list"] });
+          invalidate({
+            resource: "annual-holidays",
+            invalidates: ["list", "detail", "many"]
+          });
           onSuccess?.();
         },
         onError: (error) => {

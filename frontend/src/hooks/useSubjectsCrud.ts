@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCreate, useUpdate, useList, useCan, useInvalidate } from "@refinedev/core";
 import { toast } from "sonner";
 import type { Subject, SubjectCreate, SubjectUpdate } from "@/types/api";
@@ -20,14 +20,21 @@ export const useSubjectsCrud = () => {
     },
     queryOptions: {
       enabled: canAccess?.can ?? false,
+      staleTime: 0, // Forzar que los datos siempre se consideren obsoletos
+      refetchOnMount: true, // Siempre refetch al montar
+      refetchOnWindowFocus: false, // No refetch al enfocar ventana
     },
   });
 
-  const itemsList = result?.data || [];
+  // const itemsList = result?.data || [];
+  const itemsList = useMemo(() => result?.data || [], [result?.data]);
   const total = result?.total || 0;
   const isLoading = query.isLoading;
   const isError = query.isError;
 
+  useEffect(() => {
+    console.log(itemsList);
+  }, [itemsList]);
   // Hooks de Refine para operaciones CRUD
   const { mutate: createMutate, mutation: createMutation } = useCreate();
   const { mutate: updateMutate, mutation: updateMutation } = useUpdate({
@@ -59,7 +66,10 @@ export const useSubjectsCrud = () => {
       },
       {
         onSuccess: () => {
-          invalidate({ resource: "subjects", invalidates: ["list"] });
+          invalidate({
+            resource: "subjects",
+            invalidates: ["list", "detail", "many"]
+          });
           setIsCreateModalOpen(false);
           toast.success("Asignatura creada exitosamente", {
             description: `La asignatura "${values.subject_name}" ha sido creada correctamente.`,
@@ -91,7 +101,10 @@ export const useSubjectsCrud = () => {
       },
       {
         onSuccess: () => {
-          invalidate({ resource: "subjects", invalidates: ["list"] });
+          invalidate({
+            resource: "subjects",
+            invalidates: ["list", "detail", "many"]
+          });
           setIsEditModalOpen(false);
           setEditingItem(null);
           toast.success("Asignatura actualizada exitosamente", {
@@ -123,8 +136,13 @@ export const useSubjectsCrud = () => {
         errorNotification: false,
       },
       {
-        onSuccess: () => {
-          invalidate({ resource: "subjects", invalidates: ["list"] });
+        onSuccess: (data: any) => {
+          invalidate({
+            resource: "subjects",
+            invalidates: ["list", "detail", "many"]
+          });
+          console.log(data);
+
           toast.success("Asignatura movida a papelera", {
             description: `La asignatura "${entityName}" ha sido movida a la papelera de reciclaje.`,
             richColors: true,
