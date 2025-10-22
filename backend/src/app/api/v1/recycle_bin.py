@@ -178,6 +178,10 @@ async def restore_from_recycle_bin(
         from ...crud.crud_catalog_coordination import restore_coordination
 
         restore_success = await restore_coordination(db=db, coordination_id=int(entity_id))
+    elif entity_type == "terms":
+        from ...crud.crud_term import restore_term
+
+        restore_success = await restore_term(session=db, term_id=int(entity_id))
     else:
         raise NotFoundException(f"Tipo de entidad '{entity_type}' no soportado para restauración")
 

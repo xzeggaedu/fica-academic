@@ -90,6 +90,12 @@ def mock_db():
 
 
 @pytest.fixture
+def db_session():
+    """Mock async database session for unit tests."""
+    return Mock(spec=AsyncSession)
+
+
+@pytest.fixture
 def mock_redis():
     """Mock Redis connection for unit tests."""
     mock_redis = Mock()

@@ -177,6 +177,60 @@ async def seed_hourly_rates():
         return False
 
 
+async def seed_fixed_holiday_rules():
+    """Seed fixed holiday rules."""
+    logger.info("Seeding fixed holiday rules...")
+    try:
+        # Import and run the seeding
+        from src.app.core.db.database import local_session
+        from src.scripts.seed_fixed_holiday_rules import seed_fixed_holiday_rules
+
+        async with local_session() as session:
+            await seed_fixed_holiday_rules(session)
+
+        logger.info("Fixed holiday rules seeding completed")
+        return True
+    except Exception as e:
+        logger.error(f"Fixed holiday rules seeding failed: {e}")
+        return False
+
+
+async def seed_terms():
+    """Seed academic terms."""
+    logger.info("Seeding academic terms...")
+    try:
+        # Import and run the seeding
+        from src.app.core.db.database import local_session
+        from src.scripts.seed_terms import seed_terms
+
+        async with local_session() as session:
+            await seed_terms(session)
+
+        logger.info("Terms seeding completed")
+        return True
+    except Exception as e:
+        logger.error(f"Terms seeding failed: {e}")
+        return False
+
+
+async def seed_holidays():
+    """Seed holidays for 2025."""
+    logger.info("Seeding holidays for 2025...")
+    try:
+        # Import and run the seeding
+        from src.app.core.db.database import local_session
+        from src.scripts.seed_holidays import seed_holidays
+
+        async with local_session() as session:
+            await seed_holidays(session)
+
+        logger.info("Holidays seeding completed")
+        return True
+    except Exception as e:
+        logger.error(f"Holidays seeding failed: {e}")
+        return False
+
+
 async def wait_for_db(max_retries=60, delay=2):
     """Wait for database to be ready."""
     logger.info("Waiting for database to be ready...")
@@ -239,6 +293,21 @@ async def main():
     # Seed hourly rates (depende de academic levels)
     if not await seed_hourly_rates():
         logger.error("Failed to seed hourly rates")
+        sys.exit(1)
+
+    # Seed fixed holiday rules (independiente, va antes de cualquier cosa relacionada con asuetos)
+    if not await seed_fixed_holiday_rules():
+        logger.error("Failed to seed fixed holiday rules")
+        sys.exit(1)
+
+    # Seed terms (independiente, define los ciclos académicos)
+    if not await seed_terms():
+        logger.error("Failed to seed terms")
+        sys.exit(1)
+
+    # Seed holidays (depende de fixed_holiday_rules, auto-genera annual holidays para 2025)
+    if not await seed_holidays():
+        logger.error("Failed to seed holidays")
         sys.exit(1)
 
     # Seed coordinations (depende de professors, debe ir antes de subjects)

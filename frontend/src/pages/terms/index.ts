@@ -1,0 +1,1 @@
+export { TermsList } from "./list";
