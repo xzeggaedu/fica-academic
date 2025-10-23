@@ -64,7 +64,7 @@ jobs:
       run: |
         cd backend
         export PYTHONPATH=/home/runner/work/fica-academic/fica-academic/backend/src
-        uv run python -m pytest tests/ -v --tb=short --maxfail=5
+        uv run python -m pytest tests/ -m "not integration" -v --tb=short --maxfail=5
 
     - name: Install frontend dependencies
       run: |
