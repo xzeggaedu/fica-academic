@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { UserRoleEnum } from "../../../types/auth";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";

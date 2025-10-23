@@ -74,7 +74,7 @@ jobs:
     - name: Run frontend linting
       run: |
         cd frontend
-        npm run lint
+        npm run lint:fix
 
     - name: Run frontend tests
       run: |

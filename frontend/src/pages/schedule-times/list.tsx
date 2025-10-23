@@ -434,7 +434,7 @@ export function ScheduleTimesList() {
       return;
     }
 
-    let updateData: ScheduleTimeUpdatePayload = {};
+    const updateData: ScheduleTimeUpdatePayload = {};
 
     if (field === "days_array") {
       // Si estamos editando días, usar el array de índices

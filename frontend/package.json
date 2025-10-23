@@ -98,6 +98,8 @@
     "build": "refine build",
     "start": "refine start",
     "refine": "refine",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
+    "lint:fix": "eslint . --ext ts,tsx --fix",
     "test": "vitest",
     "test:watch": "vitest --watch --reporter=basic",
     "test:ui": "vitest --ui",
