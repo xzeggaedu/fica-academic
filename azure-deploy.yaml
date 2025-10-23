@@ -1,0 +1,30 @@
+# Azure Container Apps Configuration
+# Este archivo define la configuración para desplegar la aplicación en Azure Container Apps
+
+# Variables de entorno necesarias para el despliegue
+# Estas deben ser configuradas en Azure Container Apps
+
+# Backend Environment Variables:
+# - DATABASE_URL: URL de conexión a la base de datos PostgreSQL
+# - REDIS_URL: URL de conexión a Redis
+# - SECRET_KEY: Clave secreta para JWT
+# - ALGORITHM: Algoritmo para JWT (HS256)
+# - ACCESS_TOKEN_EXPIRE_MINUTES: Tiempo de expiración del token
+# - ENVIRONMENT: production
+
+# Frontend Environment Variables:
+# - VITE_API_BASE_URL: URL base de la API (debe apuntar al backend)
+# - VITE_APP_TITLE: Título de la aplicación
+
+# Configuración de recursos recomendada:
+# Backend:
+#   - CPU: 1 vCPU
+#   - Memory: 2 GB
+#   - Min Replicas: 1
+#   - Max Replicas: 10
+
+# Frontend:
+#   - CPU: 0.5 vCPU
+#   - Memory: 1 GB
+#   - Min Replicas: 1
+#   - Max Replicas: 5

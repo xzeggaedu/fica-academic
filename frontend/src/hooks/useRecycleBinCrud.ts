@@ -99,7 +99,7 @@ export const useRecycleBinCrud = (props?: UseRecycleBinCrudProps) => {
         errorNotification: false,
       },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           invalidate({ resource: "recycle-bin", invalidates: ["list"] });
           onSuccess?.();
         },

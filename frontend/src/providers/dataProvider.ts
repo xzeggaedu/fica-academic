@@ -103,26 +103,12 @@ const apiRequest = async <T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> => {
-  // Agregar timestamp para evitar cache del navegador en operaciones GET
-  const isGetRequest = options.method === 'GET' || !options.method;
-  // const url = isGetRequest
-  //   ? `${API_BASE_URL}${endpoint}${endpoint.includes('?') ? '&' : '?'}_t=${Date.now()}`
-  //   : `${API_BASE_URL}${endpoint}`;
-
   const url = `${API_BASE_URL}${endpoint}`;
-
-  // Headers específicos para operaciones GET
-  const getHeaders = isGetRequest ? {
-    "Cache-Control": "no-cache, no-store, must-revalidate",
-    "Pragma": "no-cache",
-    "Expires": "0",
-  } : {};
 
   const config: RequestInit = {
     ...options,
     headers: {
       ...getAuthHeaders(),
-      ...getHeaders,
       ...options.headers,
     },
     credentials: "include",
@@ -134,7 +120,21 @@ const apiRequest = async <T>(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new ApiError(errorData.detail || `HTTP ${response.status}: ${response.statusText}`, response.status);
+
+      // Manejar cuando errorData.detail es un objeto
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+      if (errorData.detail) {
+        if (typeof errorData.detail === 'string') {
+          errorMessage = errorData.detail;
+        } else if (typeof errorData.detail === 'object' && errorData.detail.message) {
+          errorMessage = errorData.detail.message;
+        } else if (typeof errorData.detail === 'object') {
+          errorMessage = JSON.stringify(errorData.detail);
+        }
+      }
+
+      throw new ApiError(errorMessage, response.status);
     }
 
     // Handle empty responses (like 204 No Content)
@@ -945,18 +945,7 @@ export const dataProvider: DataProvider = {
           normalizedType = "user";
         } else if (type === "faculty") {
           normalizedType = "catalog/faculties";
-        } else if (type === "catalog/professors") {
-          normalizedType = "catalog/professors";
-        } else if (type === "catalog/subjects") {
-          normalizedType = "catalog/subjects";
-        } else if (type === "catalog/schedule-times") {
-          normalizedType = "catalog/schedule-times";
-        } else if (type === "catalog/coordinations") {
-          normalizedType = "catalog/coordinations";
-        } else if (type === "terms") {
-          normalizedType = "terms";
         }
-
         const response = await apiRequest<{ message: string }>(
           `${API_BASE_PATH}/${normalizedType}/soft-delete/${id}`,
           {
@@ -968,7 +957,11 @@ export const dataProvider: DataProvider = {
       }
 
       case "recycle-bin-restore": {
-        const response = await apiRequest<{ message: string }>(
+        const response = await apiRequest<{
+          message: string;
+          conflict_resolved?: boolean;
+          conflicting_level?: { id: number; code: string; name: string }
+        }>(
           `${API_BASE_PATH}/recycle-bin/${id}/restore`,
           {
             method: "POST",

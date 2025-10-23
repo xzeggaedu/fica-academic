@@ -27,6 +27,7 @@ async def get_academic_levels(
     limit: int = 100,
     is_active: bool | None = None,
     priority: int | None = None,
+    include_deleted: bool = False,
 ) -> list[AcademicLevel]:
     """Get list of academic levels with optional filters.
 
@@ -36,13 +37,20 @@ async def get_academic_levels(
         limit: Maximum number of records to return
         is_active: Filter by active status (None = all)
         priority: Filter by specific priority level
+        include_deleted: Include soft deleted records
 
     Returns:
         List of AcademicLevel objects
     """
     stmt = select(AcademicLevel)
 
-    # Apply filters
+    # Apply soft delete filter
+    if include_deleted:
+        stmt = stmt.where(AcademicLevel.deleted.is_(True))
+    else:
+        stmt = stmt.where((AcademicLevel.deleted.is_(False)) | (AcademicLevel.deleted.is_(None)))
+
+    # Apply other filters
     if is_active is not None:
         stmt = stmt.where(AcademicLevel.is_active == is_active)
     if priority is not None:
@@ -71,13 +79,26 @@ async def create_academic_level(session: AsyncSession, level_data: AcademicLevel
     Raises:
         ValueError: If code already exists or priority is duplicated for active levels
     """
-    # Check if code already exists
-    existing_code = await session.execute(select(AcademicLevel).where(AcademicLevel.code == level_data.code.upper()))
+    # Check maximum number of academic levels (5)
+    total_count = await count_academic_levels(session=session)
+    if total_count >= 5:
+        raise ValueError("No se pueden crear más de 5 niveles académicos")
+
+    # Check if code already exists and is not deleted
+    existing_code = await session.execute(
+        select(AcademicLevel).where(
+            AcademicLevel.code == level_data.code, AcademicLevel.deleted.is_(False) | AcademicLevel.deleted.is_(None)
+        )
+    )
     if existing_code.scalar_one_or_none():
         raise ValueError(f"El código '{level_data.code}' ya existe")
 
-    # Check if name already exists
-    existing_name = await session.execute(select(AcademicLevel).where(AcademicLevel.name == level_data.name))
+    # Check if name already exists and is not deleted
+    existing_name = await session.execute(
+        select(AcademicLevel).where(
+            AcademicLevel.name == level_data.name, AcademicLevel.deleted.is_(False) | AcademicLevel.deleted.is_(None)
+        )
+    )
     if existing_name.scalar_one_or_none():
         raise ValueError(f"El nombre '{level_data.name}' ya existe")
 
@@ -88,6 +109,7 @@ async def create_academic_level(session: AsyncSession, level_data: AcademicLevel
                 and_(
                     AcademicLevel.priority == level_data.priority,
                     AcademicLevel.is_active == True,  # noqa: E712
+                    AcademicLevel.deleted.is_(False) | AcademicLevel.deleted.is_(None),
                 )
             )
         )
@@ -96,7 +118,7 @@ async def create_academic_level(session: AsyncSession, level_data: AcademicLevel
 
     # Create new academic level
     new_level = AcademicLevel(
-        code=level_data.code.upper(),
+        code=level_data.code,
         name=level_data.name,
         priority=level_data.priority,
         description=level_data.description,
@@ -184,38 +206,107 @@ async def update_academic_level(
     return level
 
 
-async def soft_delete_academic_level(session: AsyncSession, level_id: int) -> AcademicLevel | None:
-    """Soft delete an academic level (mark as inactive).
+async def soft_delete_academic_level(session: AsyncSession, level_id: int) -> bool:
+    """Soft delete an academic level (mark as deleted).
 
     Args:
         session: Database session
         level_id: ID of the academic level to delete
 
     Returns:
-        Updated AcademicLevel object or None if not found
+        True if successfully deleted
     """
+    from datetime import UTC, datetime
+
     level = await get_academic_level(session, level_id)
     if not level:
-        return None
+        return False
 
-    level.is_active = False
+    # Update with soft delete fields
+    level.deleted = True
+    level.deleted_at = datetime.now(UTC)
+    level.is_active = False  # Also mark as inactive for consistency
+
     await session.commit()
     await session.refresh(level)
 
-    return level
+    return True
 
 
-async def count_academic_levels(session: AsyncSession, is_active: bool | None = None) -> int:
+async def restore_academic_level(session: AsyncSession, level_id: int) -> dict:
+    """Restore a soft deleted academic level.
+
+    Args:
+        session: Database session
+        level_id: ID of the academic level to restore
+
+    Returns:
+        Dict with success status and conflict information
+    """
+    level = await get_academic_level(session, level_id)
+    if not level:
+        return {"success": False, "message": "Nivel académico no encontrado"}
+
+    # Verificar si ya existe un nivel académico activo con el mismo código
+    existing_active = await session.execute(
+        select(AcademicLevel).where(
+            AcademicLevel.code == level.code,
+            AcademicLevel.deleted.is_(False) | AcademicLevel.deleted.is_(None),
+            AcademicLevel.id != level_id,
+        )
+    )
+    existing_active_level = existing_active.scalar_one_or_none()
+
+    if existing_active_level:
+        # Hay un conflicto: existe otro nivel académico activo con el mismo código
+        # No restaurar y retornar información del conflicto
+        conflicting_level_info = {
+            "id": existing_active_level.id,
+            "code": existing_active_level.code,
+            "name": existing_active_level.name,
+        }
+
+        return {
+            "success": False,
+            "message": (
+                f"No se puede restaurar el nivel académico '{level.code}' porque ya existe "
+                f"un nivel activo con el mismo código: '{existing_active_level.code} - {existing_active_level.name}'"
+            ),
+            "conflict_detected": True,
+            "conflicting_level": conflicting_level_info,
+        }
+
+    # No hay conflicto, restaurar el nivel académico
+    level.deleted = False
+    level.deleted_at = None
+    level.is_active = True  # Activar el nivel restaurado
+
+    await session.commit()
+    await session.refresh(level)
+
+    return {"success": True, "message": "Nivel académico restaurado exitosamente", "conflict_detected": False}
+
+
+async def count_academic_levels(
+    session: AsyncSession, is_active: bool | None = None, include_deleted: bool = False
+) -> int:
     """Count academic levels with optional filter.
 
     Args:
         session: Database session
         is_active: Filter by active status (None = all)
+        include_deleted: Include soft deleted records
 
     Returns:
         Count of academic levels
     """
     stmt = select(AcademicLevel)
+
+    # Apply soft delete filter
+    if include_deleted:
+        stmt = stmt.where(AcademicLevel.deleted.is_(True))
+    else:
+        stmt = stmt.where((AcademicLevel.deleted.is_(False)) | (AcademicLevel.deleted.is_(None)))
 
     if is_active is not None:
         stmt = stmt.where(AcademicLevel.is_active == is_active)
