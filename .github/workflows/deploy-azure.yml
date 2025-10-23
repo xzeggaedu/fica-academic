@@ -52,7 +52,7 @@ jobs:
       run: |
         cd backend
         pip install uv
-        uv sync --frozen
+        uv sync --frozen --extra dev
 
     - name: Run backend linting
       run: |
