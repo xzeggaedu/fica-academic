@@ -183,7 +183,7 @@ jobs:
         acrName: ${{ env.AZURE_CONTAINER_REGISTRY }}
         containerAppName: ${{ env.CONTAINER_NAME_BACKEND }}
         resourceGroup: ${{ env.RESOURCE_GROUP }}
-        imageToDeploy: ${{ steps.meta-backend.outputs.tags }}
+        imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME_BACKEND }}:${{ github.ref_name }}
 
     - name: Deploy frontend to Azure Container Apps
       uses: azure/container-apps-deploy-action@v1
@@ -191,7 +191,7 @@ jobs:
         acrName: ${{ env.AZURE_CONTAINER_REGISTRY }}
         containerAppName: ${{ env.CONTAINER_NAME_FRONTEND }}
         resourceGroup: ${{ env.RESOURCE_GROUP }}
-        imageToDeploy: ${{ steps.meta-frontend.outputs.tags }}
+        imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME_FRONTEND }}:${{ github.ref_name }}
 
     - name: Deploy worker to Azure Container Apps
       uses: azure/container-apps-deploy-action@v1
@@ -199,7 +199,7 @@ jobs:
         acrName: ${{ env.AZURE_CONTAINER_REGISTRY }}
         containerAppName: ${{ env.CONTAINER_NAME_WORKER }}
         resourceGroup: ${{ env.RESOURCE_GROUP }}
-        imageToDeploy: ${{ steps.meta-worker.outputs.tags }}
+        imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME_WORKER }}:${{ github.ref_name }}
 
     - name: Get deployment URLs
       id: get-urls
