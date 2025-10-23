@@ -75,8 +75,27 @@ async def create_fixed_holiday_rule(session: AsyncSession, rule_data: FixedHolid
             and_(FixedHolidayRule.month == rule_data.month, FixedHolidayRule.day == rule_data.day)
         )
     )
-    if existing.scalar_one_or_none():
-        raise ValueError(f"Ya existe una regla para el {rule_data.day}/{rule_data.month}")
+    existing_rule = existing.scalar_one_or_none()
+
+    if existing_rule:
+        # Convertir mes a nombre para mensaje más amigable
+        month_names = [
+            "",
+            "Enero",
+            "Febrero",
+            "Marzo",
+            "Abril",
+            "Mayo",
+            "Junio",
+            "Julio",
+            "Agosto",
+            "Septiembre",
+            "Octubre",
+            "Noviembre",
+            "Diciembre",
+        ]
+        month_name = month_names[rule_data.month] if 1 <= rule_data.month <= 12 else f"Mes {rule_data.month}"
+        raise ValueError(f"Ya existe un asueto fijo para el {rule_data.day} de {month_name}")
 
     # Create new rule
     new_rule = FixedHolidayRule(
@@ -130,7 +149,24 @@ async def update_fixed_holiday_rule(
             )
         )
         if existing.scalar_one_or_none():
-            raise ValueError(f"Ya existe otra regla para el {new_day}/{new_month}")
+            # Convertir mes a nombre para mensaje más amigable
+            month_names = [
+                "",
+                "Enero",
+                "Febrero",
+                "Marzo",
+                "Abril",
+                "Mayo",
+                "Junio",
+                "Julio",
+                "Agosto",
+                "Septiembre",
+                "Octubre",
+                "Noviembre",
+                "Diciembre",
+            ]
+            month_name = month_names[new_month] if 1 <= new_month <= 12 else f"Mes {new_month}"
+            raise ValueError(f"Ya existe un asueto fijo para el {new_day} de {month_name}")
 
     # Update fields
     if rule_data.name is not None:

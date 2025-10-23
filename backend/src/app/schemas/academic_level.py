@@ -1,21 +1,30 @@
 """Pydantic schemas for Academic Level API validation."""
 
 from datetime import datetime
+from enum import Enum
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class AcademicLevelCode(str, Enum):
+    """Códigos permitidos para niveles académicos."""
+
+    GDO = "GDO"
+    M1 = "M1"
+    M2 = "M2"
+    DR = "DR"
+    BLG = "BLG"
 
 
 class AcademicLevelBase(BaseModel):
     """Base schema for Academic Level with common fields."""
 
     code: Annotated[
-        str,
+        AcademicLevelCode,
         Field(
-            min_length=1,
-            max_length=10,
             examples=["BLG", "DR", "GDO"],
-            description="Código único del nivel académico (ej: BLG, DR, GDO)",
+            description="Código único del nivel académico (GDO, M1, M2, DR, BLG)",
         ),
     ]
     name: Annotated[
@@ -33,7 +42,7 @@ class AcademicLevelBase(BaseModel):
             ge=1,
             le=5,
             examples=[5],
-            description="Prioridad de pago (5 = más alta, 1 = base)",
+            description="Prioridad de pago (1-5, donde 1 es la más alta)",
         ),
     ]
     description: Annotated[
@@ -44,11 +53,8 @@ class AcademicLevelBase(BaseModel):
 
     @field_validator("code")
     @classmethod
-    def validate_code_uppercase(cls, v: str) -> str:
-        """Validate that code is uppercase and has no spaces."""
-        v = v.strip().upper()
-        if " " in v:
-            raise ValueError("El código no puede contener espacios")
+    def validate_code_allowed(cls, v: AcademicLevelCode) -> AcademicLevelCode:
+        """Validate that code is one of the allowed values."""
         return v
 
     @field_validator("name")
@@ -90,7 +96,7 @@ class AcademicLevelCreate(BaseModel):
             ge=1,
             le=5,
             examples=[5],
-            description="Prioridad de pago (5 = más alta, 1 = base)",
+            description="Prioridad de pago (1-5, donde 1 es la más alta)",
         ),
     ]
     description: Annotated[
@@ -101,11 +107,8 @@ class AcademicLevelCreate(BaseModel):
 
     @field_validator("code")
     @classmethod
-    def validate_code_uppercase(cls, v: str) -> str:
-        """Validate that code is uppercase and has no spaces."""
-        v = v.strip().upper()
-        if " " in v:
-            raise ValueError("El código no puede contener espacios")
+    def validate_code_allowed(cls, v: AcademicLevelCode) -> AcademicLevelCode:
+        """Validate that code is one of the allowed values."""
         return v
 
     @field_validator("name")
@@ -123,7 +126,7 @@ class AcademicLevelUpdate(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    code: Annotated[str | None, Field(default=None, min_length=1, max_length=10)] = None
+    code: Annotated[AcademicLevelCode | None, Field(default=None)] = None
     name: Annotated[str | None, Field(default=None, min_length=1, max_length=100)] = None
     priority: Annotated[int | None, Field(default=None, ge=1, le=5)] = None
     description: Annotated[str | None, Field(default=None)] = None
@@ -131,13 +134,8 @@ class AcademicLevelUpdate(BaseModel):
 
     @field_validator("code")
     @classmethod
-    def validate_code_uppercase(cls, v: str | None) -> str | None:
-        """Validate that code is uppercase and has no spaces."""
-        if v is None:
-            return v
-        v = v.strip().upper()
-        if " " in v:
-            raise ValueError("El código no puede contener espacios")
+    def validate_code_allowed(cls, v: AcademicLevelCode | None) -> AcademicLevelCode | None:
+        """Validate that code is one of the allowed values."""
         return v
 
     @field_validator("name")
