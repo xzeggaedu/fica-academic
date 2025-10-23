@@ -35,10 +35,55 @@ jobs:
         username: ${{ secrets.ACR_USERNAME }}
         password: ${{ secrets.ACR_PASSWORD }}
 
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        pip install uv
+        uv sync --frozen
+
+    - name: Run backend linting
+      run: |
+        cd backend
+        uv run ruff check .
+        uv run ruff format --check .
+
+    - name: Run backend tests
+      run: |
+        cd backend
+        export PYTHONPATH=/home/runner/work/fica-academic/fica-academic/backend/src
+        uv run python -m pytest tests/ -v --tb=short --maxfail=5
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Run frontend linting
+      run: |
+        cd frontend
+        npm run lint
+
+    - name: Run frontend tests
+      run: |
+        cd frontend
+        npm run test
+
     - name: Verify database containers are running
       run: |
         echo "🔍 Verifying database containers are running..."
-
+        
         # Check PostgreSQL container
         POSTGRES_STATUS=$(az containerapp show --name fica-postgres --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv)
         if [ "$POSTGRES_STATUS" != "Running" ]; then
@@ -46,7 +91,7 @@ jobs:
           exit 1
         fi
         echo "✅ PostgreSQL container is running"
-
+        
         # Check Redis container
         REDIS_STATUS=$(az containerapp show --name fica-redis --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv)
         if [ "$REDIS_STATUS" != "Running" ]; then
@@ -54,8 +99,19 @@ jobs:
           exit 1
         fi
         echo "✅ Redis container is running"
-
+        
         echo "🎉 All database containers are ready for deployment!"
+
+    - name: Test Summary
+      run: |
+        echo "🧪 Test Summary:"
+        echo "✅ Backend linting passed"
+        echo "✅ Backend tests passed"
+        echo "✅ Frontend linting passed"
+        echo "✅ Frontend tests passed"
+        echo "✅ Database containers verified"
+        echo ""
+        echo "🚀 All checks passed! Proceeding with deployment..."
 
     - name: Extract metadata for backend
       id: meta-backend
@@ -222,8 +278,16 @@ jobs:
       run: |
         if [ "${{ job.status }}" == "success" ]; then
           echo "✅ Deployment successful!"
-          echo "Backend: ${{ steps.get-urls.outputs.backend-url }}"
-          echo "Frontend: ${{ steps.get-urls.outputs.frontend-url }}"
+          echo ""
+          echo "🧪 All tests passed:"
+          echo "  - Backend linting: ✅"
+          echo "  - Backend tests: ✅"
+          echo "  - Frontend linting: ✅"
+          echo "  - Frontend tests: ✅"
+          echo ""
+          echo "🌐 Application URLs:"
+          echo "  Backend: ${{ steps.get-urls.outputs.backend-url }}"
+          echo "  Frontend: ${{ steps.get-urls.outputs.frontend-url }}"
           echo ""
           echo "🔗 Database containers:"
           echo "  PostgreSQL: fica-postgres"

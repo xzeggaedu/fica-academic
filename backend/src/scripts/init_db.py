@@ -3,6 +3,7 @@
 
 This script runs migrations and creates the first superuser.
 """
+
 import asyncio
 import logging
 import subprocess
