@@ -258,7 +258,7 @@ jobs:
         POSTGRES_URL=$(az containerapp show --name fica-postgres --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv)
         REDIS_URL=$(az containerapp show --name fica-redis --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv)
 
-        # Update backend environment variables
+        # Update backend environment variables and resource limits
         az containerapp update \
           --name ${{ env.CONTAINER_NAME_BACKEND }} \
           --resource-group ${{ env.RESOURCE_GROUP }} \
@@ -267,17 +267,25 @@ jobs:
             BACKEND_URL=${{ steps.get-urls.outputs.backend-url }} \
             ENVIRONMENT=production \
             DATABASE_URL="postgresql://ficaadmin:FicaAdmin123!@$POSTGRES_URL:5432/fica_academics" \
-            REDIS_CACHE_URL="redis://$REDIS_URL:6379"
+            REDIS_CACHE_URL="redis://$REDIS_URL:6379" \
+          --min-replicas 0 \
+          --max-replicas 2 \
+          --cpu 0.5 \
+          --memory 1.0Gi
 
-        # Update frontend environment variables
+        # Update frontend environment variables and resource limits
         az containerapp update \
           --name ${{ env.CONTAINER_NAME_FRONTEND }} \
           --resource-group ${{ env.RESOURCE_GROUP }} \
           --set-env-vars \
             VITE_API_BASE_URL=${{ steps.get-urls.outputs.backend-url }} \
-            NODE_ENV=production
+            NODE_ENV=production \
+          --min-replicas 0 \
+          --max-replicas 2 \
+          --cpu 0.25 \
+          --memory 0.5Gi
 
-        # Update worker environment variables and command
+        # Update worker environment variables and command with resource limits
         az containerapp update \
           --name ${{ env.CONTAINER_NAME_WORKER }} \
           --resource-group ${{ env.RESOURCE_GROUP }} \
@@ -285,8 +293,11 @@ jobs:
             DATABASE_URL="postgresql://ficaadmin:FicaAdmin123!@$POSTGRES_URL:5432/fica_academics" \
             REDIS_CACHE_URL="redis://$REDIS_URL:6379" \
             ENVIRONMENT=production \
-          --set-env-vars \
-            COMMAND="arq src.app.core.worker.settings.WorkerSettings"
+            COMMAND="arq src.app.core.worker.settings.WorkerSettings" \
+          --min-replicas 0 \
+          --max-replicas 1 \
+          --cpu 0.25 \
+          --memory 0.5Gi
 
     - name: Verify backend connectivity
       run: |

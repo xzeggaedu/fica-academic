@@ -43,7 +43,7 @@ RUN npm ci --omit=dev --legacy-peer-deps && npm cache clean --force
 # Switch to non-root user
 USER refine
 
-# Expose port
+# Expose port (corrected to match Azure configuration)
 EXPOSE 3000
 
 # Use dumb-init to handle signals properly

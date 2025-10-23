@@ -32,77 +32,77 @@ print_step() {
 # Función para ejecutar pruebas del backend
 run_backend_tests() {
     print_step "Ejecutando pruebas del backend..."
-    
+
     cd backend
-    
+
     # Verificar que uv esté instalado
     if ! command -v uv &> /dev/null; then
         print_error "uv no está instalado. Instalando..."
         pip install uv
     fi
-    
+
     # Instalar dependencias
     print_message "Instalando dependencias del backend..."
     uv sync --frozen
-    
+
     # Ejecutar linting
     print_message "Ejecutando linting del backend..."
     uv run ruff check .
     uv run ruff format --check .
-    
+
     # Ejecutar pruebas
     print_message "Ejecutando pruebas del backend..."
     export PYTHONPATH=$(pwd)/src
     uv run python -m pytest tests/ -v --tb=short --maxfail=5
-    
+
     print_message "✅ Pruebas del backend completadas exitosamente"
-    
+
     cd ..
 }
 
 # Función para ejecutar pruebas del frontend
 run_frontend_tests() {
     print_step "Ejecutando pruebas del frontend..."
-    
+
     cd frontend
-    
+
     # Verificar que npm esté instalado
     if ! command -v npm &> /dev/null; then
         print_error "npm no está instalado"
         exit 1
     fi
-    
+
     # Instalar dependencias
     print_message "Instalando dependencias del frontend..."
     npm ci
-    
+
     # Ejecutar linting
     print_message "Ejecutando linting del frontend..."
     npm run lint
-    
+
     # Ejecutar pruebas
     print_message "Ejecutando pruebas del frontend..."
     npm run test
-    
+
     print_message "✅ Pruebas del frontend completadas exitosamente"
-    
+
     cd ..
 }
 
 # Función para mostrar resumen
 show_summary() {
     print_step "Resumen de pruebas:"
-    
+
     echo ""
     echo -e "${GREEN}✅ Backend:${NC}"
     echo "  - Linting: ✅"
     echo "  - Tests: ✅"
-    
+
     echo ""
     echo -e "${GREEN}✅ Frontend:${NC}"
     echo "  - Linting: ✅"
     echo "  - Tests: ✅"
-    
+
     echo ""
     echo -e "${YELLOW}🚀 Listo para push:${NC}"
     echo "  - Todas las pruebas pasaron"
@@ -113,20 +113,20 @@ show_summary() {
 main() {
     print_message "🧪 Ejecutando todas las pruebas localmente..."
     echo ""
-    
+
     # Ejecutar pruebas del backend
     run_backend_tests
-    
+
     echo ""
-    
+
     # Ejecutar pruebas del frontend
     run_frontend_tests
-    
+
     echo ""
-    
+
     # Mostrar resumen
     show_summary
-    
+
     print_message "¡Todas las pruebas completadas exitosamente! 🎉"
 }
 
