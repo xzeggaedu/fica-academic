@@ -1,8 +1,9 @@
 """RecycleBin endpoints - CRUD operations for deleted items (Admin only)."""
 
+import logging
 from typing import Annotated, Any, cast
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +20,7 @@ from ...crud.crud_recycle_bin import (
 )
 from ...schemas.recycle_bin import RecycleBinRead, RecycleBinRestore
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["recycle-bin"])
 
 
@@ -182,6 +184,21 @@ async def restore_from_recycle_bin(
         from ...crud.crud_term import restore_term
 
         restore_success = await restore_term(session=db, term_id=int(entity_id))
+    elif entity_type == "academic-level":
+        from ...crud.crud_academic_level import restore_academic_level
+
+        restore_result = await restore_academic_level(session=db, level_id=int(entity_id))
+        restore_success = restore_result.get("success", False)
+
+        # Si hay conflicto detectado, lanzar excepción con el mensaje
+        if restore_result.get("conflict_detected"):
+            conflicting_level = restore_result.get("conflicting_level")
+            message = restore_result.get("message", "Conflicto detectado")
+            logger.warning(f"Conflicto al restaurar: {message}")
+            raise HTTPException(
+                status_code=400,
+                detail={"message": message, "conflict_detected": True, "conflicting_level": conflicting_level},
+            )
     else:
         raise NotFoundException(f"Tipo de entidad '{entity_type}' no soportado para restauración")
 

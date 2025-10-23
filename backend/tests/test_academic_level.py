@@ -33,23 +33,25 @@ class TestAcademicLevelValidation:
         assert level.is_active is True
 
     def test_code_uppercase_validation(self):
-        """Prueba que el código se convierta a mayúsculas automáticamente."""
-        from src.app.schemas.academic_level import AcademicLevelCreate
+        """Prueba que el código use el Enum correcto."""
+        from src.app.schemas.academic_level import AcademicLevelCode, AcademicLevelCreate
 
-        level = AcademicLevelCreate(code="blg", name="Bilingüe", priority=5)
+        level = AcademicLevelCreate(code=AcademicLevelCode.BLG, name="Bilingüe", priority=5)
 
-        assert level.code == "BLG"
+        assert level.code == AcademicLevelCode.BLG
 
     def test_code_no_spaces_validation(self):
-        """Prueba que el código no pueda contener espacios."""
+        """Prueba que el código use solo valores del Enum permitidos."""
         from pydantic import ValidationError
 
         from src.app.schemas.academic_level import AcademicLevelCreate
 
         with pytest.raises(ValidationError) as exc_info:
-            AcademicLevelCreate(code="B LG", name="Bilingüe", priority=5)
+            AcademicLevelCreate(code="INVALID_CODE", name="Bilingüe", priority=5)
 
-        assert "no puede contener espacios" in str(exc_info.value).lower()
+        # Verificar que el error menciona los valores permitidos
+        error_message = str(exc_info.value).lower()
+        assert "should be" in error_message or "invalid" in error_message
 
     def test_priority_range_validation(self):
         """Prueba que la prioridad esté en el rango válido."""
@@ -128,12 +130,12 @@ class TestAcademicLevelUpdate:
         assert update.name is None
 
     def test_update_code_uppercase(self):
-        """Prueba que el código se convierta a mayúsculas en actualización."""
-        from src.app.schemas.academic_level import AcademicLevelUpdate
+        """Prueba que el código use el Enum correcto en actualización."""
+        from src.app.schemas.academic_level import AcademicLevelCode, AcademicLevelUpdate
 
-        update = AcademicLevelUpdate(code="msc")
+        update = AcademicLevelUpdate(code=AcademicLevelCode.M1)
 
-        assert update.code == "MSC"
+        assert update.code == AcademicLevelCode.M1
 
 
 class TestAcademicLevelRead:

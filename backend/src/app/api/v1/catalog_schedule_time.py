@@ -4,7 +4,6 @@ from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_current_superuser, get_current_user
@@ -19,6 +18,7 @@ from ...crud.crud_catalog_schedule_time import (
     restore_schedule_time,
     soft_delete_schedule_time,
     toggle_schedule_time_status,
+    update_schedule_time_with_auto_fields,
 )
 from ...crud.crud_recycle_bin import create_recycle_bin_entry, find_recycle_bin_entry, mark_as_restored
 from ...schemas.catalog_schedule_time import (
@@ -103,8 +103,15 @@ async def create_schedule_time(
     current_user: Annotated[dict, Depends(get_current_superuser)],  # Admin only
 ):
     """Crear un nuevo horario con generación automática de campos - Solo administradores."""
-    created_schedule_time = await create_schedule_time_with_auto_fields(db=db, schedule_time_data=schedule_time_data)
-    return created_schedule_time
+    try:
+        created_schedule_time = await create_schedule_time_with_auto_fields(
+            db=db, schedule_time_data=schedule_time_data
+        )
+        return created_schedule_time
+    except ValueError as e:
+        from fastapi import HTTPException, status
+
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.patch("/{schedule_time_id}", response_model=CatalogScheduleTimeRead)
@@ -142,26 +149,20 @@ async def update_schedule_time(
         end_str = end_time.strftime("%I:%M %p").lower().replace(" 0", " ")
         update_dict["range_text"] = f"{start_str} a {end_str}"
 
-    # Actualizar horario usando SQLAlchemy directamente
-    # Importar el modelo
-    from ...models.catalog_schedule_time import CatalogScheduleTime
+    # Usar la función de actualización con validación de duplicados
+    try:
+        updated_schedule_time = await update_schedule_time_with_auto_fields(
+            db=db, schedule_time_id=schedule_time_id, update_data=schedule_time_data
+        )
 
-    # Actualizar directamente con SQLAlchemy
-    stmt = select(CatalogScheduleTime).where(CatalogScheduleTime.id == schedule_time_id)
-    result = await db.execute(stmt)
-    schedule_time_obj = result.scalar_one_or_none()
+        if updated_schedule_time is None:
+            raise NotFoundException("Horario no encontrado")
 
-    if schedule_time_obj is None:
-        raise NotFoundException("Horario no encontrado")
+        return updated_schedule_time
+    except ValueError as e:
+        from fastapi import HTTPException, status
 
-    # Actualizar campos
-    for key, value in update_dict.items():
-        setattr(schedule_time_obj, key, value)
-
-    await db.commit()
-    await db.refresh(schedule_time_obj)
-
-    return schedule_time_obj
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.patch("/{schedule_time_id}/toggle", response_model=CatalogScheduleTimeRead)

@@ -100,8 +100,12 @@ async def create_annual_holiday(session: AsyncSession, annual_holiday_data: Annu
             )
         )
     )
-    if existing.scalar_one_or_none():
-        raise ValueError(f"Ya existe un asueto para la fecha {annual_holiday_data.date} en este año")
+    existing_holiday = existing.scalar_one_or_none()
+
+    if existing_holiday:
+        # Formatear fecha para mensaje más amigable
+        date_str = annual_holiday_data.date.strftime("%d de %B de %Y")
+        raise ValueError(f"Ya existe un asueto anual para el {date_str}")
 
     # Create new annual holiday
     new_annual_holiday = AnnualHoliday(
@@ -151,8 +155,11 @@ async def update_annual_holiday(
                 )
             )
         )
-        if existing.scalar_one_or_none():
-            raise ValueError(f"Ya existe otro asueto para la fecha {annual_holiday_data.date}")
+        existing_holiday = existing.scalar_one_or_none()
+        if existing_holiday:
+            # Formatear fecha para mensaje más amigable
+            date_str = annual_holiday_data.date.strftime("%d de %B de %Y")
+            raise ValueError(f"Ya existe un asueto anual para el {date_str}")
 
     # Update fields
     if annual_holiday_data.date is not None:
