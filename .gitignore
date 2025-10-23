@@ -374,6 +374,19 @@ Desktop.ini
 secrets/
 credentials/
 
+# Azure deployment scripts with sensitive information
+configure-azure-env-vars.sh
+generate-github-secrets.sh
+deploy-azure.sh
+AZURE-DEPLOYMENT-SETUP.md
+AZURE-DEPLOYMENT-SUMMARY.md
+AZURE-ENV-VARS-GUIDE.md
+configure-azure-env-vars-template.sh
+create-azure-database-services.sh
+run-seeders-manually.sh
+setup-azure-infrastructure.sh
+test-azure-deployment.sh
+create-containerized-database-services.sh
 # Application specific
 # Ignore all uploads except data directory and CSV files
 uploads/*

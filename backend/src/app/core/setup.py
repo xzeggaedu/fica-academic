@@ -35,6 +35,80 @@ async def create_tables() -> None:
         await conn.run_sync(Base.metadata.create_all)
 
 
+# -------------- seeders --------------
+async def run_seeders_if_needed() -> None:
+    """Ejecutar seeders si es necesario (solo si la base de datos está vacía)."""
+    try:
+        from ..crud.crud_academic_level import count_academic_levels
+        from ..db.database import async_session
+
+        # Verificar si ya hay datos en la base de datos
+        async with async_session() as session:
+            academic_levels_count = await count_academic_levels(session, include_deleted=False)
+
+            # Si no hay datos, ejecutar seeders
+            if academic_levels_count == 0:
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.info("Base de datos vacía detectada. Ejecutando seeders...")
+
+                # Importar y ejecutar seeders
+                from ...scripts.seed_academic_levels import seed_academic_levels
+                from ...scripts.seed_coordinations import seed_coordinations
+                from ...scripts.seed_faculties_schools import seed_faculties_schools
+                from ...scripts.seed_fixed_holiday_rules import seed_fixed_holiday_rules
+                from ...scripts.seed_holidays import seed_holidays
+                from ...scripts.seed_hourly_rates import seed_hourly_rates
+                from ...scripts.seed_professors import seed_professors
+                from ...scripts.seed_schedule_times import seed_schedule_times
+                from ...scripts.seed_subjects import seed_subjects
+                from ...scripts.seed_terms import seed_terms
+
+                # Ejecutar seeders en orden
+                await seed_academic_levels(session)
+                logger.info("Academic levels seeded ✓")
+
+                await seed_hourly_rates(session)
+                logger.info("Hourly rates seeded ✓")
+
+                await seed_faculties_schools(session)
+                logger.info("Faculties and schools seeded ✓")
+
+                await seed_coordinations(session)
+                logger.info("Coordinations seeded ✓")
+
+                await seed_subjects(session)
+                logger.info("Subjects seeded ✓")
+
+                await seed_professors(session)
+                logger.info("Professors seeded ✓")
+
+                await seed_schedule_times(session)
+                logger.info("Schedule times seeded ✓")
+
+                await seed_terms(session)
+                logger.info("Terms seeded ✓")
+
+                await seed_fixed_holiday_rules(session)
+                logger.info("Fixed holiday rules seeded ✓")
+
+                await seed_holidays(session)
+                logger.info("Holidays seeded ✓")
+
+                logger.info("Todos los seeders ejecutados exitosamente! 🎉")
+            else:
+                logger.info(f"Base de datos ya contiene {academic_levels_count} niveles académicos. Saltando seeders.")
+
+    except Exception as e:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error ejecutando seeders: {e}")
+        # No lanzar excepción para evitar que falle el inicio de la aplicación
+        logger.warning("Continuando sin seeders...")
+
+
 # -------------- cache --------------
 async def create_redis_cache_pool() -> None:
     cache.pool = redis.ConnectionPool.from_url(settings.REDIS_CACHE_URL)
@@ -93,6 +167,8 @@ def lifespan_factory(
 
             if create_tables_on_start:
                 await create_tables()
+                # Ejecutar seeders después de crear las tablas
+                await run_seeders_if_needed()
 
             initialization_complete.set()
 

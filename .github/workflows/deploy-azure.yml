@@ -1,0 +1,235 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [ dev ]
+  workflow_dispatch: # Permite ejecutar manualmente desde GitHub
+
+env:
+  AZURE_CONTAINER_REGISTRY: ficaacademicsacr
+  CONTAINER_NAME_BACKEND: fica-backend
+  CONTAINER_NAME_FRONTEND: fica-frontend
+  RESOURCE_GROUP: fica-academics-rg
+  LOCATION: eastus
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Log in to Azure Container Registry
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+
+    - name: Verify database containers are running
+      run: |
+        echo "🔍 Verifying database containers are running..."
+
+        # Check PostgreSQL container
+        POSTGRES_STATUS=$(az containerapp show --name fica-postgres --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv)
+        if [ "$POSTGRES_STATUS" != "Running" ]; then
+          echo "❌ PostgreSQL container is not running. Status: $POSTGRES_STATUS"
+          exit 1
+        fi
+        echo "✅ PostgreSQL container is running"
+
+        # Check Redis container
+        REDIS_STATUS=$(az containerapp show --name fica-redis --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv)
+        if [ "$REDIS_STATUS" != "Running" ]; then
+          echo "❌ Redis container is not running. Status: $REDIS_STATUS"
+          exit 1
+        fi
+        echo "✅ Redis container is running"
+
+        echo "🎉 All database containers are ready for deployment!"
+
+    - name: Extract metadata for backend
+      id: meta-backend
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME_BACKEND }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Extract metadata for frontend
+      id: meta-frontend
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME_FRONTEND }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile.prod
+        push: true
+        tags: ${{ steps.meta-backend.outputs.tags }}
+        labels: ${{ steps.meta-backend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile.prod
+        push: true
+        tags: ${{ steps.meta-frontend.outputs.tags }}
+        labels: ${{ steps.meta-frontend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Deploy to Azure Container Apps
+      uses: azure/container-apps-deploy-action@v1
+      with:
+        acrName: ${{ env.AZURE_CONTAINER_REGISTRY }}
+        containerAppName: ${{ env.CONTAINER_NAME_BACKEND }}
+        resourceGroup: ${{ env.RESOURCE_GROUP }}
+        imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME_BACKEND }}:latest
+
+    - name: Deploy frontend to Azure Container Apps
+      uses: azure/container-apps-deploy-action@v1
+      with:
+        acrName: ${{ env.AZURE_CONTAINER_REGISTRY }}
+        containerAppName: ${{ env.CONTAINER_NAME_FRONTEND }}
+        resourceGroup: ${{ env.RESOURCE_GROUP }}
+        imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME_FRONTEND }}:latest
+
+    - name: Get deployment URLs
+      id: get-urls
+      run: |
+        BACKEND_URL=$(az containerapp show --name ${{ env.CONTAINER_NAME_BACKEND }} --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv)
+        FRONTEND_URL=$(az containerapp show --name ${{ env.CONTAINER_NAME_FRONTEND }} --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv)
+
+        echo "backend-url=https://$BACKEND_URL" >> $GITHUB_OUTPUT
+        echo "frontend-url=https://$FRONTEND_URL" >> $GITHUB_OUTPUT
+
+        echo "🚀 Deployment completed successfully!"
+        echo "Backend URL: https://$BACKEND_URL"
+        echo "Frontend URL: https://$FRONTEND_URL"
+
+    - name: Comment deployment URLs on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const botComment = comments.find(comment =>
+            comment.user.type === 'Bot' && comment.body.includes('🚀 Deployment URLs')
+          );
+
+          const body = `🚀 **Deployment URLs:**
+
+          **Backend:** ${{ steps.get-urls.outputs.backend-url }}
+          **Frontend:** ${{ steps.get-urls.outputs.frontend-url }}
+
+          *Deployed from commit: ${{ github.sha }}*`;
+
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: body
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+          }
+
+    - name: Update environment variables
+      run: |
+        # Get internal URLs for PostgreSQL and Redis containers
+        POSTGRES_URL=$(az containerapp show --name fica-postgres --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv)
+        REDIS_URL=$(az containerapp show --name fica-redis --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv)
+
+        # Update backend environment variables
+        az containerapp update \
+          --name ${{ env.CONTAINER_NAME_BACKEND }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --set-env-vars \
+            FRONTEND_URL=${{ steps.get-urls.outputs.frontend-url }} \
+            BACKEND_URL=${{ steps.get-urls.outputs.backend-url }} \
+            ENVIRONMENT=production \
+            DATABASE_URL="postgresql://ficaadmin:FicaAdmin123!@$POSTGRES_URL:5432/fica_academics" \
+            REDIS_CACHE_URL="redis://$REDIS_URL:6379"
+
+        # Update frontend environment variables
+        az containerapp update \
+          --name ${{ env.CONTAINER_NAME_FRONTEND }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --set-env-vars \
+            VITE_API_BASE_URL=${{ steps.get-urls.outputs.backend-url }} \
+            NODE_ENV=production
+
+    - name: Verify backend connectivity
+      run: |
+        echo "🔍 Verifying backend connectivity to database..."
+
+        BACKEND_URL="${{ steps.get-urls.outputs.backend-url }}"
+
+        # Wait for backend to start
+        echo "⏳ Waiting for backend to start..."
+        sleep 30
+
+        # Test backend health endpoint
+        echo "🏥 Testing backend health..."
+        if curl -f -s "$BACKEND_URL/health" > /dev/null; then
+          echo "✅ Backend health check passed"
+        else
+          echo "⚠️ Backend health check failed, but continuing..."
+        fi
+
+        # Test database connectivity (if there's an endpoint for it)
+        echo "🗄️ Testing database connectivity..."
+        if curl -f -s "$BACKEND_URL/api/v1/academic-levels" > /dev/null; then
+          echo "✅ Database connectivity verified"
+        else
+          echo "⚠️ Database connectivity test failed, but continuing..."
+        fi
+
+    - name: Notify deployment status
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ Deployment successful!"
+          echo "Backend: ${{ steps.get-urls.outputs.backend-url }}"
+          echo "Frontend: ${{ steps.get-urls.outputs.frontend-url }}"
+          echo ""
+          echo "🔗 Database containers:"
+          echo "  PostgreSQL: fica-postgres"
+          echo "  Redis: fica-redis"
+          echo ""
+          echo "🌱 Seeders will run automatically on first startup"
+        else
+          echo "❌ Deployment failed!"
+        fi

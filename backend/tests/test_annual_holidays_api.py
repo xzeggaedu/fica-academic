@@ -3,9 +3,10 @@
 from datetime import datetime
 
 import pytest
-from app.models.holiday import Holiday
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.app.models.holiday import Holiday
 
 
 class TestAnnualHolidaysAPI:
