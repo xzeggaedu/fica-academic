@@ -1,5 +1,7 @@
 """Operaciones CRUD para el modelo CatalogScheduleTime."""
 
+from datetime import time
+
 from fastcrud import FastCRUD
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,6 +58,53 @@ async def get_schedule_times_by_day_group(db: AsyncSession, day_group: str) -> l
     return list(result.scalars().all())
 
 
+async def check_schedule_time_duplicate(
+    db: AsyncSession,
+    days_array: list[int],
+    start_time: time,
+    end_time: time,
+    start_time_ext: time | None = None,
+    end_time_ext: time | None = None,
+    exclude_id: int | None = None,
+) -> bool:
+    """Verificar si ya existe una combinación duplicada de días, horas y extended hours.
+
+    Args:
+        db: Sesión de base de datos
+        days_array: Array de días de la semana
+        start_time: Hora de inicio
+        end_time: Hora de fin
+        start_time_ext: Hora de inicio extendida (opcional)
+        end_time_ext: Hora de fin extendida (opcional)
+        exclude_id: ID del horario a excluir de la verificación (para updates)
+
+    Returns:
+        True si existe una combinación duplicada, False en caso contrario
+    """
+    stmt = select(CatalogScheduleTime).where(
+        CatalogScheduleTime.days_array == days_array,
+        CatalogScheduleTime.start_time == start_time,
+        CatalogScheduleTime.end_time == end_time,
+        CatalogScheduleTime.deleted.is_(False) | CatalogScheduleTime.deleted.is_(None),
+    )
+
+    # Si hay extended hours, también verificarlas
+    if start_time_ext and end_time_ext:
+        stmt = stmt.where(
+            CatalogScheduleTime.start_time_ext == start_time_ext, CatalogScheduleTime.end_time_ext == end_time_ext
+        )
+    else:
+        # Si no hay extended hours, verificar que el registro existente tampoco las tenga
+        stmt = stmt.where(CatalogScheduleTime.start_time_ext.is_(None), CatalogScheduleTime.end_time_ext.is_(None))
+
+    # Excluir el ID actual si se está actualizando
+    if exclude_id:
+        stmt = stmt.where(CatalogScheduleTime.id != exclude_id)
+
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none() is not None
+
+
 async def create_schedule_time_with_auto_fields(
     db: AsyncSession, schedule_time_data: CatalogScheduleTimeCreate
 ) -> CatalogScheduleTime:
@@ -69,7 +118,40 @@ async def create_schedule_time_with_auto_fields(
     Returns:
     -------
         Horario creado
+
+    Raises:
+    -------
+        ValueError: Si ya existe una combinación duplicada de días, horas y extended hours
     """
+    # Verificar si ya existe una combinación duplicada
+    is_duplicate = await check_schedule_time_duplicate(
+        db=db,
+        days_array=schedule_time_data.days_array,
+        start_time=schedule_time_data.start_time,
+        end_time=schedule_time_data.end_time,
+        start_time_ext=schedule_time_data.start_time_ext,
+        end_time_ext=schedule_time_data.end_time_ext,
+    )
+
+    if is_duplicate:
+        # Convertir índices de días a nombres
+        day_names = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        days_str = ", ".join([day_names[day] for day in schedule_time_data.days_array])
+        start_str = schedule_time_data.start_time.strftime("%H:%M")
+        end_str = schedule_time_data.end_time.strftime("%H:%M")
+
+        if schedule_time_data.start_time_ext and schedule_time_data.end_time_ext:
+            start_ext_str = schedule_time_data.start_time_ext.strftime("%H:%M")
+            end_ext_str = schedule_time_data.end_time_ext.strftime("%H:%M")
+            raise ValueError(
+                f"Ya existe un horario con los mismos días ({days_str}) y horarios "
+                f"({start_str}-{end_str} y {start_ext_str}-{end_ext_str})"
+            )
+        else:
+            raise ValueError(
+                f"Ya existe un horario con los mismos días ({days_str}) y horarios ({start_str}-{end_str})"
+            )
+
     # Generar campos automáticamente
     day_group_name = generate_day_group_name_from_array(schedule_time_data.days_array)
 
@@ -135,11 +217,55 @@ async def update_schedule_time_with_auto_fields(
     Returns:
     -------
         Horario actualizado o None si no se encuentra
+
+    Raises:
+    -------
+        ValueError: Si la actualización crearía una combinación duplicada de días, horas y extended hours
     """
     # Obtener horario actual
     current_schedule = await crud_catalog_schedule_time.get(db=db, id=schedule_time_id)
     if current_schedule is None:
         return None
+
+    # Preparar datos de actualización
+    update_dict = update_data.model_dump(exclude_unset=True)
+
+    # Preparar datos para validación de duplicados
+    days_array = update_dict.get("days_array", current_schedule["days_array"])
+    start_time = update_dict.get("start_time", current_schedule["start_time"])
+    end_time = update_dict.get("end_time", current_schedule["end_time"])
+    start_time_ext = update_dict.get("start_time_ext", current_schedule.get("start_time_ext"))
+    end_time_ext = update_dict.get("end_time_ext", current_schedule.get("end_time_ext"))
+
+    # Verificar si la actualización crearía una combinación duplicada
+    is_duplicate = await check_schedule_time_duplicate(
+        db=db,
+        days_array=days_array,
+        start_time=start_time,
+        end_time=end_time,
+        start_time_ext=start_time_ext,
+        end_time_ext=end_time_ext,
+        exclude_id=schedule_time_id,
+    )
+
+    if is_duplicate:
+        # Convertir índices de días a nombres
+        day_names = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        days_str = ", ".join([day_names[day] for day in days_array])
+        start_str = start_time.strftime("%H:%M")
+        end_str = end_time.strftime("%H:%M")
+
+        if start_time_ext and end_time_ext:
+            start_ext_str = start_time_ext.strftime("%H:%M")
+            end_ext_str = end_time_ext.strftime("%H:%M")
+            raise ValueError(
+                f"Ya existe un horario con los mismos días ({days_str}) y horarios "
+                f"({start_str}-{end_str} y {start_ext_str}-{end_ext_str})"
+            )
+        else:
+            raise ValueError(
+                f"Ya existe un horario con los mismos días ({days_str}) y horarios ({start_str}-{end_str})"
+            )
 
     # Preparar datos de actualización
     update_dict = update_data.model_dump(exclude_unset=True)

@@ -3,7 +3,6 @@
 import asyncio
 import csv
 import logging
-from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,13 +43,17 @@ async def seed_academic_levels(session: AsyncSession) -> None:
 
                 try:
                     # Parsear datos del CSV
-                    level_id = int(row["id"].strip())
                     code = row["code"].strip().upper()
                     name = row["name"].strip()
                     priority = int(row["priority"].strip())
 
-                    # Verificar si ya existe por código
-                    existing = await session.execute(select(AcademicLevel).where(AcademicLevel.code == code))
+                    # Verificar si ya existe por código (solo registros no eliminados)
+                    existing = await session.execute(
+                        select(AcademicLevel).where(
+                            AcademicLevel.code == code,
+                            AcademicLevel.deleted.is_(False) | AcademicLevel.deleted.is_(None),
+                        )
+                    )
 
                     if existing.scalar_one_or_none():
                         logger.info(f"Academic level already exists: {code} - {name}")
@@ -59,12 +62,10 @@ async def seed_academic_levels(session: AsyncSession) -> None:
 
                     # Crear nuevo nivel académico
                     academic_level = AcademicLevel(
-                        id=level_id,
                         code=code,
                         name=name,
                         priority=priority,
                         is_active=True,
-                        created_at=datetime.utcnow(),
                     )
 
                     session.add(academic_level)

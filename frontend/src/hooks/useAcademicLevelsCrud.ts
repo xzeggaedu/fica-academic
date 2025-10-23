@@ -43,13 +43,13 @@ export const useAcademicLevelsCrud = (props?: UseAcademicLevelsCrudProps) => {
   // Hooks de Refine para operaciones CRUD
   const { mutate: createMutate, mutation: createMutation } = useCreate();
   const { mutate: updateMutate, mutation: updateMutation } = useUpdate();
-  const { mutate: deleteMutate, mutation: deleteMutation } = useUpdate();
+  const { mutate: softDeleteMutate, mutation: softDeleteMutation } = useUpdate();
   const invalidate = useInvalidate();
 
   // Estados de carga
   const isCreating = createMutation.isPending;
   const isUpdating = updateMutation.isPending;
-  const isDeleting = deleteMutation.isPending;
+  const isDeleting = softDeleteMutation.isPending;
 
   // Función para crear nivel académico
   const createItem = (
@@ -121,32 +121,30 @@ export const useAcademicLevelsCrud = (props?: UseAcademicLevelsCrudProps) => {
     );
   };
 
-  // Función para soft delete (marcar como inactivo)
-  const softDeleteItem = (
-    id: number,
-    entityName: string,
-    onSuccess?: () => void,
-    onError?: (error: any) => void
-  ) => {
-    deleteMutate(
+  // Función para soft delete (marcar como eliminado)
+  const softDeleteItem = (id: number, entityName: string, onSuccess?: () => void, onError?: (error: any) => void) => {
+    softDeleteMutate(
       {
-        resource: "academic-levels",
+        resource: "soft-delete",
         id,
-        values: {},
+        values: { type: "academic-levels" },
         successNotification: false,
         errorNotification: false,
       },
       {
-        onSuccess: () => {
-          invalidate({ resource: "academic-levels", invalidates: ["list"] });
-          toast.success("Nivel académico desactivado", {
-            description: `El nivel "${entityName}" ha sido desactivado.`,
+        onSuccess: (data: any) => {
+          invalidate({
+            resource: "academic-levels",
+            invalidates: ["list", "detail", "many"]
+          });
+          toast.success("Nivel académico movido a papelera", {
+            description: `El nivel "${entityName}" ha sido movido a la papelera de reciclaje.`,
             richColors: true,
           });
           onSuccess?.();
         },
         onError: (error) => {
-          toast.error("Error al desactivar nivel académico", {
+          toast.error("Error al mover a papelera", {
             description: error?.message || "Error desconocido",
             richColors: true,
           });
@@ -155,6 +153,7 @@ export const useAcademicLevelsCrud = (props?: UseAcademicLevelsCrudProps) => {
       }
     );
   };
+
 
   return {
     // Permisos

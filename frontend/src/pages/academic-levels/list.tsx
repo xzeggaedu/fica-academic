@@ -155,9 +155,40 @@ export function AcademicLevelsList() {
       return;
     }
 
+    // Verificar límite de niveles (solo niveles activos, no eliminados)
+    const activeLevels = academicLevels.filter(level => !level.deleted);
+    if (activeLevels.length >= 5) {
+      toast.error("Límite alcanzado", {
+        description: "No se pueden crear más de 5 niveles académicos",
+        richColors: true,
+      });
+      return;
+    }
+
+    // Validar prioridad entre 1 y 5
     if (newLevel.priority < 1 || newLevel.priority > 5) {
       toast.error("Prioridad inválida", {
         description: "La prioridad debe estar entre 1 y 5",
+        richColors: true,
+      });
+      return;
+    }
+
+    // Validar que la prioridad no exista (solo niveles activos, no eliminados)
+    const existingPriorities = activeLevels.map(level => level.priority);
+    if (existingPriorities.includes(newLevel.priority)) {
+      toast.error("Prioridad duplicada", {
+        description: `La prioridad ${newLevel.priority} ya existe. Use un número único.`,
+        richColors: true,
+      });
+      return;
+    }
+
+    // Validar que el código no exista (solo niveles activos, no eliminados)
+    const existingCodes = activeLevels.map(level => level.code);
+    if (existingCodes.includes(newLevel.code)) {
+      toast.error("Código duplicado", {
+        description: `El código ${newLevel.code} ya existe. Use un código único.`,
         richColors: true,
       });
       return;
@@ -173,10 +204,22 @@ export function AcademicLevelsList() {
 
     createItem(createData, () => {
       setIsCreateSheetOpen(false);
+      // Calcular la siguiente prioridad disponible para el próximo nivel (1-5)
+      // Solo considerar niveles activos, no eliminados
+      const activeLevelsForNext = academicLevels.filter(level => !level.deleted);
+      const existingPriorities = activeLevelsForNext.map(level => level.priority);
+      let nextPriority = 1;
+      for (let i = 1; i <= 5; i++) {
+        if (!existingPriorities.includes(i)) {
+          nextPriority = i;
+          break;
+        }
+      }
+
       setNewLevel({
         code: "",
         name: "",
-        priority: 1,
+        priority: nextPriority,
         description: null,
         is_active: true,
       });
@@ -401,6 +444,7 @@ export function AcademicLevelsList() {
           onNewLevelChange={setNewLevel}
           onCreate={handleCreate}
           isCreating={isCreating}
+          existingLevels={academicLevels}
         />
 
         {/* Diálogo de confirmación de eliminación */}

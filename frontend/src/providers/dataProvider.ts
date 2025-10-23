@@ -19,6 +19,18 @@ import type {
   HourlyRateHistory,
   HourlyRateHistoryCreate,
   HourlyRateHistoryUpdate,
+  Term,
+  TermCreate,
+  TermUpdate,
+  Holiday,
+  HolidayCreate,
+  HolidayUpdate,
+  FixedHolidayRule,
+  FixedHolidayRuleCreate,
+  FixedHolidayRuleUpdate,
+  AnnualHoliday,
+  AnnualHolidayCreate,
+  AnnualHolidayUpdate,
   PaginatedResponse
 } from "../types/api";
 
@@ -62,6 +74,10 @@ const ENDPOINTS = {
   SCHEDULE_TIMES_ACTIVE: `${API_BASE_PATH}/catalog/schedule-times/active`,
   ACADEMIC_LEVELS: `${API_BASE_PATH}/academic-levels`,
   HOURLY_RATES: `${API_BASE_PATH}/hourly-rates`,
+  TERMS: `${API_BASE_PATH}/terms`,
+  HOLIDAYS: `${API_BASE_PATH}/holidays`,
+  FIXED_HOLIDAY_RULES: `${API_BASE_PATH}/fixed-holiday-rules`,
+  ANNUAL_HOLIDAYS: `${API_BASE_PATH}/annual-holidays`,
 };
 
 // Helper function to get auth headers
@@ -69,6 +85,10 @@ const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem(TOKEN_KEY);
   const headers: HeadersInit = {
     "Content-Type": "application/json",
+    // Prevenir cache del navegador para evitar respuestas obsoletas
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
   };
 
   if (token) {
@@ -100,7 +120,21 @@ const apiRequest = async <T>(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new ApiError(errorData.detail || `HTTP ${response.status}: ${response.statusText}`, response.status);
+
+      // Manejar cuando errorData.detail es un objeto
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+      if (errorData.detail) {
+        if (typeof errorData.detail === 'string') {
+          errorMessage = errorData.detail;
+        } else if (typeof errorData.detail === 'object' && errorData.detail.message) {
+          errorMessage = errorData.detail.message;
+        } else if (typeof errorData.detail === 'object') {
+          errorMessage = JSON.stringify(errorData.detail);
+        }
+      }
+
+      throw new ApiError(errorMessage, response.status);
     }
 
     // Handle empty responses (like 204 No Content)
@@ -411,6 +445,96 @@ export const dataProvider: DataProvider = {
         };
       }
 
+      case "terms": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        // Construir URL con parámetros de paginación
+        const searchParams = new URLSearchParams();
+        searchParams.append("skip", String((current - 1) * pageSize));
+        searchParams.append("limit", String(pageSize));
+
+        // Agregar filtros si existen
+        if (filters && Array.isArray(filters)) {
+          filters.forEach((f: any) => {
+            if (f.field && f.value !== undefined && f.value !== null && f.value !== "") {
+              searchParams.append(f.field, String(f.value));
+            }
+          });
+        }
+
+        const response = await apiRequest<{ data: Term[]; total: number }>(
+          `${ENDPOINTS.TERMS}/?${searchParams.toString()}`
+        );
+        return { data: response.data, total: response.total };
+      }
+
+      case "holidays": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        const searchParams = new URLSearchParams();
+        searchParams.append("skip", String((current - 1) * pageSize));
+        searchParams.append("limit", String(pageSize));
+
+        if (filters && Array.isArray(filters)) {
+          filters.forEach((f: any) => {
+            if (f.field && f.value !== undefined && f.value !== null && f.value !== "") {
+              searchParams.append(f.field, String(f.value));
+            }
+          });
+        }
+
+        const response = await apiRequest<{ data: Holiday[]; total: number }>(
+          `${ENDPOINTS.HOLIDAYS}/?${searchParams.toString()}`
+        );
+        return { data: response.data, total: response.total };
+      }
+
+      case "fixed-holiday-rules": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        const searchParams = new URLSearchParams();
+        searchParams.append("skip", String((current - 1) * pageSize));
+        searchParams.append("limit", String(pageSize));
+
+        if (filters && Array.isArray(filters)) {
+          filters.forEach((f: any) => {
+            if (f.field && f.value !== undefined && f.value !== null && f.value !== "") {
+              searchParams.append(f.field, String(f.value));
+            }
+          });
+        }
+
+        const response = await apiRequest<{ data: FixedHolidayRule[]; total: number }>(
+          `${ENDPOINTS.FIXED_HOLIDAY_RULES}/?${searchParams.toString()}`
+        );
+        return { data: response.data, total: response.total };
+      }
+
+      case "annual-holidays": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        const searchParams = new URLSearchParams();
+        searchParams.append("skip", String((current - 1) * pageSize));
+        searchParams.append("limit", String(pageSize));
+
+        if (filters && Array.isArray(filters)) {
+          filters.forEach((f: any) => {
+            if (f.field && f.value !== undefined && f.value !== null && f.value !== "") {
+              searchParams.append(f.field, String(f.value));
+            }
+          });
+        }
+
+        const response = await apiRequest<{ data: AnnualHoliday[]; total: number }>(
+          `${ENDPOINTS.ANNUAL_HOLIDAYS}/?${searchParams.toString()}`
+        );
+        return { data: response.data, total: response.total };
+      }
+
       case "catalog/schedule-times/active": {
         const response = await apiRequest<any[]>(ENDPOINTS.SCHEDULE_TIMES_ACTIVE);
         return {
@@ -495,6 +619,21 @@ export const dataProvider: DataProvider = {
 
       case "hourly-rates": {
         const response = await apiRequest<HourlyRateHistory>(`${ENDPOINTS.HOURLY_RATES}/${id}`);
+        return { data: response as any };
+      }
+
+      case "terms": {
+        const response = await apiRequest<Term>(`${ENDPOINTS.TERMS}/${id}`);
+        return { data: response as any };
+      }
+
+      case "holidays": {
+        const response = await apiRequest<Holiday>(`${ENDPOINTS.HOLIDAYS}/${id}`);
+        return { data: response as any };
+      }
+
+      case "annual-holidays": {
+        const response = await apiRequest<AnnualHoliday>(`${ENDPOINTS.ANNUAL_HOLIDAYS}/${id}`);
         return { data: response as any };
       }
 
@@ -611,6 +750,50 @@ export const dataProvider: DataProvider = {
           {
             method: "POST",
             body: JSON.stringify(variables as HourlyRateHistoryCreate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "terms": {
+        const response = await apiRequest<Term>(
+          `${ENDPOINTS.TERMS}/`,  // Agregar slash final para evitar 307 redirect
+          {
+            method: "POST",
+            body: JSON.stringify(variables as TermCreate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "holidays": {
+        const response = await apiRequest<Holiday>(
+          `${ENDPOINTS.HOLIDAYS}/`,
+          {
+            method: "POST",
+            body: JSON.stringify(variables as HolidayCreate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "fixed-holiday-rules": {
+        const response = await apiRequest<FixedHolidayRule>(
+          `${ENDPOINTS.FIXED_HOLIDAY_RULES}/`,
+          {
+            method: "POST",
+            body: JSON.stringify(variables as FixedHolidayRuleCreate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "annual-holidays": {
+        const response = await apiRequest<AnnualHoliday>(
+          `${ENDPOINTS.ANNUAL_HOLIDAYS}/`,
+          {
+            method: "POST",
+            body: JSON.stringify(variables as AnnualHolidayCreate),
           }
         );
         return { data: response as any };
@@ -762,16 +945,7 @@ export const dataProvider: DataProvider = {
           normalizedType = "user";
         } else if (type === "faculty") {
           normalizedType = "catalog/faculties";
-        } else if (type === "catalog/professors") {
-          normalizedType = "catalog/professors";
-        } else if (type === "catalog/subjects") {
-          normalizedType = "catalog/subjects";
-        } else if (type === "catalog/schedule-times") {
-          normalizedType = "catalog/schedule-times";
-        } else if (type === "catalog/coordinations") {
-          normalizedType = "catalog/coordinations";
         }
-
         const response = await apiRequest<{ message: string }>(
           `${API_BASE_PATH}/${normalizedType}/soft-delete/${id}`,
           {
@@ -783,7 +957,11 @@ export const dataProvider: DataProvider = {
       }
 
       case "recycle-bin-restore": {
-        const response = await apiRequest<{ message: string }>(
+        const response = await apiRequest<{
+          message: string;
+          conflict_resolved?: boolean;
+          conflicting_level?: { id: number; code: string; name: string }
+        }>(
           `${API_BASE_PATH}/recycle-bin/${id}/restore`,
           {
             method: "POST",
@@ -810,6 +988,50 @@ export const dataProvider: DataProvider = {
           {
             method: "PATCH",
             body: JSON.stringify(variables as HourlyRateHistoryUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "terms": {
+        const response = await apiRequest<Term>(
+          `${ENDPOINTS.TERMS}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables as TermUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "holidays": {
+        const response = await apiRequest<Holiday>(
+          `${ENDPOINTS.HOLIDAYS}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables as HolidayUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "fixed-holiday-rules": {
+        const response = await apiRequest<FixedHolidayRule>(
+          `${ENDPOINTS.FIXED_HOLIDAY_RULES}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables as FixedHolidayRuleUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "annual-holidays": {
+        const response = await apiRequest<AnnualHoliday>(
+          `${ENDPOINTS.ANNUAL_HOLIDAYS}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables as AnnualHolidayUpdate),
           }
         );
         return { data: response as any };
@@ -921,6 +1143,46 @@ export const dataProvider: DataProvider = {
           }
         );
         return { data: response as any };
+      }
+
+      case "terms": {
+        const response = await apiRequest<Term>(
+          `${ENDPOINTS.TERMS}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "holidays": {
+        await apiRequest(
+          `${ENDPOINTS.HOLIDAYS}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
+      }
+
+      case "fixed-holiday-rules": {
+        await apiRequest(
+          `${ENDPOINTS.FIXED_HOLIDAY_RULES}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
+      }
+
+      case "annual-holidays": {
+        await apiRequest(
+          `${ENDPOINTS.ANNUAL_HOLIDAYS}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
       }
 
       default:

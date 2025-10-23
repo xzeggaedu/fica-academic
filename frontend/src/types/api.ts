@@ -316,6 +316,8 @@ export interface AcademicLevel {
   priority: number;
   description: string | null;
   is_active: boolean;
+  deleted: boolean | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string | null;
 }
@@ -384,4 +386,124 @@ export const API_ENDPOINTS = {
   SCHOOL: "/api/v1/school",
   TASKS: "/api/v1/tasks/task",
   SUBJECTS: "/api/v1/catalog/subjects",
+  TERMS: "/api/v1/terms",
+  HOLIDAYS: "/api/v1/holidays",
+  FIXED_HOLIDAY_RULES: "/api/v1/fixed-holiday-rules",
 } as const;
+
+// Term Types
+export interface Term {
+  id: number;
+  term: number;
+  year: number;
+  start_date: string; // ISO date string
+  end_date: string;   // ISO date string
+  description?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface TermCreate {
+  term: number;
+  year: number;
+  start_date: string; // ISO date string
+  end_date: string;   // ISO date string
+  description?: string;
+}
+
+export interface TermUpdate {
+  term?: number;
+  year?: number;
+  start_date?: string; // ISO date string
+  end_date?: string;   // ISO date string
+  description?: string;
+}
+
+export interface TermRead {
+  id: number;
+  term: number;
+  year: number;
+  start_date: string; // ISO date string
+  end_date: string;   // ISO date string
+  description?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+// Fixed Holiday Rules (Reglas de Asuetos Fijos)
+export interface FixedHolidayRule {
+  id: number;
+  month: number;
+  day: number;
+  name: string;
+  holiday_type: string; // "Asueto Nacional" | "Personalizado"
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface FixedHolidayRuleCreate {
+  month: number;
+  day: number;
+  name: string;
+}
+
+export interface FixedHolidayRuleUpdate {
+  month?: number;
+  day?: number;
+  name?: string;
+}
+
+// Holiday Types (Asuetos del Año)
+export interface AnnualHoliday {
+  id: number;
+  holiday_id: number;
+  date: string; // ISO date string
+  name: string;
+  type: string; // "Asueto Nacional" | "Personalizado"
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface AnnualHolidayCreate {
+  holiday_id: number;
+  date: string;
+  name: string;
+  type: string;
+}
+
+export interface AnnualHolidayUpdate {
+  holiday_id?: number;
+  date?: string;
+  name?: string;
+  type?: string;
+}
+
+export interface Holiday {
+  id: number;
+  year: number;
+  description?: string;
+  created_at: string;
+  updated_at?: string;
+  annual_holidays_count: number;
+  annual_holidays?: AnnualHoliday[];
+}
+
+export interface HolidayCreate {
+  year: number;
+  description?: string;
+}
+
+export interface HolidayUpdate {
+  year?: number;
+  description?: string;
+}
+
+export interface HolidayRead {
+  id: number;
+  year: number;
+  description?: string;
+  created_at: string;
+  updated_at?: string;
+  annual_holidays_count: number;
+  annual_holidays?: AnnualHoliday[];
+}
