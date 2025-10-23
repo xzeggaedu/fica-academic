@@ -20,7 +20,7 @@ from src.app.schemas.annual_holiday import AnnualHolidayCreate, AnnualHolidayUpd
 class TestAnnualHolidayCRUD:
     """Test cases for Annual Holiday CRUD operations."""
 
-    pytestmark = pytest.mark.skip_db_tests
+    pytestmark = pytest.mark.integration
 
     @pytest.mark.asyncio
     async def test_create_annual_holiday_success(self, db_session: AsyncSession):

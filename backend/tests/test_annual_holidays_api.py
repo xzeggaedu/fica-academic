@@ -12,7 +12,7 @@ from src.app.models.holiday import Holiday
 class TestAnnualHolidaysAPI:
     """Integration tests for Annual Holidays API endpoints."""
 
-    pytestmark = pytest.mark.skip_db_tests
+    pytestmark = pytest.mark.integration
 
     @pytest.mark.asyncio
     async def test_create_annual_holiday_api(self, client: AsyncClient, db_session: AsyncSession, auth_headers):
