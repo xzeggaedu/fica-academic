@@ -6,9 +6,10 @@ on:
   workflow_dispatch: # Permite ejecutar manualmente desde GitHub
 
 env:
-  AZURE_CONTAINER_REGISTRY: ficaacademicsacr
+  AZURE_CONTAINER_REGISTRY: ficaacademicsacr2024
   CONTAINER_NAME_BACKEND: fica-backend
   CONTAINER_NAME_FRONTEND: fica-frontend
+  CONTAINER_NAME_WORKER: fica-worker
   RESOURCE_GROUP: fica-academics-rg
   LOCATION: eastus
 
@@ -83,7 +84,7 @@ jobs:
     - name: Verify database containers are running
       run: |
         echo "🔍 Verifying database containers are running..."
-        
+
         # Check PostgreSQL container
         POSTGRES_STATUS=$(az containerapp show --name fica-postgres --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv)
         if [ "$POSTGRES_STATUS" != "Running" ]; then
@@ -91,7 +92,7 @@ jobs:
           exit 1
         fi
         echo "✅ PostgreSQL container is running"
-        
+
         # Check Redis container
         REDIS_STATUS=$(az containerapp show --name fica-redis --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv)
         if [ "$REDIS_STATUS" != "Running" ]; then
@@ -99,7 +100,7 @@ jobs:
           exit 1
         fi
         echo "✅ Redis container is running"
-        
+
         echo "🎉 All database containers are ready for deployment!"
 
     - name: Test Summary
@@ -133,6 +134,16 @@ jobs:
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
 
+    - name: Extract metadata for worker
+      id: meta-worker
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME_WORKER }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
     - name: Build and push backend image
       uses: docker/build-push-action@v5
       with:
@@ -155,6 +166,17 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
+    - name: Build and push worker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile.prod
+        push: true
+        tags: ${{ steps.meta-worker.outputs.tags }}
+        labels: ${{ steps.meta-worker.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
     - name: Deploy to Azure Container Apps
       uses: azure/container-apps-deploy-action@v1
       with:
@@ -170,6 +192,14 @@ jobs:
         containerAppName: ${{ env.CONTAINER_NAME_FRONTEND }}
         resourceGroup: ${{ env.RESOURCE_GROUP }}
         imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME_FRONTEND }}:latest
+
+    - name: Deploy worker to Azure Container Apps
+      uses: azure/container-apps-deploy-action@v1
+      with:
+        acrName: ${{ env.AZURE_CONTAINER_REGISTRY }}
+        containerAppName: ${{ env.CONTAINER_NAME_WORKER }}
+        resourceGroup: ${{ env.RESOURCE_GROUP }}
+        imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME_WORKER }}:latest
 
     - name: Get deployment URLs
       id: get-urls
@@ -246,6 +276,17 @@ jobs:
           --set-env-vars \
             VITE_API_BASE_URL=${{ steps.get-urls.outputs.backend-url }} \
             NODE_ENV=production
+
+        # Update worker environment variables and command
+        az containerapp update \
+          --name ${{ env.CONTAINER_NAME_WORKER }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --set-env-vars \
+            DATABASE_URL="postgresql://ficaadmin:FicaAdmin123!@$POSTGRES_URL:5432/fica_academics" \
+            REDIS_CACHE_URL="redis://$REDIS_URL:6379" \
+            ENVIRONMENT=production \
+          --set-env-vars \
+            COMMAND="arq src.app.core.worker.settings.WorkerSettings"
 
     - name: Verify backend connectivity
       run: |
