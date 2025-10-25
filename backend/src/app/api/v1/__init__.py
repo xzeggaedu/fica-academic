@@ -16,6 +16,7 @@ from .recycle_bin import router as recycle_bin_router
 from .schools import router as schools_router
 from .server_time import router as server_time_router
 from .tasks import router as tasks_router
+from .template_generation import router as template_generation_router
 from .term import router as term_router
 from .users import router as users_router
 from .workdays_calculator import router as workdays_calculator_router
@@ -40,3 +41,4 @@ router.include_router(catalog_subject_router)
 router.include_router(catalog_professor_router)
 router.include_router(catalog_coordination_router)
 router.include_router(recycle_bin_router)
+router.include_router(template_generation_router, prefix="/template-generation", tags=["template-generation"])

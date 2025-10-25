@@ -11,6 +11,7 @@ from .hourly_rate_history import HourlyRateHistory
 from .role import UserRoleEnum
 from .school import School
 from .subject_school import SubjectSchool
+from .template_generation import TemplateGeneration
 from .term import Term
 from .user import User
 from .user_scope import UserScope
@@ -30,4 +31,5 @@ __all__ = [
     "Holiday",
     "AnnualHoliday",
     "Term",
+    "TemplateGeneration",
 ]

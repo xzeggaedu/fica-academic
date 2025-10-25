@@ -507,3 +507,48 @@ export interface HolidayRead {
   annual_holidays_count: number;
   annual_holidays?: AnnualHoliday[];
 }
+
+// Template Generation Types
+export interface TemplateGeneration {
+  id: number;
+  user_id: string;
+  faculty_id: number;
+  school_id: number;
+  original_filename: string;
+  original_file_path: string;
+  generated_file_path: string;
+  upload_date: string;
+  generation_status: string;
+  notes?: string;
+  created_at: string;
+  updated_at?: string;
+  // Relaciones
+  user?: User;
+  faculty?: Faculty;
+  school?: School;
+}
+
+export interface TemplateGenerationCreate {
+  faculty_id: number;
+  school_id: number;
+  notes?: string;
+}
+
+export interface TemplateGenerationUpdate {
+  faculty_id?: number;
+  school_id?: number;
+  notes?: string;
+  generation_status?: string;
+}
+
+export interface TemplateGenerationRead {
+  id: number;
+  faculty_name: string;
+  school_name: string;
+  original_filename: string;
+  upload_date: string;
+  generation_status: string;
+  user_name: string;
+  notes?: string;
+  download_url?: string | null;
+}

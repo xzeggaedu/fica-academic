@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from sqlalchemy import DateTime, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from uuid6 import uuid7
 
 from ..core.db.database import Base
@@ -69,3 +69,9 @@ class User(Base):
         nullable=False,
         default=UserRoleEnum.UNAUTHORIZED,
     )
+
+    # =============================================================================
+    # Relaciones
+    # =============================================================================
+
+    template_generations = relationship("TemplateGeneration", back_populates="user")
