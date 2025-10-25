@@ -159,6 +159,20 @@ class RedisQueueSettings(GlobalSettings):
     REDIS_QUEUE_PORT: int = 6379
 
 
+class PGAdminSettings(GlobalSettings):
+    # Variables: PGADMIN_DEFAULT_EMAIL, PGADMIN_DEFAULT_PASSWORD, PGADMIN_LISTEN_PORT
+    PGADMIN_DEFAULT_EMAIL: EmailStr = "admin@admin.com"
+    PGADMIN_DEFAULT_PASSWORD: SecretStr = SecretStr("admin")
+    PGADMIN_LISTEN_PORT: int = 80
+
+
+class AbstractSettings(GlobalSettings):
+    # Variables: ABSTRACT_EMAIL, ABSTRACT_PASSWORD, ABSTRACT_API_KEY
+    ABSTRACT_EMAIL: EmailStr = "abstract@example.com"
+    ABSTRACT_PASSWORD: SecretStr = SecretStr("password")
+    ABSTRACT_API_KEY: str = "api-key"
+
+
 # ----------------------------------------------------------------------
 # Clase de Configuración Final
 # ----------------------------------------------------------------------
@@ -174,8 +188,9 @@ class Settings(
     RedisCacheSettings,
     ClientSideCacheSettings,
     RedisQueueSettings,
+    PGAdminSettings,
+    AbstractSettings,
     GlobalSettings,
-    EnvironmentOption,
 ):
     """Clase que consolida todas las configuraciones."""
 
