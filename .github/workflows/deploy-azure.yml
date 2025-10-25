@@ -160,6 +160,9 @@ jobs:
         push: true
         tags: ${{ steps.meta-frontend.outputs.tags }}
         labels: ${{ steps.meta-frontend.outputs.labels }}
+        build-args: |
+          VITE_API_URL=https://fica-backend.mangomushroom-39af2d8f.centralus.azurecontainerapps.io
+          VITE_API_BASE_URL=https://fica-backend.mangomushroom-39af2d8f.centralus.azurecontainerapps.io/api/v1
 
     - name: Build and push worker image
       uses: docker/build-push-action@v5
