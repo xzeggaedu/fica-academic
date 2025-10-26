@@ -294,6 +294,44 @@ def create_application(
     # Include main router
     application.include_router(router)
 
+    # Add exception handlers
+    from fastapi import Request, status
+    from fastapi.responses import JSONResponse
+    from fastcrud.exceptions.http_exceptions import (
+        DuplicateValueException,
+        ForbiddenException,
+        NotFoundException,
+        UnauthorizedException,
+    )
+
+    @application.exception_handler(UnauthorizedException)
+    async def unauthorized_exception_handler(request: Request, exc: UnauthorizedException):
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"detail": str(exc.detail) if hasattr(exc, "detail") else str(exc)},
+        )
+
+    @application.exception_handler(ForbiddenException)
+    async def forbidden_exception_handler(request: Request, exc: ForbiddenException):
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": str(exc.detail) if hasattr(exc, "detail") else str(exc)},
+        )
+
+    @application.exception_handler(NotFoundException)
+    async def not_found_exception_handler(request: Request, exc: NotFoundException):
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"detail": str(exc.detail) if hasattr(exc, "detail") else str(exc)},
+        )
+
+    @application.exception_handler(DuplicateValueException)
+    async def duplicate_exception_handler(request: Request, exc: DuplicateValueException):
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": str(exc.detail) if hasattr(exc, "detail") else str(exc)},
+        )
+
     # Add client-side caching middleware
     if isinstance(settings, ClientSideCacheSettings):
         application.add_middleware(ClientCacheMiddleware, max_age=settings.CLIENT_CACHE_MAX_AGE)

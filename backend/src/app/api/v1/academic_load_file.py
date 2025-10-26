@@ -85,7 +85,9 @@ async def upload_academic_load_file(
         user_exists = await crud_users.get(db, uuid=user_uuid)
 
         if not user_exists:
-            raise HTTPException(status_code=404, detail=f"Usuario no encontrado en la base de datos. UUID: {user_uuid}")
+            raise HTTPException(
+                status_code=401, detail="User not authenticated. Your session may have expired. Please log in again."
+            )
 
         # Si no se obtuvo el nombre del usuario, obtenerlo de la base de datos
         if not user_name:
@@ -127,6 +129,9 @@ async def upload_academic_load_file(
 
         return response_dict
 
+    except HTTPException:
+        # Re-raise HTTPException sin envolverlo
+        raise
     except Exception as e:
         # Limpiar archivos en caso de error
         if original_path.exists():
@@ -173,6 +178,7 @@ async def get_academic_load_files(
             upload_date=file.upload_date,
             ingestion_status=file.ingestion_status,
             user_name=file.user_name,
+            notes=file.notes,
         )
         for file in files
     ]

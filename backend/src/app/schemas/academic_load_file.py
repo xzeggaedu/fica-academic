@@ -46,6 +46,7 @@ class AcademicLoadFileListResponse(BaseModel):
     upload_date: datetime
     ingestion_status: str
     user_name: str
+    notes: str | None = None
 
     class Config:
         from_attributes = True

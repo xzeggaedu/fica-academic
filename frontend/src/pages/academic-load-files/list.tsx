@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/forms/label";
 import { toast } from "sonner";
-import { Plus, Trash2, Eye, X, Upload, FileSpreadsheet, Save, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Eye, X, Upload, FileSpreadsheet, Save, RefreshCw, XCircle, CheckCircle } from "lucide-react";
 import { TableFilters } from "@/components/ui/data/table-filters";
 import { TablePagination } from "@/components/ui/data/table-pagination";
 import type { AcademicLoadFile, Faculty, School, Term } from "@/types/api";
@@ -225,41 +225,45 @@ export const AcademicLoadFilesList: React.FC = () => {
     };
 
     // Función para obtener el estado visual del procesamiento
-    const getStatusDisplay = (status: string) => {
-        switch (status) {
-            case "pending":
-                return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                        <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                        Pendiente
-                    </span>
-                );
-            case "processing":
-                return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                        Procesando
-                    </span>
-                );
-            case "completed":
-                return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        ✓ Completado
-                    </span>
-                );
-            case "failed":
-                return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        ✗ Error
-                    </span>
-                );
-            default:
-                return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        {status}
-                    </span>
-                );
-        }
+    const getStatusDisplay = (status: string, notes?: string | null) => {
+        const statusDisplay = (() => {
+            switch (status) {
+                case "pending":
+                    return (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                            Pendiente
+                        </span>
+                    );
+                case "processing":
+                    return (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                            Procesando
+                        </span>
+                    );
+                case "completed":
+                    return (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" /> Completado
+                        </span>
+                    );
+                case "failed":
+                    return (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <XCircle className="w-3 h-3 mr-1" /> Error
+                        </span>
+                    );
+                default:
+                    return (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            {status}
+                        </span>
+                    );
+            }
+        })();
+
+        return statusDisplay;
     };
 
     // Paginación
@@ -488,7 +492,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                                             <option value={0}>Seleccione un período</option>
                                             {terms.map((term) => (
                                                 <option key={term.id} value={term.id}>
-                                                    {term.term_name} {term.year}
+                                                    {term.term} {term.year}
                                                 </option>
                                             ))}
                                         </select>
@@ -605,7 +609,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                     )}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("name")}>
-                                                    {item.term ? `${item.term.term_name} ${item.term.year}` : "N/A"}
+                                                    {item.term ? `${item.term.term} ${item.term.year}` : "N/A"}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("name")}>
                                                     {item.user_name || "N/A"}
@@ -614,7 +618,48 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                     {format(new Date(item.upload_date), "dd/MM/yyyy HH:mm", { locale: es })}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("status")}>
-                                                    {getStatusDisplay(item.ingestion_status)}
+                                                    {item.ingestion_status === "failed" && item.notes ? (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                {getStatusDisplay(item.ingestion_status, item.notes)}
+                                                            </TooltipTrigger>
+                                                            <TooltipContent
+                                                                className="max-w-md bg-red-50 border border-red-200 text-red-900 p-5"
+                                                                side="top"
+                                                            >
+                                                                <div>
+                                                                    <div className="flex items-center gap-2 mb-2">
+                                                                        <span className="text-red-500 text-base">⚠️</span>
+                                                                        <p className="font-semibold text-sm">Error de validación</p>
+                                                                    </div>
+                                                                    {/* Extraer las columnas faltantes del mensaje */}
+                                                                    {(() => {
+                                                                        // Extraer solo las columnas faltantes, ignorando "Columnas esperadas"
+                                                                        const match = item.notes?.match(/Campos faltantes:\s*(.+?)(?:\s*\.\s*Columnas esperadas:|\.?\s*$)/);
+                                                                        const missingColumns = match ? match[1].split(',').map(c => c.trim()) : [];
+
+                                                                        if (missingColumns.length > 0) {
+                                                                            return (
+                                                                                <div className="mt-2">
+                                                                                    <p className="text-xs font-medium mb-1">Hacen falta las siguientes columnas:</p>
+                                                                                    <ul className="grid grid-cols-2 gap-x-4 gap-y-1 ml-4 mt-2">
+                                                                                        {missingColumns.map((col, idx) => (
+                                                                                            <li key={idx} className="text-xs list-disc">{col}</li>
+                                                                                        ))}
+                                                                                    </ul>
+                                                                                </div>
+                                                                            );
+                                                                        }
+                                                                        // Si no se encontró el patrón, mostrar el mensaje sin "Columnas esperadas"
+                                                                        const cleanMessage = item.notes?.replace(/\s*Columnas esperadas:.+$/i, '').trim();
+                                                                        return <p className="text-xs leading-relaxed whitespace-pre-wrap mt-1">{cleanMessage}</p>;
+                                                                    })()}
+                                                                </div>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        getStatusDisplay(item.ingestion_status, item.notes)
+                                                    )}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("actions")}>
                                                     <div className="flex items-center gap-2">

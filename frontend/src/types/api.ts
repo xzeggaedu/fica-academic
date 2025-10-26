@@ -565,6 +565,7 @@ export interface AcademicLoadFile {
   original_file_path: string;
   upload_date: string;
   ingestion_status: string;
+  notes?: string | null;
   // Relaciones
   user?: User;
   faculty?: Faculty;

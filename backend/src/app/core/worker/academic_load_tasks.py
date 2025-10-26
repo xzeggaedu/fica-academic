@@ -46,6 +46,8 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
 
             # Verificar que el archivo original existe
             original_path = Path(load_record.original_file_path)
+            print(f"🔍 Verificando archivo: {original_path}")
+            print(f"🔍 Archivo existe: {original_path.exists()}")
             if not original_path.exists():
                 error_msg = f"Archivo original no encontrado: {original_path}"
                 print(f"❌ {error_msg}")
@@ -61,6 +63,7 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
 
                 # Validar encabezados
                 file_columns = df.columns.tolist()
+                print(f"📋 Columnas encontradas: {file_columns[:5]}...")  # Debug log
                 is_valid, error_msg = validate_headers(file_columns)
 
                 if not is_valid:
@@ -75,6 +78,19 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
                 print(f"✅ Encabezados válidos. Filas encontradas: {len(df)}")
 
                 # Filtrar solo las columnas requeridas
+                missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
+                if missing_cols:
+                    error_msg = (
+                        f"El archivo no contiene todas las columnas requeridas. Faltan: {', '.join(missing_cols)}"
+                    )
+                    print(f"❌ Error de validación: {error_msg}")
+                    await academic_load_file.update(
+                        db=db,
+                        db_obj=load_record,
+                        obj_in=AcademicLoadFileUpdate(ingestion_status="failed", notes=error_msg),
+                    )
+                    return {"error": error_msg, "file_id": file_id}
+
                 df_filtered = df[REQUIRED_COLUMNS].copy()
 
                 # TODO: Aquí va la lógica de ingesta de datos

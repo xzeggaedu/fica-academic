@@ -133,6 +133,13 @@ const apiRequest = async <T>(
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
 
+      // Si es error 401, disparar evento de sesión expirada
+      if (response.status === 401) {
+        const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
+        localStorage.removeItem(TOKEN_KEY);
+        window.dispatchEvent(new CustomEvent('session-expired'));
+      }
+
       // Manejar cuando errorData.detail es un objeto
       let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
 
