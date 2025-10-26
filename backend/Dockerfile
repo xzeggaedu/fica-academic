@@ -52,6 +52,10 @@ USER app
 # Set the working directory
 WORKDIR /code
 
+# Create upload directories with proper permissions
+RUN mkdir -p /code/src/uploads/templates /code/src/uploads/generated \
+    && chmod 755 /code/src/uploads /code/src/uploads/templates /code/src/uploads/generated
+
 # -------- replace with comment to run with gunicorn --------
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 # CMD ["gunicorn", "app.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000"]

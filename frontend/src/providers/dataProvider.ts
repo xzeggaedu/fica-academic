@@ -31,6 +31,9 @@ import type {
   AnnualHoliday,
   AnnualHolidayCreate,
   AnnualHolidayUpdate,
+  TemplateGeneration,
+  TemplateGenerationCreate,
+  TemplateGenerationUpdate,
   PaginatedResponse
 } from "../types/api";
 
@@ -78,18 +81,23 @@ const ENDPOINTS = {
   HOLIDAYS: `${API_BASE_PATH}/holidays`,
   FIXED_HOLIDAY_RULES: `${API_BASE_PATH}/fixed-holiday-rules`,
   ANNUAL_HOLIDAYS: `${API_BASE_PATH}/annual-holidays`,
+  TEMPLATE_GENERATION: `${API_BASE_PATH}/template-generation`,
 };
 
 // Helper function to get auth headers
-const getAuthHeaders = (): HeadersInit => {
+export const getAuthHeaders = (isFormData: boolean = false): HeadersInit => {
   const token = localStorage.getItem(TOKEN_KEY);
   const headers: HeadersInit = {
-    "Content-Type": "application/json",
     // Prevenir cache del navegador para evitar respuestas obsoletas
     "Cache-Control": "no-cache, no-store, must-revalidate",
     "Pragma": "no-cache",
     "Expires": "0",
   };
+
+  // Solo establecer Content-Type si NO es FormData
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -105,10 +113,13 @@ const apiRequest = async <T>(
 ): Promise<T> => {
   const url = `${API_BASE_URL}${endpoint}`;
 
+  // Detectar si el body es FormData
+  const isFormData = options.body instanceof FormData;
+
   const config: RequestInit = {
     ...options,
     headers: {
-      ...getAuthHeaders(),
+      ...getAuthHeaders(isFormData),
       ...options.headers,
     },
     credentials: "include",
@@ -570,6 +581,27 @@ export const dataProvider: DataProvider = {
         };
       }
 
+      case "template-generation": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+        const response = await apiRequest<PaginatedResponse<any>>(
+          `${ENDPOINTS.TEMPLATE_GENERATION}/?page=${current}&items_per_page=${pageSize}`
+        );
+
+        // Mapear la respuesta del backend al formato esperado por el frontend
+        const mappedData = response.data.map((item: any) => ({
+          ...item,
+          faculty: item.faculty_name ? { name: item.faculty_name, acronym: item.faculty_acronym } : undefined,
+          school: item.school_name ? { name: item.school_name, acronym: item.school_acronym } : undefined,
+          user: item.user_name ? { name: item.user_name } : undefined,
+        }));
+
+        return {
+          data: mappedData as any[],
+          total: response.total_count || 0,
+        };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported`);
     }
@@ -634,6 +666,11 @@ export const dataProvider: DataProvider = {
 
       case "annual-holidays": {
         const response = await apiRequest<AnnualHoliday>(`${ENDPOINTS.ANNUAL_HOLIDAYS}/${id}`);
+        return { data: response as any };
+      }
+
+      case "template-generation": {
+        const response = await apiRequest<TemplateGeneration>(`${ENDPOINTS.TEMPLATE_GENERATION}/${id}`);
         return { data: response as any };
       }
 
@@ -794,6 +831,18 @@ export const dataProvider: DataProvider = {
           {
             method: "POST",
             body: JSON.stringify(variables as AnnualHolidayCreate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "template-generation": {
+        // Para template-generation, usar FormData directamente
+        const response = await apiRequest<TemplateGeneration>(
+          `${ENDPOINTS.TEMPLATE_GENERATION}/upload`,
+          {
+            method: "POST",
+            body: variables as FormData,
           }
         );
         return { data: response as any };
@@ -1037,6 +1086,17 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "template-generation": {
+        const response = await apiRequest<TemplateGeneration>(
+          `${ENDPOINTS.TEMPLATE_GENERATION}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables as TemplateGenerationUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported for update`);
     }
@@ -1178,6 +1238,16 @@ export const dataProvider: DataProvider = {
       case "annual-holidays": {
         await apiRequest(
           `${ENDPOINTS.ANNUAL_HOLIDAYS}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
+      }
+
+      case "template-generation": {
+        await apiRequest(
+          `${ENDPOINTS.TEMPLATE_GENERATION}/${id}`,
           {
             method: "DELETE",
           }

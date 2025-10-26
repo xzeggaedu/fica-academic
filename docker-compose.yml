@@ -20,6 +20,7 @@ services:
     volumes:
       - ./backend/src:/code/src
       - ./backend/src/.env:/code/.env
+      - ./backend/src/uploads:/code/uploads
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
       interval: 30s
@@ -69,25 +70,25 @@ services:
     networks:
       - dev-network
 
-  devtools:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.devtools
-    container_name: refine_devtools
-    ports:
-      - "5001:5001" # Puerto para DevTools
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    working_dir: /app
-    command: npm run devtools
-    environment:
-      - VITE_API_URL=http://localhost:3000
-      - VITE_API_BASE_PATH=/api/v1
-    networks:
-      - dev-network
-    depends_on:
-      - frontend
+  # devtools: TEMPORALLY DISABLED
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile.devtools
+  #   container_name: refine_devtools
+  #   ports:
+  #     - "5001:5001" # Puerto para DevTools
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   working_dir: /app
+  #   command: npm run devtools
+  #   environment:
+  #     - VITE_API_URL=http://localhost:3000
+  #     - VITE_API_BASE_PATH=/api/v1
+  #   networks:
+  #     - dev-network
+  #   depends_on:
+  #     - frontend
 
   worker:
     build:
@@ -102,6 +103,7 @@ services:
     volumes:
       - ./backend/src:/code/src
       - ./backend/src/.env:/code/.env
+      - ./backend/src/uploads:/code/uploads
     networks:
       - dev-network
 
@@ -173,6 +175,7 @@ volumes:
   postgres-data:
   redis-data:
   pgadmin-data:
+  uploads-data:
 
 networks:
   dev-network:

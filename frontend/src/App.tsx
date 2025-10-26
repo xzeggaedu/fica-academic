@@ -1,5 +1,5 @@
 import { Authenticated, Refine } from "@refinedev/core";
-import { DevtoolsPanel, DevtoolsProvider } from "@refinedev/devtools";
+// import { DevtoolsPanel, DevtoolsProvider } from "@refinedev/devtools"; // TEMPORALLY DISABLED
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 
 import routerProvider, {
@@ -8,7 +8,7 @@ import routerProvider, {
   NavigateToResource,
   UnsavedChangesNotifier,
 } from "@refinedev/react-router";
-import { BrowserRouter, Outlet, Route, Routes } from "react-router";
+import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import "./App.css";
 import { authProvider, dataProvider, accessControlProvider } from "@providers/index";
 import { ErrorComponent } from "./components/refine-ui/layout/error-component";
@@ -44,6 +44,7 @@ import { TermsList } from "./pages/terms/list";
 import { HolidaysList } from "./pages/holidays";
 import { FixedHolidayRulesList } from "./pages/fixed-holiday-rules";
 import { AnnualHolidaysList } from "./pages/annual-holidays";
+import { TemplateGenerationCreate, TemplateGenerationList } from "./pages/template-generation";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -58,8 +59,8 @@ function App() {
         <ThemeProvider>
           <TooltipProvider>
             <SessionExpiredProvider>
-              <DevtoolsProvider>
-                <Refine
+              {/* <DevtoolsProvider> TEMPORALLY DISABLED */}
+              <Refine
                   dataProvider={dataProvider}
                   notificationProvider={useNotificationProvider()}
                   routerProvider={routerProvider}
@@ -98,6 +99,16 @@ function App() {
                         label: "Ciclos Académicos",
                         parent: "academic-planning",
                         icon: "Calendar",
+                      },
+                    },
+                    {
+                      name: "template-generation",
+                      list: "/academic-planning/template-generation",
+                      create: "/academic-planning/template-generation/create",
+                      meta: {
+                        label: "Generar Plantilla",
+                        parent: "academic-planning",
+                        icon: "FileSpreadsheet",
                       },
                     },
                     {
@@ -244,6 +255,16 @@ function App() {
                         icon: "Trash2",
                       },
                     },
+                    {
+                      name: "template-generation",
+                      list: "/template-generation",
+                      create: "/template-generation/create",
+                      meta: {
+                        label: "Generar Plantilla",
+                        canDelete: true,
+                        icon: "FileSpreadsheet",
+                      },
+                    },
 
                   ]}
                   options={{
@@ -299,6 +320,8 @@ function App() {
                       </Route>
                       <Route path="/academic-planning">
                         <Route path="terms" element={<TermsList />} />
+                        <Route path="template-generation" element={<TemplateGenerationList />} />
+                        <Route path="template-generation/create" element={<TemplateGenerationCreate />} />
                         <Route path="holidays" element={<HolidaysList />} />
                         <Route path="fixed-holiday-rules" element={<FixedHolidayRulesList />} />
                         <Route path="annual-holidays/:holidayId" element={<AnnualHolidaysList />} />
@@ -326,8 +349,8 @@ function App() {
                   <UnsavedChangesNotifier />
                   <DocumentTitleHandler />
                 </Refine>
-                <DevtoolsPanel />
-              </DevtoolsProvider>
+                {/* <DevtoolsPanel /> TEMPORALLY DISABLED */}
+              {/* </DevtoolsProvider> TEMPORALLY DISABLED */}
             </SessionExpiredProvider>
           </TooltipProvider>
         </ThemeProvider>
