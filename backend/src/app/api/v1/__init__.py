@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from .academic_level import router as academic_level_router
+from .academic_load_file import router as academic_load_file_router
 from .annual_holiday import router as annual_holiday_router
 from .catalog_coordination import router as catalog_coordination_router
 from .catalog_professor import router as catalog_professor_router
@@ -29,6 +30,7 @@ router.include_router(tasks_router)
 router.include_router(faculties_router)
 router.include_router(schools_router)
 router.include_router(academic_level_router, prefix="/academic-levels", tags=["academic-levels"])
+router.include_router(academic_load_file_router, prefix="/academic-load-files", tags=["academic-load-files"])
 router.include_router(hourly_rate_history_router, prefix="/hourly-rates", tags=["hourly-rates"])
 router.include_router(fixed_holiday_rule_router, prefix="/fixed-holiday-rules", tags=["fixed-holiday-rules"])
 router.include_router(holiday_router, prefix="/holidays", tags=["holidays"])

@@ -1,6 +1,7 @@
 """Models package - SQLAlchemy ORM models."""
 
 from .academic_level import AcademicLevel
+from .academic_load_file import AcademicLoadFile
 from .annual_holiday import AnnualHoliday
 from .catalog_schedule_time import CatalogScheduleTime
 from .catalog_subject import CatalogSubject
@@ -32,4 +33,5 @@ __all__ = [
     "AnnualHoliday",
     "Term",
     "TemplateGeneration",
+    "AcademicLoadFile",
 ]
