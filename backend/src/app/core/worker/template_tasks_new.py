@@ -28,13 +28,13 @@ async def process_template_generation(ctx: Worker, template_id: int) -> dict[str
         Dict con el resultado del procesamiento
     """
     # FORCE RELOAD: Timestamp único para forzar recarga del módulo
-    print("🚨🚨🚨 WORKER ACTUALIZADO - VERSION 2025-10-25-21:35:00 🚨🚨🚨")
-    print(f"🔄 WORKER VERSION: 2025-10-25-21:35:00 - Template ID: {template_id}")
+    print("🚨🚨🚨 WORKER ACTUALIZADO - VERSION 2025-10-25-22:05:00 🚨🚨🚨")
+    print(f"🔄 WORKER VERSION: 2025-10-25-22:05:00 - Template ID: {template_id}")
     print("🔍 DEBUGGING: Verificando si el worker está usando el código actualizado")
     print("🔍 ESTE LOG DEBE APARECER SI EL WORKER ESTÁ USANDO EL CÓDIGO ACTUALIZADO")
-    print("🔍 SI NO VES ESTE LOG, EL WORKER ESTÁ USANDO CÓDIGO CACHED")
     print("🔍 ARCHIVO ACTUAL: template_tasks_new.py")
     print(f"🔍 TIMESTAMP: {datetime.now()}")
+    print(f"🔍 TIPO DE DATO template_id: {type(template_id)}")
 
     try:
         # Obtener sesión de base de datos

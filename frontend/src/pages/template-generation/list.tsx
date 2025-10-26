@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { CanAccess } from "@refinedev/core";
 import {
     Table,
@@ -59,10 +59,48 @@ export const TemplateGenerationList: React.FC = () => {
         closeEditModal,
     } = useTemplateGenerationCrud();
 
+    // Ref para tracking de items que estaban pendientes (sin causar re-renders)
+    const previousPendingItemsRef = useRef<Set<number>>(new Set());
+
+    // Polling para items con estado "pending" o "processing"
+    useEffect(() => {
+        const pendingItems = itemsList.filter(item =>
+            item.generation_status === "pending" || item.generation_status === "processing"
+        );
+
+        // Detectar items que pasaron de pending/processing a completed
+        const currentPendingIds = new Set(pendingItems.map(item => item.id));
+        const completedItems = itemsList.filter(item => {
+            const wasPending = previousPendingItemsRef.current.has(item.id);
+            const isNowCompleted = item.generation_status === "completed";
+            return wasPending && isNowCompleted;
+        });
+
+        // Mostrar toast para items completados
+        completedItems.forEach(item => {
+            toast.success("Plantilla generada exitosamente", {
+                description: `El archivo "${item.original_filename}" ha sido procesado correctamente.`,
+                richColors: true,
+            });
+        });
+
+        // Actualizar el ref con los items pendientes actuales
+        previousPendingItemsRef.current = currentPendingIds;
+
+        if (pendingItems.length === 0) {
+            return;
+        }
+
+        // Interval para refetch cada 1 segundo
+        const intervalId = setInterval(() => {
+            invalidate({ invalidates: ["list"], resource: "template-generation" });
+        }, 1000);
+
+        return () => clearInterval(intervalId);
+    }, [itemsList, invalidate]);
+
     // Estados para filtros y paginación
     const [searchTerm, setSearchTerm] = useState("");
-    const [facultyFilter, setFacultyFilter] = useState<string>("all");
-    const [schoolFilter, setSchoolFilter] = useState<string>("all");
 
     // Estados del formulario de creación
     const [formData, setFormData] = useState({
@@ -87,11 +125,6 @@ export const TemplateGenerationList: React.FC = () => {
     const faculties = facultiesResult?.data || [];
     const schools = schoolsResult?.data || [];
 
-    // Filtrar escuelas por facultad seleccionada
-    const filteredSchools = schools.filter(school =>
-        school.fk_faculty === parseInt(facultyFilter)
-    );
-
     // Filtrar datos
     const filteredItems = itemsList.filter((item) => {
         const matchesSearch =
@@ -100,10 +133,7 @@ export const TemplateGenerationList: React.FC = () => {
             item.school?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             item.user?.name.toLowerCase().includes(searchTerm.toLowerCase());
 
-        const matchesFaculty = facultyFilter === "all" || item.faculty_id.toString() === facultyFilter;
-        const matchesSchool = schoolFilter === "all" || item.school_id.toString() === schoolFilter;
-
-        return matchesSearch && matchesFaculty && matchesSchool;
+        return matchesSearch;
     });
 
     // Funciones del formulario de creación
@@ -189,7 +219,7 @@ export const TemplateGenerationList: React.FC = () => {
             // Llamar al hook de creación
             await createItem(submitData);
 
-            toast.success("Plantilla generada exitosamente");
+            toast.success("Plantilla generada exitosamente", { richColors: true });
 
             // Resetear formulario
             resetForm();
@@ -199,7 +229,7 @@ export const TemplateGenerationList: React.FC = () => {
 
         } catch (error) {
             console.error("Error al generar plantilla:", error);
-            toast.error("Error al generar la plantilla");
+            toast.error("Error al generar la plantilla", { richColors: true });
         }
     };
 
@@ -290,7 +320,7 @@ export const TemplateGenerationList: React.FC = () => {
     const handleDelete = () => {
         if (itemToDelete) {
             // TODO: Implementar eliminación
-            toast.success("Plantilla eliminada exitosamente");
+            toast.success("Plantilla eliminada exitosamente", { richColors: true });
             closeDeleteModal();
         }
     };
@@ -328,17 +358,17 @@ export const TemplateGenerationList: React.FC = () => {
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
 
-            toast.success("Archivo descargado exitosamente");
+            toast.success("Archivo descargado exitosamente", { richColors: true });
         } catch (error) {
             console.error('Error downloading file:', error);
-            toast.error("Error al descargar el archivo");
+            toast.error("Error al descargar el archivo", { richColors: true });
         }
     };
 
     // Función para ver detalles
     const handleView = (item: TemplateGeneration) => {
         // TODO: Implementar vista de detalles
-        toast.info("Funcionalidad de vista en desarrollo");
+        toast.info("Funcionalidad de vista en desarrollo", { richColors: true });
     };
 
     // Función para obtener el color del badge según el estado
@@ -594,56 +624,13 @@ export const TemplateGenerationList: React.FC = () => {
                     </CardHeader>
                     <CardContent>
                         {/* Filtros */}
-                        <div className="mb-6 space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <Label htmlFor="search">Buscar</Label>
-                                    <Input
-                                        id="search"
-                                        placeholder="Buscar por archivo, facultad, escuela o usuario..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor="faculty">Facultad</Label>
-                                    <select
-                                        id="faculty"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                        value={facultyFilter}
-                                        onChange={(e) => {
-                                            const facultyId = e.target.value;
-                                            setFacultyFilter(facultyId);
-                                            setSchoolFilter("all"); // Reset school when faculty changes
-                                        }}
-                                    >
-                                        <option value="all">Todas las facultades</option>
-                                        {faculties.map((faculty) => (
-                                            <option key={faculty.id} value={faculty.id}>
-                                                {faculty.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="school">Escuela</Label>
-                                    <select
-                                        id="school"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                        value={schoolFilter}
-                                        onChange={(e) => setSchoolFilter(e.target.value)}
-                                        disabled={facultyFilter === "all"}
-                                    >
-                                        <option value="all">Todas las escuelas</option>
-                                        {filteredSchools.map((school) => (
-                                            <option key={school.id} value={school.id}>
-                                                {school.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
+                        <TableFilters
+                            searchValue={searchTerm}
+                            onSearchChange={setSearchTerm}
+                            searchPlaceholder="Buscar por archivo, facultad, escuela o usuario..."
+                            visibleColumns={[]}
+                            availableColumns={[]}
+                        />
 
                         {/* Tabla */}
                         <div className="rounded-md border">
@@ -683,10 +670,22 @@ export const TemplateGenerationList: React.FC = () => {
                                                     <div className="font-medium">{item.original_filename}</div>
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("name")}>
-                                                    {item.faculty?.name || "N/A"}
+                                                    {item.faculty?.acronym ? (
+                                                        <Badge variant="outline" className="font-mono">
+                                                            {item.faculty.acronym}
+                                                        </Badge>
+                                                    ) : (
+                                                        "N/A"
+                                                    )}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("name")}>
-                                                    {item.school?.name || "N/A"}
+                                                    {item.school?.acronym ? (
+                                                        <Badge variant="secondary" className="font-mono">
+                                                            {item.school.acronym}
+                                                        </Badge>
+                                                    ) : (
+                                                        "N/A"
+                                                    )}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("name")}>
                                                     {item.user?.name || "N/A"}

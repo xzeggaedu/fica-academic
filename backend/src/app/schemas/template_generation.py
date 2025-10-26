@@ -19,6 +19,7 @@ class TemplateGenerationUpdate(BaseModel):
     school_id: int | None = None
     notes: str | None = None
     generation_status: str | None = None
+    generated_file_path: str | None = None
 
 
 class TemplateGenerationResponse(TemplateGenerationBase):
@@ -37,7 +38,9 @@ class TemplateGenerationResponse(TemplateGenerationBase):
 class TemplateGenerationListResponse(BaseModel):
     id: int
     faculty_name: str
+    faculty_acronym: str
     school_name: str
+    school_acronym: str
     original_filename: str
     upload_date: datetime
     generation_status: str

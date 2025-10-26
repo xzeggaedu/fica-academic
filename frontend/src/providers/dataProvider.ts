@@ -584,12 +584,21 @@ export const dataProvider: DataProvider = {
       case "template-generation": {
         const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
         const pageSize = pagination?.pageSize || 10;
-        const response = await apiRequest<PaginatedResponse<TemplateGeneration>>(
+        const response = await apiRequest<PaginatedResponse<any>>(
           `${ENDPOINTS.TEMPLATE_GENERATION}/?page=${current}&items_per_page=${pageSize}`
         );
+
+        // Mapear la respuesta del backend al formato esperado por el frontend
+        const mappedData = response.data.map((item: any) => ({
+          ...item,
+          faculty: item.faculty_name ? { name: item.faculty_name, acronym: item.faculty_acronym } : undefined,
+          school: item.school_name ? { name: item.school_name, acronym: item.school_acronym } : undefined,
+          user: item.user_name ? { name: item.user_name } : undefined,
+        }));
+
         return {
-          data: response.data as any[],
-          total: response.total,
+          data: mappedData as any[],
+          total: response.total_count || 0,
         };
       }
 

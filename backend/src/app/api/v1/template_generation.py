@@ -99,7 +99,25 @@ async def upload_template(
         if pool:
             await pool.enqueue_job("process_template_generation", template_record.id)
 
-        return template_record
+        # Agregar mensaje informativo de que el archivo está en cola
+        response = TemplateGenerationResponse(
+            faculty_id=template_record.faculty_id,
+            school_id=template_record.school_id,
+            notes=template_record.notes,
+            id=template_record.id,
+            user_id=template_record.user_id,
+            original_filename=template_record.original_filename,
+            original_file_path=template_record.original_file_path,
+            generated_file_path=template_record.generated_file_path,
+            upload_date=template_record.upload_date,
+            generation_status=template_record.generation_status,
+        )
+
+        # Agregar mensaje adicional en el response
+        response_dict = response.model_dump()
+        response_dict["message"] = "Archivo subido exitosamente. El procesamiento comenzará en breve."
+
+        return response_dict
 
     except Exception as e:
         # Limpiar archivos en caso de error
@@ -141,7 +159,9 @@ async def get_templates(
         TemplateGenerationListResponse(
             id=template.id,
             faculty_name=template.faculty.name,
+            faculty_acronym=template.faculty.acronym,
             school_name=template.school.name,
+            school_acronym=template.school.acronym,
             original_filename=template.original_filename,
             upload_date=template.upload_date,
             generation_status=template.generation_status,
@@ -171,7 +191,9 @@ async def get_my_templates(
         TemplateGenerationListResponse(
             id=template.id,
             faculty_name=template.faculty.name,
+            faculty_acronym=template.faculty.acronym,
             school_name=template.school.name,
+            school_acronym=template.school.acronym,
             original_filename=template.original_filename,
             upload_date=template.upload_date,
             generation_status=template.generation_status,
@@ -268,8 +290,11 @@ async def download_template(
 
     from fastapi.responses import FileResponse
 
+    # Extraer el nombre del archivo generado desde la ruta
+    generated_filename = Path(template.generated_file_path).name
+
     return FileResponse(
         path=str(generated_path),
-        filename=f"generated_{template.original_filename}",
+        filename=generated_filename,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
