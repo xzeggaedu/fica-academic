@@ -117,12 +117,13 @@ addopts = [
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+    "unit: marks tests as unit tests (deselect with '-m \"not unit\"')",
 ]
 
 [dependency-groups]
 dev = [
+    "faker>=37.3.0",
     "pytest-asyncio>=1.0.0",
 ]
 
