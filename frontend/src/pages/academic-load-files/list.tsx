@@ -11,74 +11,55 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/forms/input";
 import { Label } from "@/components/ui/forms/label";
-import { Textarea } from "@/components/ui/forms/textarea";
 import { toast } from "sonner";
-import { Plus, Trash2, Download, Eye, X, Upload, FileSpreadsheet, Save, RefreshCw } from "lucide-react";
-import { getAuthHeaders } from "@/providers/dataProvider";
+import { Plus, Trash2, Eye, X, Upload, FileSpreadsheet, Save, RefreshCw } from "lucide-react";
 import { TableFilters } from "@/components/ui/data/table-filters";
 import { TablePagination } from "@/components/ui/data/table-pagination";
-import type { TemplateGeneration, TemplateGenerationCreate, TemplateGenerationUpdate, Faculty, School } from "@/types/api";
+import type { AcademicLoadFile, Faculty, School, Term } from "@/types/api";
 import { getTableColumnClass } from "@/components/refine-ui/theme/theme-table";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Unauthorized } from "../unauthorized";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTablePagination } from "@/hooks/useTablePagination";
-import { useTemplateGenerationCrud } from "@/hooks/useTemplateGenerationCrud";
+import { useAcademicLoadFilesCrud } from "@/hooks/useAcademicLoadFilesCrud";
 import { useList } from "@refinedev/core";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-export const TemplateGenerationList: React.FC = () => {
+export const AcademicLoadFilesList: React.FC = () => {
     const {
         itemsList,
         total,
         isLoading,
         isError,
-        isCreateModalOpen,
-        isEditModalOpen,
-        editingItem,
         isCreating,
-        isUpdating,
         canAccess,
-        canCreate,
-        canEdit,
         canDelete,
         createItem,
-        updateItem,
         invalidate,
-        openCreateModal,
-        closeCreateModal,
-        openEditModal,
-        closeEditModal,
-    } = useTemplateGenerationCrud();
+    } = useAcademicLoadFilesCrud();
 
-    // Ref para tracking de items que estaban pendientes (sin causar re-renders)
+    // Ref para tracking de items que estaban pendientes
     const previousPendingItemsRef = useRef<Set<number>>(new Set());
 
     // Polling para items con estado "pending" o "processing"
     useEffect(() => {
         const pendingItems = itemsList.filter(item =>
-            item.generation_status === "pending" || item.generation_status === "processing"
+            item.ingestion_status === "pending" || item.ingestion_status === "processing"
         );
 
         // Detectar items que pasaron de pending/processing a completed
         const currentPendingIds = new Set(pendingItems.map(item => item.id));
         const completedItems = itemsList.filter(item => {
             const wasPending = previousPendingItemsRef.current.has(item.id);
-            const isNowCompleted = item.generation_status === "completed";
+            const isNowCompleted = item.ingestion_status === "completed";
             return wasPending && isNowCompleted;
         });
 
         // Mostrar toast para items completados
         completedItems.forEach(item => {
-            toast.success("Plantilla generada exitosamente", {
+            toast.success("Carga académica procesada exitosamente", {
                 description: `El archivo "${item.original_filename}" ha sido procesado correctamente.`,
                 richColors: true,
             });
@@ -93,7 +74,7 @@ export const TemplateGenerationList: React.FC = () => {
 
         // Interval para refetch cada 1 segundo
         const intervalId = setInterval(() => {
-            invalidate({ invalidates: ["list"], resource: "template-generation" });
+            invalidate({ invalidates: ["list"], resource: "academic-load-files" });
         }, 1000);
 
         return () => clearInterval(intervalId);
@@ -106,12 +87,12 @@ export const TemplateGenerationList: React.FC = () => {
     const [formData, setFormData] = useState({
         faculty_id: 0,
         school_id: 0,
-        notes: "",
+        term_id: 0,
     });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isDragOver, setIsDragOver] = useState(false);
 
-    // Cargar facultades y escuelas
+    // Cargar facultades, escuelas y períodos
     const { result: facultiesResult } = useList<Faculty>({
         resource: "faculties",
         pagination: { currentPage: 1, pageSize: 1000 },
@@ -122,8 +103,14 @@ export const TemplateGenerationList: React.FC = () => {
         pagination: { currentPage: 1, pageSize: 1000 },
     });
 
+    const { result: termsResult } = useList<Term>({
+        resource: "terms",
+        pagination: { currentPage: 1, pageSize: 1000 },
+    });
+
     const faculties = facultiesResult?.data || [];
     const schools = schoolsResult?.data || [];
+    const terms = termsResult?.data || [];
 
     // Filtrar datos
     const filteredItems = itemsList.filter((item) => {
@@ -131,7 +118,7 @@ export const TemplateGenerationList: React.FC = () => {
             item.original_filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
             item.faculty?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             item.school?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.user?.name.toLowerCase().includes(searchTerm.toLowerCase());
+            item.user_name.toLowerCase().includes(searchTerm.toLowerCase());
 
         return matchesSearch;
     });
@@ -139,8 +126,8 @@ export const TemplateGenerationList: React.FC = () => {
     // Funciones del formulario de creación
     const handleFileSelect = (file: File) => {
         const allowedTypes = [
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-            'application/vnd.ms-excel', // .xls
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel',
         ];
 
         const allowedExtensions = ['.xlsx', '.xls'];
@@ -198,9 +185,9 @@ export const TemplateGenerationList: React.FC = () => {
             return;
         }
 
-        if (!formData.faculty_id || !formData.school_id) {
+        if (!formData.faculty_id || !formData.school_id || !formData.term_id) {
             toast.error("Error", {
-                description: "Por favor seleccione una facultad y escuela",
+                description: "Por favor seleccione una facultad, escuela y período",
                 richColors: true,
             });
             return;
@@ -212,24 +199,19 @@ export const TemplateGenerationList: React.FC = () => {
             submitData.append('file', selectedFile);
             submitData.append('faculty_id', formData.faculty_id.toString());
             submitData.append('school_id', formData.school_id.toString());
-            if (formData.notes) {
-                submitData.append('notes', formData.notes);
-            }
+            submitData.append('term_id', formData.term_id.toString());
 
             // Llamar al hook de creación
             await createItem(submitData);
-
-            toast.success("Plantilla generada exitosamente", { richColors: true });
 
             // Resetear formulario
             resetForm();
 
             // Refrescar la lista
-            invalidate({ invalidates: ["list"], resource: "template-generation" });
+            invalidate({ invalidates: ["list"], resource: "academic-load-files" });
 
         } catch (error) {
-            console.error("Error al generar plantilla:", error);
-            toast.error("Error al generar la plantilla", { richColors: true });
+            console.error("Error al subir archivo:", error);
         }
     };
 
@@ -237,7 +219,7 @@ export const TemplateGenerationList: React.FC = () => {
         setFormData({
             faculty_id: 0,
             school_id: 0,
-            notes: "",
+            term_id: 0,
         });
         setSelectedFile(null);
     };
@@ -302,10 +284,10 @@ export const TemplateGenerationList: React.FC = () => {
 
     // Estados para modales
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState<TemplateGeneration | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<AcademicLoadFile | null>(null);
 
     // Función para abrir modal de eliminación
-    const openDeleteModal = (item: TemplateGeneration) => {
+    const openDeleteModal = (item: AcademicLoadFile) => {
         setItemToDelete(item);
         setIsDeleteModalOpen(true);
     };
@@ -319,84 +301,14 @@ export const TemplateGenerationList: React.FC = () => {
     // Función para eliminar item
     const handleDelete = () => {
         if (itemToDelete) {
-            // TODO: Implementar eliminación
-            toast.success("Plantilla eliminada exitosamente", { richColors: true });
+            toast.success("Archivo eliminado exitosamente", { richColors: true });
             closeDeleteModal();
         }
     };
 
-    // Función para descargar archivo
-    const handleDownload = async (item: TemplateGeneration) => {
-        try {
-            const response = await fetch(`/api/v1/template-generation/${item.id}/download`, {
-                method: 'GET',
-                headers: getAuthHeaders(),
-            });
-
-            if (!response.ok) {
-                throw new Error('Error al descargar el archivo');
-            }
-
-            // Obtener el nombre del archivo del header Content-Disposition
-            const contentDisposition = response.headers.get('Content-Disposition');
-            let filename = `template_${item.id}.xlsx`;
-            if (contentDisposition) {
-                const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-                if (filenameMatch) {
-                    filename = filenameMatch[1];
-                }
-            }
-
-            // Crear blob y descargar
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-
-            toast.success("Archivo descargado exitosamente", { richColors: true });
-        } catch (error) {
-            console.error('Error downloading file:', error);
-            toast.error("Error al descargar el archivo", { richColors: true });
-        }
-    };
-
     // Función para ver detalles
-    const handleView = (item: TemplateGeneration) => {
-        // TODO: Implementar vista de detalles
+    const handleView = (item: AcademicLoadFile) => {
         toast.info("Funcionalidad de vista en desarrollo", { richColors: true });
-    };
-
-    // Función para obtener el color del badge según el estado
-    const getStatusBadgeColor = (status: string) => {
-        switch (status) {
-            case "completed":
-                return "default";
-            case "processing":
-                return "secondary";
-            case "failed":
-                return "destructive";
-            default:
-                return "outline";
-        }
-    };
-
-    // Función para obtener el texto del estado
-    const getStatusText = (status: string) => {
-        switch (status) {
-            case "completed":
-                return "Completado";
-            case "processing":
-                return "Procesando";
-            case "failed":
-                return "Fallido";
-            default:
-                return status;
-        }
     };
 
     if (!canAccess) {
@@ -409,7 +321,7 @@ export const TemplateGenerationList: React.FC = () => {
                 <Card>
                     <CardContent className="p-6">
                         <div className="text-center">
-                            <p className="text-red-500">Error al cargar las plantillas generadas</p>
+                            <p className="text-red-500">Error al cargar los archivos de carga académica</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -418,18 +330,17 @@ export const TemplateGenerationList: React.FC = () => {
     }
 
     return (
-
         <CanAccess
-            resource="terms"
+            resource="academic-load-files"
             action="list"
-            fallback={<Unauthorized resourceName="ciclos académicos" message="Solo los administradores pueden gestionar ciclos académicos." />}
+            fallback={<Unauthorized resourceName="carga académica" message="No tienes permisos para acceder a esta sección." />}
         >
             <div className="container mx-auto py-6 space-y-6 max-w-[98%]">
                 <div className="flex justify-between items-center">
                     <div>
-                        <h1 className="text-2xl font-bold">Generar Plantillas</h1>
+                        <h1 className="text-2xl font-bold">Carga Académica</h1>
                         <p className="text-muted-foreground">
-                            Gestiona las plantillas de Excel generadas por facultad y escuela para el proceso de carga académica.
+                            Gestiona los archivos de carga académica por facultad, escuela y período académico.
                         </p>
                     </div>
                 </div>
@@ -440,7 +351,7 @@ export const TemplateGenerationList: React.FC = () => {
                         <form onSubmit={handleSubmit} className="space-y-6">
                             {/* Selección de archivo */}
                             <Label htmlFor="file">Archivo Excel *</Label>
-                            <div className="flex space-y-4">
+                            <div className="flex space-x-4">
                                 {!selectedFile ? (
                                     <div
                                         className={`flex-1 flex flex-col justify-center items-center border-2 border-dashed rounded-lg transition-colors
@@ -503,12 +414,12 @@ export const TemplateGenerationList: React.FC = () => {
                                             >
                                                 <X className="h-4 w-4" />
                                             </Button>
-
                                         </div>
                                     </div>
                                 )}
-                                {/* Selección de facultad y escuela */}
-                                <div className="flex-2 flex flex-col gap-6 ml-8">
+
+                                {/* Selección de facultad, escuela y período */}
+                                <div className="flex-1 flex flex-col gap-4 ml-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="faculty">Facultad *</Label>
                                         <select
@@ -520,7 +431,7 @@ export const TemplateGenerationList: React.FC = () => {
                                                 setFormData({
                                                     ...formData,
                                                     faculty_id: facultyId,
-                                                    school_id: 0, // Reset school when faculty changes
+                                                    school_id: 0,
                                                 });
                                             }}
                                             required
@@ -560,20 +471,31 @@ export const TemplateGenerationList: React.FC = () => {
                                         </select>
                                     </div>
 
-                                    {/* Notas */}
                                     <div className="space-y-2">
-                                        <Label htmlFor="notes">Notas (opcional)</Label>
-                                        <Textarea
-                                            id="notes"
-                                            value={formData.notes || ""}
-                                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                                            placeholder="Agregue cualquier nota adicional sobre la plantilla..."
-                                            rows={3}
-                                        />
+                                        <Label htmlFor="term">Período Académico *</Label>
+                                        <select
+                                            id="term"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                            value={formData.term_id}
+                                            onChange={(e) => {
+                                                setFormData({
+                                                    ...formData,
+                                                    term_id: parseInt(e.target.value),
+                                                });
+                                            }}
+                                            required
+                                        >
+                                            <option value={0}>Seleccione un período</option>
+                                            {terms.map((term) => (
+                                                <option key={term.id} value={term.id}>
+                                                    {term.term_name} {term.year}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
 
                                     {/* Botones */}
-                                    <div className="flex justify-end gap-4">
+                                    <div className="flex justify-end gap-4 mt-4">
                                         <Button
                                             type="button"
                                             variant="outline"
@@ -588,22 +510,18 @@ export const TemplateGenerationList: React.FC = () => {
                                             {isCreating ? (
                                                 <>
                                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                                                    Generando...
+                                                    Subiendo...
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Save className="h-4 w-4 mr-2" />
-                                                    Generar Plantilla
+                                                    <Upload className="h-4 w-4 mr-2" />
+                                                    Subir Archivo
                                                 </>
                                             )}
                                         </Button>
                                     </div>
                                 </div>
                             </div>
-
-
-
-
                         </form>
                     </CardContent>
                 </Card>
@@ -613,9 +531,9 @@ export const TemplateGenerationList: React.FC = () => {
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <div>
-                                <CardTitle>Plantillas Generadas</CardTitle>
+                                <CardTitle>Archivos de Carga Académica</CardTitle>
                                 <CardDescription>
-                                    Gestiona las plantillas de Excel generadas por facultad y escuela
+                                    Gestiona los archivos subidos por facultad, escuela y período
                                 </CardDescription>
                             </div>
                         </div>
@@ -639,6 +557,7 @@ export const TemplateGenerationList: React.FC = () => {
                                         <TableHead className={getTableColumnClass("name")}>Archivo</TableHead>
                                         <TableHead className={getTableColumnClass("name")}>Facultad</TableHead>
                                         <TableHead className={getTableColumnClass("name")}>Escuela</TableHead>
+                                        <TableHead className={getTableColumnClass("name")}>Período</TableHead>
                                         <TableHead className={getTableColumnClass("name")}>Usuario</TableHead>
                                         <TableHead className={getTableColumnClass("date")}>Fecha</TableHead>
                                         <TableHead className={getTableColumnClass("status")}>Estado</TableHead>
@@ -648,14 +567,14 @@ export const TemplateGenerationList: React.FC = () => {
                                 <TableBody>
                                     {isLoading ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} className="text-center py-8">
-                                                Cargando plantillas...
+                                            <TableCell colSpan={9} className="text-center py-8">
+                                                Cargando archivos...
                                             </TableCell>
                                         </TableRow>
                                     ) : paginatedItems.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} className="text-center py-8">
-                                                No se encontraron plantillas generadas
+                                            <TableCell colSpan={9} className="text-center py-8">
+                                                No se encontraron archivos de carga académica
                                             </TableCell>
                                         </TableRow>
                                     ) : (
@@ -686,35 +605,19 @@ export const TemplateGenerationList: React.FC = () => {
                                                     )}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("name")}>
-                                                    {item.user?.name || "N/A"}
+                                                    {item.term ? `${item.term.term_name} ${item.term.year}` : "N/A"}
+                                                </TableCell>
+                                                <TableCell className={getTableColumnClass("name")}>
+                                                    {item.user_name || "N/A"}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("date")}>
                                                     {format(new Date(item.upload_date), "dd/MM/yyyy HH:mm", { locale: es })}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("status")}>
-                                                    {getStatusDisplay(item.generation_status)}
+                                                    {getStatusDisplay(item.ingestion_status)}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("actions")}>
                                                     <div className="flex items-center gap-2">
-                                                        {item.generation_status === "completed" && (
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="sm"
-                                                                            onClick={() => handleDownload(item)}
-                                                                        >
-                                                                            <Download className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>Descargar archivo generado</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
-                                                        )}
-
                                                         <TooltipProvider>
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
@@ -745,7 +648,7 @@ export const TemplateGenerationList: React.FC = () => {
                                                                         </Button>
                                                                     </TooltipTrigger>
                                                                     <TooltipContent>
-                                                                        <p>Eliminar plantilla</p>
+                                                                        <p>Eliminar archivo</p>
                                                                     </TooltipContent>
                                                                 </Tooltip>
                                                             </TooltipProvider>
@@ -779,9 +682,9 @@ export const TemplateGenerationList: React.FC = () => {
                     isOpen={isDeleteModalOpen}
                     onClose={closeDeleteModal}
                     onConfirm={handleDelete}
-                    entityType="plantilla"
+                    entityType="archivo"
                     entityName={itemToDelete?.original_filename || ""}
-                    gender="f"
+                    gender="m"
                 />
             </div>
         </CanAccess>

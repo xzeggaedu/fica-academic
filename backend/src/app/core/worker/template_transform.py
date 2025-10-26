@@ -260,7 +260,7 @@ def _filter_active_days(df: pd.DataFrame) -> pd.DataFrame:
 def _merge_subject_data(df: pd.DataFrame, df_materia: pd.DataFrame) -> pd.DataFrame:
     """Cruza con la información de la materia (nombre y cátedra)."""
     merged_df = df.merge(
-        df_materia[["subject_code", "subject_name", "coordination_code"]],
+        df_materia[["id", "subject_code", "subject_name", "coordination_code"]],
         left_on="CODIGO",
         right_on="subject_code",
         how="inner",
@@ -312,6 +312,7 @@ def _structure_final_df(df: pd.DataFrame) -> pd.DataFrame:
     final_columns_order = [
         "No",
         "COD_CATE",
+        "SUBJECT_ID",
         "COD_ASIG",
         "ASIGNATURA",
         "SECCION",
@@ -328,6 +329,7 @@ def _structure_final_df(df: pd.DataFrame) -> pd.DataFrame:
         columns={
             "subject_name": "ASIGNATURA",
             "coordination_code": "COD_CATE",
+            "id": "SUBJECT_ID",
             "CODIGO": "COD_ASIG",
             "HORAS": "HORARIO",
             "MODALIDAD": "MODALIDAD",
@@ -405,14 +407,19 @@ def _get_column_settings(formats: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Define las propiedades (ancho, formato, fórmulas) de cada columna."""
     return {
         "No": {"width": 5, "format": formats["locked_center"]},
-        "COD_CATE": {"width": 12, "format": formats["unlocked_center"]},
-        "COD_ASIG": {"width": 12, "format": formats["unlocked_center"]},
-        "ASIGNATURA": {"width": 60, "format": formats["unlocked_left"]},
-        "SECCION": {"width": 10, "format": formats["unlocked_center"]},
-        "HORARIO": {"width": 15, "format": formats["unlocked_center"]},
-        "DURACION": {"width": 12, "format": formats["unlocked_center"]},
-        "DIAS": {"width": 25, "format": formats["unlocked_left"]},
-        "MODALIDAD": {"width": 16, "format": formats["unlocked_left"]},
+        "COD_CATE": {"width": 12, "format": formats["locked_center"]},
+        "SUBJECT_ID": {
+            "width": 15,
+            "format": formats["locked_center"],
+            "hidden": True,
+        },
+        "COD_ASIG": {"width": 12, "format": formats["locked_center"]},
+        "ASIGNATURA": {"width": 60, "format": formats["locked_left"]},
+        "SECCION": {"width": 10, "format": formats["locked_center"]},
+        "HORARIO": {"width": 15, "format": formats["locked_center"]},
+        "DURACION": {"width": 12, "format": formats["locked_center"]},
+        "DIAS": {"width": 25, "format": formats["locked_left"]},
+        "MODALIDAD": {"width": 16, "format": formats["locked_left"]},
         "TIT": {
             "width": 6,
             "format": formats["locked_left"],

@@ -82,6 +82,7 @@ const ENDPOINTS = {
   FIXED_HOLIDAY_RULES: `${API_BASE_PATH}/fixed-holiday-rules`,
   ANNUAL_HOLIDAYS: `${API_BASE_PATH}/annual-holidays`,
   TEMPLATE_GENERATION: `${API_BASE_PATH}/template-generation`,
+  ACADEMIC_LOAD_FILES: `${API_BASE_PATH}/academic-load-files`,
 };
 
 // Helper function to get auth headers
@@ -602,6 +603,26 @@ export const dataProvider: DataProvider = {
         };
       }
 
+      case "academic-load-files": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+        const response = await apiRequest<PaginatedResponse<any>>(
+          `${ENDPOINTS.ACADEMIC_LOAD_FILES}/?page=${current}&items_per_page=${pageSize}`
+        );
+
+        // Mapear la respuesta del backend al formato esperado por el frontend
+        const mappedData = response.data.map((item: any) => ({
+          ...item,
+          faculty: item.faculty_name ? { name: item.faculty_name, acronym: item.faculty_acronym } : undefined,
+          school: item.school_name ? { name: item.school_name, acronym: item.school_acronym } : undefined,
+        }));
+
+        return {
+          data: mappedData as any[],
+          total: response.total_count || 0,
+        };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported`);
     }
@@ -671,6 +692,11 @@ export const dataProvider: DataProvider = {
 
       case "template-generation": {
         const response = await apiRequest<TemplateGeneration>(`${ENDPOINTS.TEMPLATE_GENERATION}/${id}`);
+        return { data: response as any };
+      }
+
+      case "academic-load-files": {
+        const response = await apiRequest<any>(`${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`);
         return { data: response as any };
       }
 
@@ -840,6 +866,18 @@ export const dataProvider: DataProvider = {
         // Para template-generation, usar FormData directamente
         const response = await apiRequest<TemplateGeneration>(
           `${ENDPOINTS.TEMPLATE_GENERATION}/upload`,
+          {
+            method: "POST",
+            body: variables as FormData,
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "academic-load-files": {
+        // Para academic-load-files, usar FormData directamente
+        const response = await apiRequest<any>(
+          `${ENDPOINTS.ACADEMIC_LOAD_FILES}/upload`,
           {
             method: "POST",
             body: variables as FormData,
@@ -1097,6 +1135,17 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "academic-load-files": {
+        const response = await apiRequest<any>(
+          `${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported for update`);
     }
@@ -1248,6 +1297,16 @@ export const dataProvider: DataProvider = {
       case "template-generation": {
         await apiRequest(
           `${ENDPOINTS.TEMPLATE_GENERATION}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
+      }
+
+      case "academic-load-files": {
+        await apiRequest(
+          `${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`,
           {
             method: "DELETE",
           }

@@ -45,6 +45,7 @@ import { HolidaysList } from "./pages/holidays";
 import { FixedHolidayRulesList } from "./pages/fixed-holiday-rules";
 import { AnnualHolidaysList } from "./pages/annual-holidays";
 import { TemplateGenerationCreate, TemplateGenerationList } from "./pages/template-generation";
+import { AcademicLoadFilesList } from "./pages/academic-load-files";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -109,6 +110,15 @@ function App() {
                         label: "Generar Plantilla",
                         parent: "academic-planning",
                         icon: "FileSpreadsheet",
+                      },
+                    },
+                    {
+                      name: "academic-load-files",
+                      list: "/academic-planning/academic-load-files",
+                      meta: {
+                        label: "Carga Académica",
+                        parent: "academic-planning",
+                        icon: "Upload",
                       },
                     },
                     {
@@ -322,6 +332,7 @@ function App() {
                         <Route path="terms" element={<TermsList />} />
                         <Route path="template-generation" element={<TemplateGenerationList />} />
                         <Route path="template-generation/create" element={<TemplateGenerationCreate />} />
+                        <Route path="academic-load-files" element={<AcademicLoadFilesList />} />
                         <Route path="holidays" element={<HolidaysList />} />
                         <Route path="fixed-holiday-rules" element={<FixedHolidayRulesList />} />
                         <Route path="annual-holidays/:holidayId" element={<AnnualHolidaysList />} />

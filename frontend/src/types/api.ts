@@ -552,3 +552,35 @@ export interface TemplateGenerationRead {
   notes?: string;
   download_url?: string | null;
 }
+
+// Academic Load File Types
+export interface AcademicLoadFile {
+  id: number;
+  user_id: string;
+  user_name: string;
+  faculty_id: number;
+  school_id: number;
+  term_id: number;
+  original_filename: string;
+  original_file_path: string;
+  upload_date: string;
+  ingestion_status: string;
+  // Relaciones
+  user?: User;
+  faculty?: Faculty;
+  school?: School;
+  term?: Term;
+}
+
+export interface AcademicLoadFileCreate {
+  faculty_id: number;
+  school_id: number;
+  term_id: number;
+}
+
+export interface AcademicLoadFileUpdate {
+  faculty_id?: number;
+  school_id?: number;
+  term_id?: number;
+  ingestion_status?: string;
+}
