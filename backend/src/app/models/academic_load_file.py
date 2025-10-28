@@ -46,7 +46,7 @@ class AcademicLoadFile(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
     superseded_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
     superseded_by_id: Mapped[int | None] = mapped_column(
-        ForeignKey("academic_load_files.id"), nullable=True, default=None
+        ForeignKey("academic_load_files.id", ondelete="SET NULL"), nullable=True, default=None
     )
 
     # Clave Primaria (al final para evitar problemas con dataclasses)

@@ -202,6 +202,9 @@ async def get_academic_load_files(
             school_name=file.school.name,
             school_acronym=file.school.acronym,
             term_id=file.term_id,
+            term_name=f"{file.term.term} {file.term.year}" if file.term else None,
+            term_term=file.term.term if file.term else None,
+            term_year=file.term.year if file.term else None,
             original_filename=file.original_filename,
             upload_date=file.upload_date,
             ingestion_status=file.ingestion_status,
@@ -289,8 +292,51 @@ async def delete_academic_load_file(
     except Exception as e:
         print(f"Error al eliminar archivos: {e}")
 
+    # Guardar si el archivo es activo antes de eliminarlo
+    was_active = file.is_active
+    faculty_id = file.faculty_id
+    school_id = file.school_id
+    term_id = file.term_id
+
+    # Primero, eliminar todas las referencias que apuntan a este archivo como superseded_by_id
+    from sqlalchemy import update as sql_update
+
+    from ...models.academic_load_file import AcademicLoadFile
+
+    # Eliminar referencias de superseded_by_id
+    await db.execute(
+        sql_update(AcademicLoadFile).where(AcademicLoadFile.superseded_by_id == file_id).values(superseded_by_id=None)
+    )
+    await db.commit()
+
+    # Eliminar el archivo
     await academic_load_file.delete(db, id=file_id)
-    return {"message": "Archivo eliminado exitosamente"}
+
+    # Si el archivo eliminado era la versión activa, buscar y activar la siguiente versión
+    previous_version_activated = False
+    if was_active:
+        # Buscar todas las versiones restantes de este contexto
+        remaining_versions = await academic_load_file.get_all_versions(db, faculty_id, school_id, term_id)
+
+        if remaining_versions:
+            # Ordenar por versión descendente
+            sorted_versions = sorted(remaining_versions, key=lambda x: x.version or 1, reverse=True)
+            next_version = sorted_versions[0]  # La más reciente disponible
+
+            # Activar esta versión
+            if not next_version.is_active:
+                next_version.is_active = True
+                next_version.superseded_at = None
+                next_version.superseded_by_id = None
+                await db.commit()
+                previous_version_activated = True
+                print(f"✅ Versión anterior (ID: {next_version.id}, versión: {next_version.version}) activada")
+
+    message = "Archivo eliminado exitosamente"
+    if previous_version_activated:
+        message += ". La versión anterior ha sido establecida como activa."
+
+    return {"message": message}
 
 
 @router.get("/check-active/{faculty_id}/{school_id}/{term_id}")

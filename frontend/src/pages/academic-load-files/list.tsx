@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/forms/label";
 import { toast } from "sonner";
-import { Plus, Trash2, Eye, X, Upload, FileSpreadsheet, Save, RefreshCw, XCircle, CheckCircle } from "lucide-react";
+import { Plus, Trash2, Eye, X, Upload, FileSpreadsheet, Save, RefreshCw, XCircle, CheckCircle, Star } from "lucide-react";
 import { TableFilters } from "@/components/ui/data/table-filters";
 import { TablePagination } from "@/components/ui/data/table-pagination";
 import type { AcademicLoadFile, Faculty, School, Term } from "@/types/api";
@@ -94,6 +94,13 @@ export const AcademicLoadFilesList: React.FC = () => {
 
     // Estados para filtros y paginación
     const [searchTerm, setSearchTerm] = useState("");
+    const [showIdColumn, setShowIdColumn] = useState(false);
+
+    // Columnas disponibles
+    const availableColumns = [
+        { key: "id", label: "ID" }
+    ];
+    const visibleColumns = showIdColumn ? ["id"] : [];
 
     // Estados del formulario de creación
     const [formData, setFormData] = useState({
@@ -124,16 +131,34 @@ export const AcademicLoadFilesList: React.FC = () => {
     const schools = schoolsResult?.data || [];
     const terms = termsResult?.data || [];
 
-    // Filtrar datos
-    const filteredItems = itemsList.filter((item) => {
-        const matchesSearch =
-            item.original_filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.faculty?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.school?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.user_name.toLowerCase().includes(searchTerm.toLowerCase());
+    // Filtrar y agrupar datos por versión
+    const filteredItems = itemsList
+        .filter((item) => {
+            const matchesSearch =
+                item.original_filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.faculty?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.school?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.user_name.toLowerCase().includes(searchTerm.toLowerCase());
 
-        return matchesSearch;
-    });
+            return matchesSearch;
+        })
+        // Ordenar por contexto (faculty, school, term) y luego por versión descendente
+        .sort((a, b) => {
+            // Primero por facultad
+            if (a.faculty_id !== b.faculty_id) {
+                return a.faculty_id - b.faculty_id;
+            }
+            // Luego por escuela
+            if (a.school_id !== b.school_id) {
+                return a.school_id - b.school_id;
+            }
+            // Luego por término
+            if (a.term_id !== b.term_id) {
+                return a.term_id - b.term_id;
+            }
+            // Finalmente por versión descendente
+            return (b.version || 1) - (a.version || 1);
+        });
 
     // Funciones del formulario de creación
     const handleFileSelect = (file: File) => {
@@ -384,12 +409,26 @@ export const AcademicLoadFilesList: React.FC = () => {
     const handleDelete = async () => {
         if (itemToDelete) {
             try {
+                // Verificar si es una versión activa antes de eliminar
+                const wasActive = itemToDelete.is_active;
+
                 // Llamar al API para eliminar el archivo
-                await deleteHook.mutateAsync({
+                const result = await deleteHook.mutateAsync({
                     resource: "academic-load-files",
                     id: itemToDelete.id
                 });
-                toast.success("Archivo eliminado exitosamente", { richColors: true });
+
+                // Mostrar mensaje según si era activa o no
+                if (wasActive) {
+                    toast.success("Archivo eliminado exitosamente", {
+                        description: "La versión anterior ha sido establecida como activa automáticamente.",
+                        richColors: true,
+                        duration: 5000,
+                    });
+                } else {
+                    toast.success("Archivo eliminado exitosamente", { richColors: true });
+                }
+
                 closeDeleteModal();
             } catch (error) {
                 toast.error("Error al eliminar el archivo", { richColors: true });
@@ -623,9 +662,6 @@ export const AcademicLoadFilesList: React.FC = () => {
                         <div className="flex items-center justify-between">
                             <div>
                                 <CardTitle>Archivos de Carga Académica</CardTitle>
-                                <CardDescription>
-                                    Gestiona los archivos subidos por facultad, escuela y período
-                                </CardDescription>
                             </div>
                         </div>
                     </CardHeader>
@@ -635,8 +671,9 @@ export const AcademicLoadFilesList: React.FC = () => {
                             searchValue={searchTerm}
                             onSearchChange={setSearchTerm}
                             searchPlaceholder="Buscar por archivo, facultad, escuela o usuario..."
-                            visibleColumns={[]}
-                            availableColumns={[]}
+                            visibleColumns={visibleColumns}
+                            availableColumns={availableColumns}
+                            onVisibleColumnsChange={(cols) => setShowIdColumn(cols.includes("id"))}
                         />
 
                         {/* Tabla */}
@@ -644,8 +681,9 @@ export const AcademicLoadFilesList: React.FC = () => {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className={getTableColumnClass("id")}>ID</TableHead>
+                                        {showIdColumn && <TableHead className={getTableColumnClass("id")}>ID</TableHead>}
                                         <TableHead className={getTableColumnClass("name")}>Archivo</TableHead>
+                                        <TableHead className={getTableColumnClass("name")}>Versión</TableHead>
                                         <TableHead className={getTableColumnClass("name")}>Facultad</TableHead>
                                         <TableHead className={getTableColumnClass("name")}>Escuela</TableHead>
                                         <TableHead className={getTableColumnClass("name")}>Período</TableHead>
@@ -656,36 +694,73 @@ export const AcademicLoadFilesList: React.FC = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {isLoading ? (
+                                                    {isLoading ? (
                                         <TableRow>
-                                            <TableCell colSpan={9} className="text-center py-8">
+                                            <TableCell colSpan={showIdColumn ? 10 : 9} className="text-center py-8">
                                                 Cargando archivos...
                                             </TableCell>
                                         </TableRow>
                                     ) : paginatedItems.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={9} className="text-center py-8">
+                                            <TableCell colSpan={showIdColumn ? 10 : 9} className="text-center py-8">
                                                 No se encontraron archivos de carga académica
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        paginatedItems.map((item) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell className={getTableColumnClass("id")}>
-                                                    #{item.id}
-                                                </TableCell>
-                                                <TableCell className={getTableColumnClass("name")}>
-                                                    <div className="font-medium">{item.original_filename}</div>
-                                                </TableCell>
-                                                <TableCell className={getTableColumnClass("name")}>
-                                                    {item.faculty?.acronym ? (
-                                                        <Badge variant="outline" className="font-mono">
-                                                            {item.faculty.acronym}
-                                                        </Badge>
-                                                    ) : (
-                                                        "N/A"
+                                        paginatedItems.map((item, index) => {
+                                            const isActive = item.is_active;
+                                            const prevItem = index > 0 ? paginatedItems[index - 1] : null;
+                                            const nextItem = index < paginatedItems.length - 1 ? paginatedItems[index + 1] : null;
+                                            const isNewGroup = !prevItem ||
+                                                prevItem.faculty_id !== item.faculty_id ||
+                                                prevItem.school_id !== item.school_id ||
+                                                prevItem.term_id !== item.term_id;
+
+                                            // Verificar si la versión activa tiene versiones anteriores (inactivas)
+                                            const hasInactiveVersions = isActive && nextItem &&
+                                                nextItem.faculty_id === item.faculty_id &&
+                                                nextItem.school_id === item.school_id &&
+                                                nextItem.term_id === item.term_id &&
+                                                !nextItem.is_active;
+
+                                            return (
+                                                <TableRow
+                                                    key={item.id}
+                                                    className={`
+                                                        ${!isActive ? 'pl-8 opacity-50 bg-gray-100' : ''}
+                                                        ${isNewGroup && !isActive ? 'border-t-1 border-gray-300' : ''}
+                                                        ${hasInactiveVersions ? 'border-b-1 border-green-600' : ''}
+                                                    `}
+                                                >
+                                                    {showIdColumn && (
+                                                        <TableCell className={getTableColumnClass("id")}>
+                                                            #{item.id}
+                                                        </TableCell>
                                                     )}
-                                                </TableCell>
+                                                    <TableCell className={getTableColumnClass("name")}>
+                                                        <div className="font-medium">{item.original_filename}</div>
+                                                    </TableCell>
+                                                    <TableCell className={getTableColumnClass("name")}>
+                                                        {isActive ? (
+                                                            <div className="flex items-center gap-1">
+                                                                Versión {item.version || 1}
+                                                                <Star className="h-3 w-3 ml-1 fill-yellow-200" />
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-gray-600">
+                                                                versión {item.version || 1}
+                                                            </span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className={getTableColumnClass("name")}>
+                                                        {item.faculty?.acronym ? (
+                                                            <Badge variant="outline" className="font-mono">
+                                                                {item.faculty.acronym}
+                                                            </Badge>
+                                                        ) : (
+                                                            "N/A"
+                                                        )}
+                                                    </TableCell>
                                                 <TableCell className={getTableColumnClass("name")}>
                                                     {item.school?.acronym ? (
                                                         <Badge variant="secondary" className="font-mono">
@@ -696,7 +771,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                     )}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("name")}>
-                                                    {item.term ? `${item.term.term} ${item.term.year}` : "N/A"}
+                                                    Ciclo 0{item.term_name || "N/A"}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("name")}>
                                                     {item.user_name || "N/A"}
@@ -781,18 +856,20 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                                             size="sm"
                                                                             onClick={() => openDeleteModal(item)}
                                                                             className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                                                                            disabled={item.ingestion_status === "pending" || item.ingestion_status === "processing"}
+                                                                            disabled={item.ingestion_status === "pending" || item.ingestion_status === "processing" || !item.is_active}
                                                                         >
                                                                             <Trash2 className="h-4 w-4" />
                                                                         </Button>
                                                                     </TooltipTrigger>
                                                                     <TooltipContent>
                                                                         <p>
-                                                                            {item.ingestion_status === "pending" || item.ingestion_status === "processing"
-                                                                                ? "No se puede eliminar durante el procesamiento"
-                                                                                : item.ingestion_status === "failed"
-                                                                                  ? "Eliminar archivo fallido"
-                                                                                  : "Eliminar archivo"}
+                                                                            {!item.is_active
+                                                                                ? "Solo se puede eliminar la versión activa"
+                                                                                : item.ingestion_status === "pending" || item.ingestion_status === "processing"
+                                                                                  ? "No se puede eliminar durante el procesamiento"
+                                                                                  : item.ingestion_status === "failed"
+                                                                                    ? "Eliminar archivo fallido"
+                                                                                    : "Eliminar archivo"}
                                                                         </p>
                                                                     </TooltipContent>
                                                                 </Tooltip>
@@ -801,7 +878,8 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </TableBody>
                             </Table>
@@ -823,14 +901,45 @@ export const AcademicLoadFilesList: React.FC = () => {
                 </Card>
 
                 {/* Modal de confirmación de eliminación */}
-                <HardDeleteConfirmDialog
-                    isOpen={isDeleteModalOpen}
-                    onClose={closeDeleteModal}
-                    onConfirm={handleDelete}
-                    entityType="archivo"
-                    entityName={itemToDelete?.original_filename || ""}
-                    gender="m"
-                />
+                {itemToDelete && (
+                    <AlertDialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle className="flex items-center gap-2">
+                                    <XCircle className="h-5 w-5 text-red-600" />
+                                    Eliminar archivo permanentemente
+                                </AlertDialogTitle>
+                                <AlertDialogDescription className="space-y-3">
+                                    <p className="text-base text-gray-700">
+                                        El archivo <strong>{itemToDelete.original_filename}</strong> será eliminado permanentemente.
+                                    </p>
+                                    {itemToDelete.is_active && (
+                                        <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+                                            <p className="text-sm text-blue-800">
+                                                <strong>ℹ️ Información:</strong> Este archivo es la versión activa.
+                                                Al eliminarlo, la versión anterior será automáticamente establecida como la versión activa.
+                                            </p>
+                                        </div>
+                                    )}
+                                    <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                                        <p className="text-sm text-red-800">
+                                            <strong>⚠️ Esta acción no se puede deshacer.</strong> El archivo será eliminado de forma permanente del sistema.
+                                        </p>
+                                    </div>
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel onClick={closeDeleteModal}>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={handleDelete}
+                                    className="bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                    Eliminar permanentemente
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
 
                 {/* Modal de confirmación de versión */}
                 <AlertDialog open={isVersionConfirmOpen} onOpenChange={setIsVersionConfirmOpen}>

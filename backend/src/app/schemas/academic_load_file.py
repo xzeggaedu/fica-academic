@@ -46,6 +46,9 @@ class AcademicLoadFileListResponse(BaseModel):
     school_name: str
     school_acronym: str
     term_id: int
+    term_name: str | None = None
+    term_term: int | None = None
+    term_year: int | None = None
     original_filename: str
     upload_date: datetime
     ingestion_status: str

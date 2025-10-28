@@ -561,6 +561,13 @@ export interface AcademicLoadFile {
   faculty_id: number;
   school_id: number;
   term_id: number;
+  term_name?: string | null;
+  term_term?: number | null;
+  term_year?: number | null;
+  faculty_name?: string;
+  faculty_acronym?: string;
+  school_name?: string;
+  school_acronym?: string;
   original_filename: string;
   original_file_path: string;
   upload_date: string;
