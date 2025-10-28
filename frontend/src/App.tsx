@@ -265,16 +265,6 @@ function App() {
                         icon: "Trash2",
                       },
                     },
-                    {
-                      name: "template-generation",
-                      list: "/template-generation",
-                      create: "/template-generation/create",
-                      meta: {
-                        label: "Generar Plantilla",
-                        canDelete: true,
-                        icon: "FileSpreadsheet",
-                      },
-                    },
 
                   ]}
                   options={{
