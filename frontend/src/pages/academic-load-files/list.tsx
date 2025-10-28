@@ -18,7 +18,7 @@ import { TableFilters } from "@/components/ui/data/table-filters";
 import { TablePagination } from "@/components/ui/data/table-pagination";
 import type { AcademicLoadFile, Faculty, School, Term } from "@/types/api";
 import { getTableColumnClass } from "@/components/refine-ui/theme/theme-table";
-import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
+import { HardDeleteConfirmDialog } from "@/components/ui/hard-delete-confirm-dialog";
 import { Unauthorized } from "../unauthorized";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTablePagination } from "@/hooks/useTablePagination";
@@ -38,6 +38,7 @@ export const AcademicLoadFilesList: React.FC = () => {
         canDelete,
         createItem,
         invalidate,
+        deleteHook,
     } = useAcademicLoadFilesCrud();
 
     // Ref para tracking de items que estaban pendientes
@@ -303,10 +304,19 @@ export const AcademicLoadFilesList: React.FC = () => {
     };
 
     // Función para eliminar item
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (itemToDelete) {
-            toast.success("Archivo eliminado exitosamente", { richColors: true });
-            closeDeleteModal();
+            try {
+                // Llamar al API para eliminar el archivo
+                await deleteHook.mutateAsync({
+                    resource: "academic-load-files",
+                    id: itemToDelete.id
+                });
+                toast.success("Archivo eliminado exitosamente", { richColors: true });
+                closeDeleteModal();
+            } catch (error) {
+                toast.error("Error al eliminar el archivo", { richColors: true });
+            }
         }
     };
 
@@ -670,12 +680,17 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                                         variant="outline"
                                                                         size="sm"
                                                                         onClick={() => handleView(item)}
+                                                                        disabled={item.ingestion_status !== "completed"}
                                                                     >
                                                                         <Eye className="h-4 w-4" />
                                                                     </Button>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>
-                                                                    <p>Ver detalles</p>
+                                                                    <p>
+                                                                        {item.ingestion_status === "completed"
+                                                                            ? "Ver detalles"
+                                                                            : "Solo disponible para archivos completados"}
+                                                                    </p>
                                                                 </TooltipContent>
                                                             </Tooltip>
                                                         </TooltipProvider>
@@ -688,12 +703,18 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                                             variant="outline"
                                                                             size="sm"
                                                                             onClick={() => openDeleteModal(item)}
+                                                                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                                                                            disabled={item.ingestion_status === "pending" || item.ingestion_status === "processing"}
                                                                         >
                                                                             <Trash2 className="h-4 w-4" />
                                                                         </Button>
                                                                     </TooltipTrigger>
                                                                     <TooltipContent>
-                                                                        <p>Eliminar archivo</p>
+                                                                        <p>
+                                                                            {item.ingestion_status === "pending" || item.ingestion_status === "processing"
+                                                                                ? "No se puede eliminar durante el procesamiento"
+                                                                                : "Eliminar archivo"}
+                                                                        </p>
                                                                     </TooltipContent>
                                                                 </Tooltip>
                                                             </TooltipProvider>
@@ -723,7 +744,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                 </Card>
 
                 {/* Modal de confirmación de eliminación */}
-                <DeleteConfirmDialog
+                <HardDeleteConfirmDialog
                     isOpen={isDeleteModalOpen}
                     onClose={closeDeleteModal}
                     onConfirm={handleDelete}

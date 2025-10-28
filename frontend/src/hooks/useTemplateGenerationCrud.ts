@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCreate, useUpdate, useList, useCan, useInvalidate } from "@refinedev/core";
+import { useCreate, useUpdate, useDelete, useList, useCan, useInvalidate } from "@refinedev/core";
 import { toast } from "sonner";
 import type { TemplateGeneration, TemplateGenerationCreate, TemplateGenerationUpdate } from "@/types/api";
 
@@ -67,6 +67,19 @@ export const useTemplateGenerationCrud = () => {
     },
   });
 
+  // Hook de eliminación
+  const deleteHook = useDelete({
+    resource: "template-generation",
+    mutationOptions: {
+      onSuccess: () => {
+        invalidate({ invalidates: ["list"], resource: "template-generation" });
+      },
+      onError: (error: any) => {
+        toast.error(error?.response?.data?.detail || "Error al eliminar plantilla");
+      },
+    },
+  });
+
   const createMutation = createHook.mutate;
   const updateMutation = updateHook.mutate;
   const isCreating = (createHook as any).isLoading;
@@ -129,5 +142,6 @@ export const useTemplateGenerationCrud = () => {
     closeCreateModal,
     openEditModal,
     closeEditModal,
+    deleteHook,
   };
 };

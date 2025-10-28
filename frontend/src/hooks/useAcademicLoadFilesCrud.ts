@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCreate, useUpdate, useList, useCan, useInvalidate } from "@refinedev/core";
+import { useCreate, useUpdate, useDelete, useList, useCan, useInvalidate } from "@refinedev/core";
 import { toast } from "sonner";
 import type { AcademicLoadFile, AcademicLoadFileCreate, AcademicLoadFileUpdate } from "@/types/api";
 
@@ -67,6 +67,19 @@ export const useAcademicLoadFilesCrud = () => {
     },
   });
 
+  // Hook de eliminación
+  const deleteHook = useDelete({
+    resource: "academic-load-files",
+    mutationOptions: {
+      onSuccess: () => {
+        invalidate({ invalidates: ["list"], resource: "academic-load-files" });
+      },
+      onError: (error: any) => {
+        toast.error(error?.response?.data?.detail || "Error al eliminar archivo");
+      },
+    },
+  });
+
   const createMutation = createHook.mutate;
   const updateMutation = updateHook.mutate;
   const isCreating = (createHook as any).isLoading;
@@ -129,5 +142,6 @@ export const useAcademicLoadFilesCrud = () => {
     closeCreateModal,
     openEditModal,
     closeEditModal,
+    deleteHook,
   };
 };
