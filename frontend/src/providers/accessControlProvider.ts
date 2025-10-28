@@ -332,6 +332,46 @@ export const accessControlProvider: AccessControlProvider = {
               return { can: false, reason: "Acción no permitida" };
           }
 
+        case "academic-load-files":
+          switch (action) {
+            case "list":
+            case "show":
+            case "create":
+            case "edit":
+            case "delete":
+              // Solo administradores pueden gestionar carga académica
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "Solo los administradores pueden gestionar carga académica",
+              };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
+        case "template-generation":
+          switch (action) {
+            case "list":
+            case "show":
+            case "create":
+            case "edit":
+            case "delete":
+              // Solo administradores pueden gestionar generación de plantillas
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "Solo los administradores pueden gestionar generación de plantillas",
+              };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
         default:
           // Para otros recursos, permitir acceso básico a usuarios autenticados
           if (action === "list" || action === "show") {

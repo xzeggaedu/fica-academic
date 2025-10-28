@@ -30,6 +30,10 @@ class AcademicLoadFileResponse(AcademicLoadFileBase):
     original_file_path: str
     upload_date: datetime
     ingestion_status: str
+    version: int
+    is_active: bool
+    superseded_at: datetime | None = None
+    superseded_by_id: int | None = None
 
     class Config:
         from_attributes = True
@@ -47,6 +51,8 @@ class AcademicLoadFileListResponse(BaseModel):
     ingestion_status: str
     user_name: str
     notes: str | None = None
+    version: int
+    is_active: bool
 
     class Config:
         from_attributes = True

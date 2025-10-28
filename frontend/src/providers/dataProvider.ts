@@ -50,7 +50,7 @@ class ApiError extends Error {
 
 // Environment Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || "/api/v1";
+export const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || "/api/v1";
 const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
 const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || "10000");
 const DEBUG_MODE = import.meta.env.VITE_DEBUG_MODE === "true";
@@ -1395,7 +1395,7 @@ export const dataProvider: DataProvider = {
 
   custom: async ({ url, method, filters, sorters, payload, query, headers, meta }) => {
 
-    let requestUrl = `${API_BASE_URL}${url}`;
+    let requestUrl = url;
 
     // Add query parameters if provided
     if (query && Object.keys(query).length > 0) {

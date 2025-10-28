@@ -69,6 +69,23 @@ async def upload_academic_load_file(
 
         print(f"✅ Archivo guardado: {original_path}")
 
+        # LÓGICA DE VERSIONADO: Buscar versión anterior
+        previous_version = await academic_load_file.get_latest_version(db, faculty_id, school_id, term_id)
+
+        if previous_version:
+            # Calcular nueva versión
+            new_version = previous_version.version + 1
+
+            # Marcar versión anterior como inactiva
+            previous_version.is_active = False
+            from datetime import datetime
+
+            previous_version.superseded_at = datetime.now()
+            # superseded_by_id se actualizará después de crear el nuevo registro
+            await db.commit()
+        else:
+            new_version = 1
+
         # Crear registro en la base de datos
         load_data = AcademicLoadFileCreate(faculty_id=faculty_id, school_id=school_id, term_id=term_id)
 
@@ -101,7 +118,14 @@ async def upload_academic_load_file(
             original_filename=file.filename,
             original_file_path=str(original_path),
             ingestion_status="pending",
+            version=new_version,
+            is_active=True,
         )
+
+        # Actualizar referencia de versión anterior
+        if previous_version:
+            previous_version.superseded_by_id = load_record.id
+            await db.commit()
 
         # Disparar procesamiento en background
         from ...core.utils.queue import pool
@@ -121,6 +145,10 @@ async def upload_academic_load_file(
             original_file_path=load_record.original_file_path,
             upload_date=load_record.upload_date,
             ingestion_status=load_record.ingestion_status,
+            version=load_record.version,
+            is_active=load_record.is_active,
+            superseded_at=load_record.superseded_at,
+            superseded_by_id=load_record.superseded_by_id,
         )
 
         # Agregar mensaje adicional en el response
@@ -179,6 +207,8 @@ async def get_academic_load_files(
             ingestion_status=file.ingestion_status,
             user_name=file.user_name,
             notes=file.notes,
+            version=file.version,
+            is_active=file.is_active,
         )
         for file in files
     ]
@@ -261,3 +291,63 @@ async def delete_academic_load_file(
 
     await academic_load_file.delete(db, id=file_id)
     return {"message": "Archivo eliminado exitosamente"}
+
+
+@router.get("/check-active/{faculty_id}/{school_id}/{term_id}")
+async def check_active_version(
+    faculty_id: int,
+    school_id: int,
+    term_id: int,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: AsyncSession = Depends(async_get_db),
+):
+    """Verificar si ya existe una versión activa para estos parámetros."""
+    active_version = await academic_load_file.get_latest_version(db, faculty_id, school_id, term_id)
+
+    if active_version and active_version.is_active:
+        return {
+            "exists": True,
+            "version": active_version.version,
+            "filename": active_version.original_filename,
+            "upload_date": active_version.upload_date,
+            "user_name": active_version.user_name,
+            "ingestion_status": active_version.ingestion_status,
+        }
+
+    return {"exists": False}
+
+
+@router.get("/history/{faculty_id}/{school_id}/{term_id}")
+async def get_version_history(
+    faculty_id: int,
+    school_id: int,
+    term_id: int,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: AsyncSession = Depends(async_get_db),
+):
+    """Obtener historial de versiones de un documento específico."""
+    versions = await academic_load_file.get_all_versions(db, faculty_id, school_id, term_id)
+
+    if not versions:
+        return {"data": [], "total": 0}
+
+    response_data = [
+        AcademicLoadFileListResponse(
+            id=v.id,
+            faculty_name=v.faculty.name,
+            faculty_acronym=v.faculty.acronym,
+            school_name=v.school.name,
+            school_acronym=v.school.acronym,
+            term_id=v.term_id,
+            original_filename=v.original_filename,
+            upload_date=v.upload_date,
+            ingestion_status=v.ingestion_status,
+            user_name=v.user_name,
+            notes=v.notes,
+            version=v.version,
+            is_active=v.is_active,
+        )
+        for v in versions
+    ]
+
+    return {"data": response_data, "total": len(versions)}

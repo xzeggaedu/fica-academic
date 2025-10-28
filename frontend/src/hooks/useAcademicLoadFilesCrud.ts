@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useCreate, useUpdate, useDelete, useList, useCan, useInvalidate } from "@refinedev/core";
+import { useCreate, useUpdate, useDelete, useList, useCan, useInvalidate, useDataProvider } from "@refinedev/core";
 import { toast } from "sonner";
 import type { AcademicLoadFile, AcademicLoadFileCreate, AcademicLoadFileUpdate } from "@/types/api";
 
 export const useAcademicLoadFilesCrud = () => {
+  const getDataProvider = useDataProvider();
+
   // Permisos
   const { data: canAccess } = useCan({ resource: "academic-load-files", action: "list" });
   const { data: canCreate } = useCan({ resource: "academic-load-files", action: "create" });
@@ -68,17 +70,7 @@ export const useAcademicLoadFilesCrud = () => {
   });
 
   // Hook de eliminación
-  const deleteHook = useDelete({
-    resource: "academic-load-files",
-    mutationOptions: {
-      onSuccess: () => {
-        invalidate({ invalidates: ["list"], resource: "academic-load-files" });
-      },
-      onError: (error: any) => {
-        toast.error(error?.response?.data?.detail || "Error al eliminar archivo");
-      },
-    },
-  });
+  const deleteHook = useDelete();
 
   const createMutation = createHook.mutate;
   const updateMutation = updateHook.mutate;
@@ -112,6 +104,29 @@ export const useAcademicLoadFilesCrud = () => {
     setEditingItem(null);
   };
 
+  // Función para verificar si existe una versión activa
+  const verifyActiveVersion = async (facultyId: number, schoolId: number, termId: number): Promise<{ exists: boolean }> => {
+    try {
+      const dataProvider = getDataProvider();
+      // El endpoint incluye /api/v1 porque apiRequest lo construye con API_BASE_URL
+      const url = `/api/v1/academic-load-files/check-active/${facultyId}/${schoolId}/${termId}`;
+      console.log("🔍 Verificando versión activa en:", url);
+
+      const response = await dataProvider.custom<{ exists: boolean }>({
+        url,
+        method: "get",
+      });
+
+      console.log("📦 Respuesta completa del backend:", response);
+      console.log("📦 response.data:", response.data);
+
+      return response.data || { exists: false };
+    } catch (error) {
+      console.error("❌ Error al verificar versión activa:", error);
+      return { exists: false };
+    }
+  };
+
   return {
     // Datos
     itemsList,
@@ -143,5 +158,6 @@ export const useAcademicLoadFilesCrud = () => {
     openEditModal,
     closeEditModal,
     deleteHook,
+    verifyActiveVersion,
   };
 };

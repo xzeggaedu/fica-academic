@@ -21,6 +21,16 @@ import { getTableColumnClass } from "@/components/refine-ui/theme/theme-table";
 import { HardDeleteConfirmDialog } from "@/components/ui/hard-delete-confirm-dialog";
 import { Unauthorized } from "../unauthorized";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useTablePagination } from "@/hooks/useTablePagination";
 import { useAcademicLoadFilesCrud } from "@/hooks/useAcademicLoadFilesCrud";
 import { useList } from "@refinedev/core";
@@ -39,6 +49,7 @@ export const AcademicLoadFilesList: React.FC = () => {
         createItem,
         invalidate,
         deleteHook,
+        verifyActiveVersion,
     } = useAcademicLoadFilesCrud();
 
     // Ref para tracking de items que estaban pendientes
@@ -194,13 +205,65 @@ export const AcademicLoadFilesList: React.FC = () => {
             return;
         }
 
+        // Verificar con el backend si ya existe una versión activa
         try {
-            // Crear FormData para enviar archivo
-            const submitData = new FormData();
-            submitData.append('file', selectedFile);
-            submitData.append('faculty_id', formData.faculty_id.toString());
-            submitData.append('school_id', formData.school_id.toString());
-            submitData.append('term_id', formData.term_id.toString());
+            const result = await verifyActiveVersion(formData.faculty_id, formData.school_id, formData.term_id);
+            console.log("🔍 Resultado de verifyActiveVersion:", result);
+
+            if (result.exists) {
+                // Ya existe una versión activa, mostrar modal de confirmación
+                const submitData = new FormData();
+                submitData.append('file', selectedFile);
+                submitData.append('faculty_id', formData.faculty_id.toString());
+                submitData.append('school_id', formData.school_id.toString());
+                submitData.append('term_id', formData.term_id.toString());
+
+                // Obtener nombres de facultad, escuela y término
+                const faculty = faculties.find(f => f.id === formData.faculty_id);
+                const school = schools.find(s => s.id === formData.school_id);
+                const term = terms.find(t => t.id === formData.term_id);
+
+                setPendingUpload(submitData);
+                setVersionConfirmData({
+                    facultyName: faculty?.name || '',
+                    schoolName: school?.name || '',
+                    termName: term ? `${term.term} ${term.year}` : ''
+                });
+                setIsVersionConfirmOpen(true);
+                return;
+            }
+        } catch (error) {
+            console.error("Error al verificar versión activa:", error);
+            toast.error("Error", {
+                description: "No se pudo verificar si existe una versión anterior",
+                richColors: true,
+            });
+            return;
+        }
+
+        // Si no existe versión anterior, subir directamente
+        await performUpload();
+    };
+
+    const performUpload = async () => {
+        if (!pendingUpload && !selectedFile) {
+            toast.error("Error", {
+                description: "No hay archivo para subir",
+                richColors: true,
+            });
+            return;
+        }
+
+        try {
+            // Usar datos pendientes o crear nuevos
+            const submitData = pendingUpload || (() => {
+                const data = new FormData();
+                data.append('file', selectedFile!);
+                data.append('faculty_id', formData.faculty_id.toString());
+                data.append('school_id', formData.school_id.toString());
+                data.append('term_id', formData.term_id.toString());
+                return data;
+            })();
 
             // Llamar al hook de creación
             await createItem(submitData);
@@ -211,9 +274,20 @@ export const AcademicLoadFilesList: React.FC = () => {
             // Refrescar la lista
             invalidate({ invalidates: ["list"], resource: "academic-load-files" });
 
+            // Limpiar estado de confirmación
+            setPendingUpload(null);
+            setVersionConfirmData(null);
+            setIsVersionConfirmOpen(false);
+
         } catch (error) {
             console.error("Error al subir archivo:", error);
         }
+    };
+
+    const handleVersionConfirmCancel = () => {
+        setIsVersionConfirmOpen(false);
+        setPendingUpload(null);
+        setVersionConfirmData(null);
     };
 
     const resetForm = () => {
@@ -290,6 +364,9 @@ export const AcademicLoadFilesList: React.FC = () => {
     // Estados para modales
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<AcademicLoadFile | null>(null);
+    const [isVersionConfirmOpen, setIsVersionConfirmOpen] = useState(false);
+    const [pendingUpload, setPendingUpload] = useState<FormData | null>(null);
+    const [versionConfirmData, setVersionConfirmData] = useState<{facultyName: string; schoolName: string; termName: string} | null>(null);
 
     // Función para abrir modal de eliminación
     const openDeleteModal = (item: AcademicLoadFile) => {
@@ -502,7 +579,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                                             <option value={0}>Seleccione un período</option>
                                             {terms.map((term) => (
                                                 <option key={term.id} value={term.id}>
-                                                    {term.term} {term.year}
+                                                    Ciclo 0{term.term}-{term.year}
                                                 </option>
                                             ))}
                                         </select>
@@ -713,7 +790,9 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                                         <p>
                                                                             {item.ingestion_status === "pending" || item.ingestion_status === "processing"
                                                                                 ? "No se puede eliminar durante el procesamiento"
-                                                                                : "Eliminar archivo"}
+                                                                                : item.ingestion_status === "failed"
+                                                                                  ? "Eliminar archivo fallido"
+                                                                                  : "Eliminar archivo"}
                                                                         </p>
                                                                     </TooltipContent>
                                                                 </Tooltip>
@@ -752,6 +831,46 @@ export const AcademicLoadFilesList: React.FC = () => {
                     entityName={itemToDelete?.original_filename || ""}
                     gender="m"
                 />
+
+                {/* Modal de confirmación de versión */}
+                <AlertDialog open={isVersionConfirmOpen} onOpenChange={setIsVersionConfirmOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle className="flex items-center gap-2">
+                                <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+                                Nueva versión de documento
+                            </AlertDialogTitle>
+                            <AlertDialogDescription className="space-y-3">
+                                <p className="text-base text-gray-700">
+                                    {versionConfirmData
+                                        ? <>Ya existe una versión activa de la carga académica para la <span className="font-bold">{versionConfirmData.facultyName}</span> y la <span className="font-bold">{versionConfirmData.schoolName}</span> en el período académico <span className="font-bold">Ciclo 0{versionConfirmData.termName}</span>.</>
+                                        : "Ya existe una versión activa para esta combinación de Facultad, Escuela y Período académico."
+                                    }
+                                </p>
+                                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+                                    <p className="text-sm text-blue-800">
+                                        <strong>ℹ️ Información:</strong> Al subir este archivo, se creará una nueva versión del documento.
+                                        La versión anterior se mantendrá en el historial para referencia.
+                                    </p>
+                                </div>
+                                <p className="text-sm text-gray-600">
+                                    ¿Deseas continuar con la subida del nuevo archivo?
+                                </p>
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={handleVersionConfirmCancel}>
+                                Cancelar
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={performUpload}
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                Sí, subir nueva versión
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         </CanAccess>
     );

@@ -566,6 +566,10 @@ export interface AcademicLoadFile {
   upload_date: string;
   ingestion_status: string;
   notes?: string | null;
+  version?: number;
+  is_active?: boolean;
+  superseded_at?: string | null;
+  superseded_by_id?: number | null;
   // Relaciones
   user?: User;
   faculty?: Faculty;
