@@ -1,17 +1,174 @@
 """Background tasks para procesamiento de carga académica."""
 
-import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from arq import Worker
+from sqlalchemy import select
 
 from ...core.db.database import async_get_db
+from ...crud.academic_load_class import academic_load_class
 from ...crud.academic_load_file import academic_load_file
+from ...models.catalog_coordination import CatalogCoordination
+from ...models.catalog_professor import CatalogProfessor
+from ...models.catalog_subject import CatalogSubject
+from ...schemas.academic_load_class import AcademicLoadClassCreate
 from ...schemas.academic_load_file import AcademicLoadFileUpdate
 from .academic_load_config import REQUIRED_COLUMNS, validate_headers
+
+
+async def lookup_subject(db, subject_id: str | None, subject_code: str | None) -> tuple[int | None, str, str]:
+    """Buscar asignatura por SUBJECT_ID o COD_ASIG.
+
+    Args:
+        db: Sesión de base de datos
+        subject_id: ID de la asignatura (de SUBJECT_ID column)
+        subject_code: Código de la asignatura (de COD_ASIG column)
+
+    Returns:
+        Tuple de (subject_id: int, subject_name: str, subject_code: str)
+    """
+    try:
+        # Priorizar SUBJECT_ID si existe
+        if subject_id and pd.notna(subject_id):
+            # Extraer ID numérico de "SUBJECT_ID" si viene como string
+            try:
+                subject_id_int = int(float(str(subject_id)))
+            except (ValueError, TypeError):
+                subject_id_int = None
+
+            if subject_id_int:
+                result = await db.execute(select(CatalogSubject).filter(CatalogSubject.id == subject_id_int))
+                subject = result.scalar_one_or_none()
+                if subject:
+                    return subject.id, subject.subject_name, subject.subject_code
+
+        # Si no se encontró por ID, buscar por COD_ASIG
+        if subject_code and pd.notna(subject_code):
+            result = await db.execute(
+                select(CatalogSubject).filter(CatalogSubject.subject_code == str(subject_code).strip())
+            )
+            subject = result.scalar_one_or_none()
+            if subject:
+                return subject.id, subject.subject_name, subject.subject_code
+
+        # Si no se encontró, extraer nombre de ASIGNATURA column
+        return None, "Asignatura no encontrada", str(subject_code or "")
+    except Exception as e:
+        print(f"⚠️ Error buscando asignatura: {e}")
+        return None, str(subject_code or "Unknown"), str(subject_code or "")
+
+
+async def lookup_professor(db, professor_id: str) -> tuple[int | None, dict[str, Any]]:
+    """Buscar profesor por ID_DOCENTE y extraer snapshot.
+
+    Args:
+        db: Sesión de base de datos
+        professor_id: ID del profesor (ID_DOCENTE column)
+
+    Returns:
+        Tuple de (professor_id: int, snapshot_data: dict)
+    """
+    if not professor_id or pd.isna(professor_id):
+        return None, {
+            "professor_category": None,
+            "professor_academic_title": None,
+            "professor_is_bilingual": False,
+            "professor_doctorates": 0,
+            "professor_masters": 0,
+        }
+
+    try:
+        result = await db.execute(
+            select(CatalogProfessor).filter(CatalogProfessor.professor_id == str(professor_id).strip())
+        )
+        professor = result.scalar_one_or_none()
+
+        if professor:
+            return professor.id, {
+                "professor_category": professor.professor_category,
+                "professor_academic_title": professor.academic_title,
+                "professor_is_bilingual": professor.is_bilingual,
+                "professor_doctorates": professor.doctorates,
+                "professor_masters": professor.masters,
+            }
+
+        # Profesor no encontrado
+        return None, {
+            "professor_category": None,
+            "professor_academic_title": None,
+            "professor_is_bilingual": False,
+            "professor_doctorates": 0,
+            "professor_masters": 0,
+        }
+    except Exception as e:
+        print(f"⚠️ Error buscando profesor {professor_id}: {e}")
+        return None, {
+            "professor_category": None,
+            "professor_academic_title": None,
+            "professor_is_bilingual": False,
+            "professor_doctorates": 0,
+            "professor_masters": 0,
+        }
+
+
+async def lookup_coordination(db, cod_cate: str) -> int | None:
+    """Buscar coordinación por COD_CATE.
+
+    Args:
+        db: Sesión de base de datos
+        cod_cate: Código de la coordinación
+
+    Returns:
+        coordination_id: int | None
+    """
+    if not cod_cate or pd.isna(cod_cate):
+        return None
+
+    try:
+        result = await db.execute(select(CatalogCoordination).filter(CatalogCoordination.code == str(cod_cate).strip()))
+        coordination = result.scalar_one_or_none()
+        if coordination:
+            return coordination.id
+        return None
+    except Exception as e:
+        print(f"⚠️ Error buscando coordinación {cod_cate}: {e}")
+        return None
+
+
+def extract_duration(duration_str: str | int | float) -> int:
+    """Extraer duración en minutos de un string o número.
+
+    Args:
+        duration_str: String con formato "90 min" o número
+
+    Returns:
+        Duración en minutos como int
+    """
+    import re
+
+    if pd.isna(duration_str):
+        return 0
+
+    # Si ya es un número
+    if isinstance(duration_str, int | float):
+        return int(duration_str)
+
+    # Si es string, extraer el número
+    duration_str = str(duration_str).strip()
+
+    # Buscar patrones como "90 min", "90", "1.5h", etc.
+    match = re.search(r"(\d+(?:\.\d+)?)", duration_str)
+    if match:
+        num = float(match.group(1))
+        # Si contiene 'h' o 'hr', convertir a minutos
+        if "h" in duration_str.lower():
+            return int(num * 60)
+        return int(num)
+
+    return 0
 
 
 async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any]:
@@ -40,9 +197,6 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
             await academic_load_file.update(
                 db=db, db_obj=load_record, obj_in=AcademicLoadFileUpdate(ingestion_status="processing")
             )
-
-            # Simular tiempo de procesamiento (fake process time)
-            await asyncio.sleep(5)  # Esperar 5 segundos simulando procesamiento
 
             # Verificar que el archivo original existe
             original_path = Path(load_record.original_file_path)
@@ -93,9 +247,75 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
 
                 df_filtered = df[REQUIRED_COLUMNS].copy()
 
-                # TODO: Aquí va la lógica de ingesta de datos
-                # Por ahora solo validamos y marcamos como completado
-                print(f"📊 Datos listos para ingesta: {len(df_filtered)} filas")
+                # Ingestar datos fila por fila
+                print(f"📊 Ingiriendo {len(df_filtered)} clases...")
+
+                rows_inserted = 0
+                rows_failed = 0
+
+                for idx, row in df_filtered.iterrows():
+                    try:
+                        # Extraer datos de la fila
+                        cod_cate = row.get("COD_CATE", None)
+                        subject_id = row.get("SUBJECT_ID", None)
+                        subject_code = row.get("COD_ASIG", None)
+                        subject_name = row.get("ASIGNATURA", "Unknown")
+                        section = str(row.get("SECCION", ""))
+                        schedule = str(row.get("HORARIO", ""))
+                        duration = extract_duration(row.get("DURACION", 0))
+                        days = str(row.get("DIAS", ""))
+                        modality = str(row.get("MODALIDAD", ""))
+                        professor_id = row.get("ID_DOCENTE", None)
+
+                        # Buscar en catálogos
+                        db_subject_id, db_subject_name, db_subject_code = await lookup_subject(
+                            db, subject_id, subject_code
+                        )
+
+                        # Usar nombres del catálogo si se encontró, sino usar los del Excel
+                        final_subject_name = db_subject_name if db_subject_id else subject_name
+                        final_subject_code = (
+                            db_subject_code if db_subject_id else (str(subject_code) if subject_code else "")
+                        )
+
+                        # Buscar coordinación
+                        coordination_id = await lookup_coordination(db, cod_cate)
+
+                        # Buscar profesor y obtener snapshot
+                        db_professor_id, professor_snapshot = await lookup_professor(db, professor_id)
+
+                        # Crear registro de clase
+                        class_data = AcademicLoadClassCreate(
+                            academic_load_file_id=file_id,
+                            subject_id=db_subject_id,
+                            coordination_id=coordination_id,
+                            professor_id=db_professor_id,
+                            subject_name=final_subject_name,
+                            subject_code=final_subject_code,
+                            section=section,
+                            schedule=schedule,
+                            duration=duration,
+                            days=days,
+                            modality=modality,
+                            professor_category=professor_snapshot.get("professor_category"),
+                            professor_academic_title=professor_snapshot.get("professor_academic_title"),
+                            professor_is_bilingual=professor_snapshot.get("professor_is_bilingual", False),
+                            professor_doctorates=professor_snapshot.get("professor_doctorates", 0),
+                            professor_masters=professor_snapshot.get("professor_masters", 0),
+                        )
+
+                        await academic_load_class.create(db, obj_in=class_data)
+                        rows_inserted += 1
+
+                        if (rows_inserted + rows_failed) % 100 == 0:
+                            print(f"📊 Progreso: {rows_inserted} insertadas, {rows_failed} fallidas")
+
+                    except Exception as e:
+                        print(f"⚠️ Error procesando fila {idx}: {e}")
+                        rows_failed += 1
+                        continue
+
+                print(f"✅ Ingestion completada: {rows_inserted} clases insertadas, {rows_failed} errores")
 
                 # Actualizar estado a "completed"
                 await academic_load_file.update(
