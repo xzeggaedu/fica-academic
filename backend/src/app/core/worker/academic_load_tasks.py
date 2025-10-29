@@ -14,6 +14,12 @@ from ...crud.academic_load_file import academic_load_file
 from ...schemas.academic_load_class import AcademicLoadClassCreate
 from ...schemas.academic_load_file import AcademicLoadFileUpdate
 from .academic_load_config import EXCEL_TO_MODEL_MAPPING, find_data_end, find_header_row
+from .normalizers import (
+    NormalizerContext,
+    normalize_academic_title,
+    normalize_days,
+    normalize_schedule,
+)
 from .validators import (
     CoordinationValidator,
     ProfessorValidator,
@@ -105,6 +111,109 @@ def determine_validation_status(validation_passed: bool, validation_messages: li
             return "error", "; ".join(validation_messages)
         return "warning", "; ".join(validation_messages)
     return "valid", None
+
+
+def _get_clean_value(val, default=None):
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return default
+    val_str = str(val).strip().lower()
+    if val_str in ["nan", "none", "", "null"]:
+        return default
+    return val
+
+
+def _get_str_value(val, default: str = "") -> str:
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return default
+    val_str = str(val).strip()
+    if val_str.lower() in ["nan", "none", "", "null"]:
+        return default
+    return val_str
+
+
+async def _handle_strict_failure(
+    *,
+    idx: int,
+    normalized_row: dict,
+    validation_errors_str: str,
+    errors_by_type: dict,
+    sample_errors: list,
+    db,
+    file_id: int,
+) -> None:
+    # Contadores por tipo
+    if "Coordinación" in validation_errors_str:
+        errors_by_type["missing_coordination"] += 1
+    if "Asignatura" in validation_errors_str:
+        errors_by_type["missing_subject"] += 1
+    if "Profesor" in validation_errors_str:
+        errors_by_type["missing_professor"] += 1
+    if "Horario" in validation_errors_str:
+        errors_by_type["invalid_schedule"] += 1
+
+    # Ejemplos
+    if len(sample_errors) < 10:
+        field_name = "general"
+        subject_code = _get_clean_value(normalized_row.get("COD_ASIG"))
+        subject_name = _get_clean_value(normalized_row.get("ASIGNATURA"))
+        cod_cate = _get_clean_value(normalized_row.get("COD_CATEDRA"))
+        professor_id = _get_clean_value(normalized_row.get("CODIGO"))
+        docente_name = _get_clean_value(normalized_row.get("DOCENTE")) or "No especificado"
+        schedule = _get_str_value(normalized_row.get("HORARIO"), "")
+        days = _get_str_value(normalized_row.get("DIAS"), "")
+
+        error_value = str(subject_name)[:50] if subject_name else "N/A"
+        if "Coordinación" in validation_errors_str:
+            field_name = "COD_CATEDRA"
+            error_value = str(cod_cate)[:50] if cod_cate else "Vacío"
+        elif "Asignatura" in validation_errors_str:
+            field_name = "COD_ASIG / ASIGNATURA"
+            error_value = f"{subject_code} - {subject_name}"[:50] if subject_code or subject_name else "Vacío"
+        elif "Profesor" in validation_errors_str:
+            field_name = "CODIGO / DOCENTE"
+            error_value = f"{professor_id or 'Vacío'} ({docente_name})"[:50]
+        elif "Horario" in validation_errors_str:
+            field_name = "HORARIO / DIAS"
+            error_value = f"{schedule} - {days}"[:50]
+
+        sample_errors.append(
+            {
+                "row": int(idx),
+                "field": field_name,
+                "value": error_value,
+                "reason": validation_errors_str,
+                "validators": ["Multiple"],
+            }
+        )
+
+    # Registrar fila con error
+    try:
+        error_class_data_dict = map_excel_row_to_class_data(normalized_row, file_id, "error", validation_errors_str)
+        error_class_data = AcademicLoadClassCreate(**error_class_data_dict)
+        await academic_load_class.create(db, obj_in=error_class_data)
+    except Exception as e:
+        _log_stderr(f"❌ Error guardando fila con error: {e}")
+
+
+def apply_normalizers_to_row(row_data: dict, strict_mode: bool) -> tuple[dict, list[dict]]:
+    """Aplica normalizadores por campo y retorna (fila_normalizada, cambios)."""
+    ctx = NormalizerContext(strict_mode=strict_mode)
+    normalized = dict(row_data)
+
+    field_normalizers = {
+        "DIAS": [normalize_days],
+        "HORARIO": [normalize_schedule],
+        "TITULO": [normalize_academic_title],
+    }
+
+    for field, funcs in field_normalizers.items():
+        if field in normalized:
+            value = normalized.get(field)
+            for func in funcs:
+                value = func(value, ctx=ctx)
+            normalized[field] = value
+
+    return normalized, ctx.changes
 
 
 def map_excel_row_to_class_data(row: dict, file_id: int, validation_status: str, validation_errors: str | None) -> dict:
@@ -339,7 +448,11 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
                         sys.stderr.write(debug_msg)
                         sys.stderr.flush()
 
-                        # Helper para manejar valores NaN/vacíos
+                        # Normalizar fila antes de validar
+                        row_dict = row.to_dict()
+                        normalized_row, norm_changes = apply_normalizers_to_row(row_dict, strict_mode)
+
+                        # Helpers de limpieza
                         def get_clean_value(val, default=None):
                             if val is None or (isinstance(val, float) and pd.isna(val)):
                                 return default
@@ -348,7 +461,6 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
                                 return default
                             return val
 
-                        # Helper para obtener valores como string
                         def get_str_value(val, default=""):
                             if val is None or (isinstance(val, float) and pd.isna(val)):
                                 return default
@@ -357,12 +469,12 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
                                 return default
                             return val_str
 
-                        # Extraer datos de la fila con limpieza de NaN
-                        subject_name = get_clean_value(row.get("ASIGNATURA", None))
-                        subject_code = get_clean_value(row.get("COD_ASIG", None))
-                        section = get_str_value(row.get("SECCION", ""), "")
-                        schedule = get_str_value(row.get("HORARIO", ""), "")
-                        days = get_str_value(row.get("DIAS", ""), "")
+                        # Extraer datos de la fila normalizada
+                        subject_name = get_clean_value(normalized_row.get("ASIGNATURA", None))
+                        subject_code = get_clean_value(normalized_row.get("COD_ASIG", None))
+                        section = get_str_value(normalized_row.get("SECCION", ""), "")
+                        schedule = get_str_value(normalized_row.get("HORARIO", ""), "")
+                        days = get_str_value(normalized_row.get("DIAS", ""), "")
 
                         # SKIP: Si faltan datos esenciales, no procesar esta fila
                         # Verificar que tenga al menos COD_ASIG o ASIGNATURA
@@ -371,50 +483,46 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
                             sys.stderr.flush()
                             continue
 
-                        # Ejecutar validaciones
-                        validation_passed, validation_messages = await validate_row_data(db, row.to_dict(), strict_mode)
+                        # Ejecutar validaciones sobre fila normalizada
+                        validation_passed, validation_messages = await validate_row_data(
+                            db, normalized_row, strict_mode
+                        )
 
                         # Determinar status de validación
                         validation_status, validation_errors_str = determine_validation_status(
                             validation_passed, validation_messages
                         )
+                        # Agregar cambios de normalización como información
+                        if norm_changes:
+                            import json
+
+                            changes_json = json.dumps({"changes": norm_changes}, ensure_ascii=False)
+                            if validation_errors_str:
+                                validation_errors_str = f"{validation_errors_str}; {changes_json}"
+                            else:
+                                validation_errors_str = changes_json
 
                         # Si no pasa en strict_mode, guardar error y continuar
                         if not validation_passed and strict_mode:
                             _log_stderr(f"⚠️ Fila {idx} no pasó validación en modo estricto: {validation_errors_str}")
                             rows_failed += 1
 
-                            # Procesar error de validación
-                            error_type, error_details = process_validation_error(
-                                row_idx=idx,
+                            # Manejo unificado de caso estricto fallido
+                            await _handle_strict_failure(
+                                idx=idx,
+                                normalized_row=normalized_row,
                                 validation_errors_str=validation_errors_str,
-                                row_data=row.to_dict(),
+                                errors_by_type=errors_by_type,
+                                sample_errors=sample_errors,
+                                db=db,
+                                file_id=file_id,
                             )
-
-                            # Actualizar contadores de errores por tipo
-                            if error_type:
-                                errors_by_type[error_type] += 1
-
-                            # Agregar a sample_errors si no excede el límite
-                            if len(sample_errors) < 10 and error_details:
-                                sample_errors.append(error_details)
-
-                            # Aún así intentar crear registro para guardar el error
-                            # Usar valores raw del Excel
-                            try:
-                                error_class_data_dict = map_excel_row_to_class_data(
-                                    row.to_dict(), file_id, "error", validation_errors_str
-                                )
-                                error_class_data = AcademicLoadClassCreate(**error_class_data_dict)
-                                await academic_load_class.create(db, obj_in=error_class_data)
-                            except Exception as e:
-                                _log_stderr(f"❌ Error guardando fila con error: {e}")
 
                             continue
 
                         # Crear registro de clase usando mapeo
                         class_data_dict = map_excel_row_to_class_data(
-                            row.to_dict(), file_id, validation_status, validation_errors_str
+                            normalized_row, file_id, validation_status, validation_errors_str
                         )
                         class_data = AcademicLoadClassCreate(**class_data_dict)
 

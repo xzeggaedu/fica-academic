@@ -404,6 +404,8 @@ export const AcademicLoadFilesList: React.FC = () => {
     const [versionConfirmData, setVersionConfirmData] = useState<{facultyName: string; schoolName: string; termName: string} | null>(null);
     const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
     const [errorDetails, setErrorDetails] = useState<any>(null);
+    const [isChangesModalOpen, setIsChangesModalOpen] = useState(false);
+    const [changesDetails, setChangesDetails] = useState<any>(null);
 
     // Función para parsear errores desde notes
     const parseErrorDetails = (notes: string | null) => {
@@ -418,11 +420,28 @@ export const AcademicLoadFilesList: React.FC = () => {
         }
     };
 
+    const parseChangesDetails = (notes: string | null) => {
+        if (!notes) return null;
+        try {
+            const data = JSON.parse(notes);
+            if (data && data.changes && Array.isArray(data.changes)) return data.changes;
+            return null;
+        } catch {
+            return null;
+        }
+    };
+
     // Función para abrir modal de errores
     const openErrorModal = (item: AcademicLoadFile) => {
         const parsed = parseErrorDetails(item.notes);
         setErrorDetails(parsed);
         setIsErrorModalOpen(true);
+    };
+
+    const openChangesModal = (item: AcademicLoadFile) => {
+        const parsed = parseChangesDetails(item.notes);
+        setChangesDetails(parsed || []);
+        setIsChangesModalOpen(true);
     };
 
     // Función para abrir modal de eliminación
@@ -835,19 +854,33 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                     {format(new Date(item.upload_date), "dd/MM/yyyy HH:mm", { locale: es })}
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("status")}>
-                                                    {item.ingestion_status === "failed" && item.notes ? (
-                                                        <Button
-                                                            variant="destructive"
-                                                            size="sm"
-                                                            onClick={() => openErrorModal(item)}
-                                                            className="text-xs"
-                                                        >
-                                                            <XCircle className="w-3 h-3 mr-1" />
-                                                            Ver Errores ({parseErrorDetails(item.notes)?.summary?.failed || 0})
-                                                        </Button>
-                                                    ) : (
-                                                        getStatusDisplay(item.ingestion_status, item.notes)
-                                                    )}
+                                                    <div className="flex items-center gap-2">
+                                                        {item.ingestion_status === "failed" && item.notes ? (
+                                                            <Button
+                                                                variant="destructive"
+                                                                size="sm"
+                                                                onClick={() => openErrorModal(item)}
+                                                                className="text-xs"
+                                                            >
+                                                                <XCircle className="w-3 h-3 mr-1" />
+                                                                Ver Errores ({parseErrorDetails(item.notes)?.summary?.failed || 0})
+                                                            </Button>
+                                                        ) : (
+                                                            getStatusDisplay(item.ingestion_status, item.notes)
+                                                        )}
+
+                                                        {/* Botón de Cambios si hay cambios en notes */}
+                                                        {parseChangesDetails(item.notes) && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => openChangesModal(item)}
+                                                                className="text-xs"
+                                                            >
+                                                                Ver Cambios
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("actions")}>
                                                     <div className="flex items-center gap-2">
@@ -1078,6 +1111,42 @@ export const AcademicLoadFilesList: React.FC = () => {
                                     </div>
                                 )}
                             </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
+
+                {/* Modal de Cambios (normalización) */}
+                <Dialog open={isChangesModalOpen} onOpenChange={setIsChangesModalOpen}>
+                    <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                Cambios aplicados (normalización)
+                            </DialogTitle>
+                        </DialogHeader>
+
+                        {changesDetails && Array.isArray(changesDetails) && changesDetails.length > 0 ? (
+                            <div className="space-y-3">
+                                {changesDetails.map((chg: any, idx: number) => (
+                                    <div key={idx} className="border rounded p-3 bg-gray-50">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs uppercase tracking-wide text-gray-500">{chg.field}</span>
+                                            <Badge variant="outline" className="text-[10px]">{chg.reason || "normalized"}</Badge>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                            <div>
+                                                <span className="text-gray-600">De:</span>
+                                                <p className="font-mono break-all">{chg.from ?? ""}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">A:</span>
+                                                <p className="font-mono break-all text-green-700">{chg.to ?? ""}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-600">No se registraron cambios de normalización.</p>
                         )}
                     </DialogContent>
                 </Dialog>
