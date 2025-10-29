@@ -575,6 +575,7 @@ export interface AcademicLoadFile {
   notes?: string | null;
   version?: number;
   is_active?: boolean;
+  strict_validation?: boolean;
   superseded_at?: string | null;
   superseded_by_id?: number | null;
   // Relaciones

@@ -36,6 +36,12 @@ import { useAcademicLoadFilesCrud } from "@/hooks/useAcademicLoadFilesCrud";
 import { useList } from "@refinedev/core";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 export const AcademicLoadFilesList: React.FC = () => {
     const {
@@ -107,6 +113,7 @@ export const AcademicLoadFilesList: React.FC = () => {
         faculty_id: 0,
         school_id: 0,
         term_id: 0,
+        strict_validation: false,
     });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isDragOver, setIsDragOver] = useState(false);
@@ -242,6 +249,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                 submitData.append('faculty_id', formData.faculty_id.toString());
                 submitData.append('school_id', formData.school_id.toString());
                 submitData.append('term_id', formData.term_id.toString());
+                submitData.append('strict_validation', formData.strict_validation.toString());
 
                 // Obtener nombres de facultad, escuela y término
                 const faculty = faculties.find(f => f.id === formData.faculty_id);
@@ -287,6 +295,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                 data.append('faculty_id', formData.faculty_id.toString());
                 data.append('school_id', formData.school_id.toString());
                 data.append('term_id', formData.term_id.toString());
+                data.append('strict_validation', formData.strict_validation.toString());
                 return data;
             })();
 
@@ -320,13 +329,14 @@ export const AcademicLoadFilesList: React.FC = () => {
             faculty_id: 0,
             school_id: 0,
             term_id: 0,
+            strict_validation: false,
         });
         setSelectedFile(null);
     };
 
     // Función para obtener el estado visual del procesamiento
     const getStatusDisplay = (status: string, notes?: string | null) => {
-        const statusDisplay = (() => {
+        const statusBadge = (() => {
             switch (status) {
                 case "pending":
                     return (
@@ -363,7 +373,7 @@ export const AcademicLoadFilesList: React.FC = () => {
             }
         })();
 
-        return statusDisplay;
+        return statusBadge;
     };
 
     // Paginación
@@ -392,6 +402,28 @@ export const AcademicLoadFilesList: React.FC = () => {
     const [isVersionConfirmOpen, setIsVersionConfirmOpen] = useState(false);
     const [pendingUpload, setPendingUpload] = useState<FormData | null>(null);
     const [versionConfirmData, setVersionConfirmData] = useState<{facultyName: string; schoolName: string; termName: string} | null>(null);
+    const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+    const [errorDetails, setErrorDetails] = useState<any>(null);
+
+    // Función para parsear errores desde notes
+    const parseErrorDetails = (notes: string | null) => {
+        if (!notes) return null;
+
+        try {
+            // Si es JSON, parsearlo
+            return JSON.parse(notes);
+        } catch {
+            // Si es string simple, mostrar como está
+            return { summary: { message: notes } };
+        }
+    };
+
+    // Función para abrir modal de errores
+    const openErrorModal = (item: AcademicLoadFile) => {
+        const parsed = parseErrorDetails(item.notes);
+        setErrorDetails(parsed);
+        setIsErrorModalOpen(true);
+    };
 
     // Función para abrir modal de eliminación
     const openDeleteModal = (item: AcademicLoadFile) => {
@@ -624,6 +656,29 @@ export const AcademicLoadFilesList: React.FC = () => {
                                         </select>
                                     </div>
 
+                                    {/* Checkbox de validación estricta */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="strict_validation" className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                id="strict_validation"
+                                                checked={formData.strict_validation}
+                                                onChange={(e) => {
+                                                    setFormData({
+                                                        ...formData,
+                                                        strict_validation: e.target.checked,
+                                                    });
+                                                }}
+                                                className="w-4 h-4"
+                                            />
+                                            <span>Validación estricta</span>
+                                        </Label>
+                                        <p className="text-xs text-gray-500">
+                                            Si está activado, los errores de validación bloquearán la ingestión de datos.
+                                            Si está desactivado, solo se reportarán warnings.
+                                        </p>
+                                    </div>
+
                                     {/* Botones */}
                                     <div className="flex justify-end gap-4 mt-4">
                                         <Button
@@ -781,44 +836,15 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                 </TableCell>
                                                 <TableCell className={getTableColumnClass("status")}>
                                                     {item.ingestion_status === "failed" && item.notes ? (
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                {getStatusDisplay(item.ingestion_status, item.notes)}
-                                                            </TooltipTrigger>
-                                                            <TooltipContent
-                                                                className="max-w-md bg-red-50 border border-red-200 text-red-900 p-5"
-                                                                side="top"
-                                                            >
-                                                                <div>
-                                                                    <div className="flex items-center gap-2 mb-2">
-                                                                        <span className="text-red-500 text-base">⚠️</span>
-                                                                        <p className="font-semibold text-sm">Error de validación</p>
-                                                                    </div>
-                                                                    {/* Extraer las columnas faltantes del mensaje */}
-                                                                    {(() => {
-                                                                        // Extraer solo las columnas faltantes, ignorando "Columnas esperadas"
-                                                                        const match = item.notes?.match(/Campos faltantes:\s*(.+?)(?:\s*\.\s*Columnas esperadas:|\.?\s*$)/);
-                                                                        const missingColumns = match ? match[1].split(',').map(c => c.trim()) : [];
-
-                                                                        if (missingColumns.length > 0) {
-                                                                            return (
-                                                                                <div className="mt-2">
-                                                                                    <p className="text-xs font-medium mb-1">Hacen falta las siguientes columnas:</p>
-                                                                                    <ul className="grid grid-cols-2 gap-x-4 gap-y-1 ml-4 mt-2">
-                                                                                        {missingColumns.map((col, idx) => (
-                                                                                            <li key={idx} className="text-xs list-disc">{col}</li>
-                                                                                        ))}
-                                                                                    </ul>
-                                                                                </div>
-                                                                            );
-                                                                        }
-                                                                        // Si no se encontró el patrón, mostrar el mensaje sin "Columnas esperadas"
-                                                                        const cleanMessage = item.notes?.replace(/\s*Columnas esperadas:.+$/i, '').trim();
-                                                                        return <p className="text-xs leading-relaxed whitespace-pre-wrap mt-1">{cleanMessage}</p>;
-                                                                    })()}
-                                                                </div>
-                                                            </TooltipContent>
-                                                        </Tooltip>
+                                                        <Button
+                                                            variant="destructive"
+                                                            size="sm"
+                                                            onClick={() => openErrorModal(item)}
+                                                            className="text-xs"
+                                                        >
+                                                            <XCircle className="w-3 h-3 mr-1" />
+                                                            Ver Errores ({parseErrorDetails(item.notes)?.summary?.failed || 0})
+                                                        </Button>
                                                     ) : (
                                                         getStatusDisplay(item.ingestion_status, item.notes)
                                                     )}
@@ -980,6 +1006,81 @@ export const AcademicLoadFilesList: React.FC = () => {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+
+                {/* Modal de Errores */}
+                <Dialog open={isErrorModalOpen} onOpenChange={setIsErrorModalOpen}>
+                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <XCircle className="h-5 w-5 text-red-600" />
+                                Detalles de Errores de Validación
+                            </DialogTitle>
+                        </DialogHeader>
+
+                        {errorDetails && (
+                            <div className="space-y-4">
+                                {/* Resumen */}
+                                {errorDetails.summary && (
+                                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                        <h3 className="font-semibold text-red-900 mb-2">Resumen</h3>
+                                        <div className="grid grid-cols-3 gap-4 text-sm">
+                                            <div>
+                                                <span className="text-gray-600">Total de filas:</span>
+                                                <p className="font-medium">{errorDetails.summary.total_rows}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">Insertadas:</span>
+                                                <p className="font-medium text-green-600">{errorDetails.summary.inserted}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">Fallidas:</span>
+                                                <p className="font-medium text-red-600">{errorDetails.summary.failed}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Errores por Tipo */}
+                                {errorDetails.errors_by_type && (
+                                    <div>
+                                        <h3 className="font-semibold mb-2">Errores por Tipo</h3>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {Object.entries(errorDetails.errors_by_type).map(([type, count]) => (
+                                                <div key={type} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                    <span className="text-sm capitalize">{type.replace(/_/g, ' ')}</span>
+                                                    <Badge variant="destructive">{count as number}</Badge>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Ejemplos de Errores */}
+                                {errorDetails.sample_errors && errorDetails.sample_errors.length > 0 && (
+                                    <div>
+                                        <h3 className="font-semibold mb-2">Ejemplos de Errores</h3>
+                                        <div className="space-y-2">
+                                            {errorDetails.sample_errors.map((error: any, idx: number) => (
+                                                <div key={idx} className="border border-red-200 rounded-lg p-3">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <span className="font-medium text-sm">Fila {error.row}</span>
+                                                        <Badge variant="outline" className="text-xs">{error.field}</Badge>
+                                                    </div>
+                                                    <p className="text-sm text-gray-600 mb-1">
+                                                        <strong>Valor:</strong> {error.value}
+                                                    </p>
+                                                    <p className="text-sm text-red-600">
+                                                        <strong>Razón:</strong> {error.reason}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
             </div>
         </CanAccess>
     );

@@ -44,6 +44,7 @@ class AcademicLoadFile(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    strict_validation: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     superseded_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
     superseded_by_id: Mapped[int | None] = mapped_column(
         ForeignKey("academic_load_files.id", ondelete="SET NULL"), nullable=True, default=None

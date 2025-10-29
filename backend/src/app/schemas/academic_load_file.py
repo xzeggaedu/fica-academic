@@ -11,7 +11,7 @@ class AcademicLoadFileBase(BaseModel):
 
 
 class AcademicLoadFileCreate(AcademicLoadFileBase):
-    pass
+    strict_validation: bool = False
 
 
 class AcademicLoadFileUpdate(BaseModel):
@@ -20,6 +20,7 @@ class AcademicLoadFileUpdate(BaseModel):
     term_id: int | None = None
     ingestion_status: str | None = None
     notes: str | None = None
+    strict_validation: bool | None = None
 
 
 class AcademicLoadFileResponse(AcademicLoadFileBase):
@@ -32,6 +33,7 @@ class AcademicLoadFileResponse(AcademicLoadFileBase):
     ingestion_status: str
     version: int
     is_active: bool
+    strict_validation: bool
     superseded_at: datetime | None = None
     superseded_by_id: int | None = None
 
@@ -56,6 +58,7 @@ class AcademicLoadFileListResponse(BaseModel):
     notes: str | None = None
     version: int
     is_active: bool
+    strict_validation: bool
 
     class Config:
         from_attributes = True

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -12,9 +12,6 @@ from ..core.db.database import Base
 
 if TYPE_CHECKING:
     from .academic_load_file import AcademicLoadFile
-    from .catalog_coordination import CatalogCoordination
-    from .catalog_professor import CatalogProfessor
-    from .catalog_subject import CatalogSubject
 
 
 class AcademicLoadClass(Base):
@@ -28,66 +25,84 @@ class AcademicLoadClass(Base):
     ----------
         id: Identificador único
         academic_load_file_id: Referencia al documento fuente
-        subject_id: ID de la asignatura en el catálogo
-        coordination_id: ID de la coordinación (puede ser NULL)
-        subject_name: Snapshot del nombre de la asignatura (inmutable)
-        subject_code: Snapshot del código de la asignatura (inmutable)
-        section: Número de sección
-        schedule: Horario de la clase
-        duration: Duración en horas
-        days: Días de la semana
-        modality: Modalidad (Presencial, Virtual, Híbrida)
-        professor_id: ID del profesor en el catálogo
-        professor_category: Snapshot de la categoría del profesor
-        professor_academic_title: Snapshot del título académico del profesor
-        professor_is_bilingual: Snapshot del estado bilingüe
-        professor_doctorates: Snapshot del número de doctorados
-        professor_masters: Snapshot del número de maestrías
-        ingestion_date: Fecha en que se ingirió la data
-        created_at: Timestamp de creación
-        updated_at: Timestamp de última actualización
+        correlative: Número correlativo de la fila
+        coordination_code: Código de coordinación
+        subject_code: Código de asignatura
+        subject_name: Nombre de asignatura
+        section_unique: Sección única
+        class_section: Número de sección de clase
+        class_service_assigned: Servicio asignado a la clase
+        class_duration: Duración de la clase
+        class_schedule: Horario de la clase
+        class_days: Días de la clase
+        class_type: Tipo de clase
+        professor_institute: Instituto del profesor
+        professor_academic_title: Título académico del profesor
+        professor_name: Nombre del profesor
+        professor_raw_cont: Raw data del profesor
+        professor_phone: Teléfono del profesor
+        professor_id: ID del profesor
+        professor_category: Categoría del profesor
+        professor_is_billing: Si el profesor está activo en facturación
+        professor_profile: Perfil del profesor
+        professor_final_note: Nota final del profesor
+        professor_masters: Número de maestrías del profesor
+        professor_institutional_email: Email institucional del profesor
+        professor_personal_email: Email personal del profesor
+        observations: Observaciones
+        team_channel_responsible: Responsable del canal de Teams
+        validation_status: Estado de validación
+        validation_errors: Errores de validación
     """
 
     __tablename__ = "academic_load_classes"
 
-    # Referencia al documento fuente (obligatorio, sin default)
+    # Referencia al documento fuente (obligatorio, sin default) — los campos sin default deben ir primero
     academic_load_file_id: Mapped[int] = mapped_column(
         ForeignKey("academic_load_files.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
-    # Snapshot de la asignatura (inmutable, obligatorio)
-    subject_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Datos de la clase (primero obligatorios)
     subject_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    subject_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    class_section: Mapped[str] = mapped_column(String(10), nullable=False)
+    class_duration: Mapped[int] = mapped_column(Integer, nullable=False)
+    class_schedule: Mapped[str] = mapped_column(String(50), nullable=False)
+    class_days: Mapped[str] = mapped_column(String(50), nullable=False)
+    class_type: Mapped[str] = mapped_column(String(50), nullable=False)
 
-    # Datos de la clase (directos del Excel, obligatorios)
-    section: Mapped[str] = mapped_column(String(10), nullable=False)
-    schedule: Mapped[str] = mapped_column(String(50), nullable=False)
-    duration: Mapped[int] = mapped_column(Integer, nullable=False)
-    days: Mapped[str] = mapped_column(String(50), nullable=False)
-    modality: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Datos del profesor (primero los obligatorios, luego los opcionales)
+    professor_name: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    # Referencias a catálogos (opcionales, NULL permitido)
-    subject_id: Mapped[int | None] = mapped_column(
-        ForeignKey("catalog_subject.id"), nullable=True, index=True, default=None
-    )
-    coordination_id: Mapped[int | None] = mapped_column(
-        ForeignKey("catalog_coordination.id"), nullable=True, index=True, default=None
-    )
-    professor_id: Mapped[int | None] = mapped_column(
-        ForeignKey("catalog_professor.id"), nullable=True, index=True, default=None
-    )
+    # Opcionales de la clase
+    correlative: Mapped[str | None] = mapped_column(String(10), nullable=True, default=None)
+    coordination_code: Mapped[str | None] = mapped_column(String(20), nullable=True, default=None)
+    section_unique: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
+    class_service_assigned: Mapped[str | None] = mapped_column(String(100), nullable=True, default=None)
 
-    # Snapshot del profesor (inmutable, con defaults)
-    professor_category: Mapped[str | None] = mapped_column(String(10), nullable=True, default=None)
+    # Opcionales del profesor
+    professor_institute: Mapped[str | None] = mapped_column(String(100), nullable=True, default=None)
     professor_academic_title: Mapped[str | None] = mapped_column(String(20), nullable=True, default=None)
-    professor_is_bilingual: Mapped[bool] = mapped_column(Integer, default=False, nullable=False)
-    professor_doctorates: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    professor_raw_cont: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
+    professor_phone: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
+    professor_id: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
+    professor_category: Mapped[str | None] = mapped_column(String(10), nullable=True, default=None)
+    professor_is_billing: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    professor_profile: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
+    professor_final_note: Mapped[str | None] = mapped_column(String(10), nullable=True, default=None)
     professor_masters: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    professor_institutional_email: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
+    professor_personal_email: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
+
+    # Campos adicionales
+    observations: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    team_channel_responsible: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
+
+    # Campos de validación
+    validation_status: Mapped[str] = mapped_column(String(20), default="valid", nullable=False)
+    validation_errors: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
 
     # Timestamps (con defaults)
-    ingestion_date: Mapped[DateTime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False, default=func.now()
-    )
     created_at: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, default=func.now()
     )
@@ -95,19 +110,16 @@ class AcademicLoadClass(Base):
         DateTime(timezone=True), nullable=True, default=None, onupdate=func.now()
     )
 
-    # Clave Primaria (al final para evitar problemas con dataclasses)
+    # Clave Primaria (al final para evitar problemas con dataclasses y orden de defaults)
     id: Mapped[int | None] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, default=None)
 
     # Relaciones
     academic_load_file: Mapped[AcademicLoadFile] = relationship("AcademicLoadFile", init=False)
-    subject: Mapped[CatalogSubject] = relationship("CatalogSubject", init=False)
-    coordination: Mapped[CatalogCoordination] = relationship("CatalogCoordination", init=False)
-    professor: Mapped[CatalogProfessor] = relationship("CatalogProfessor", init=False)
 
     def __repr__(self) -> str:
         return (
             f"<AcademicLoadClass(id={self.id}, "
             f"file_id={self.academic_load_file_id}, "
             f"subject='{self.subject_name}', "
-            f"section='{self.section}')>"
+            f"section='{self.class_section}')>"
         )

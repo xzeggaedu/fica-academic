@@ -31,6 +31,7 @@ class AcademicLoadFileCRUD:
             ingestion_status=ingestion_status,
             version=version,
             is_active=is_active,
+            strict_validation=obj_in.strict_validation if hasattr(obj_in, "strict_validation") else False,
         )
         db.add(db_obj)
         await db.commit()

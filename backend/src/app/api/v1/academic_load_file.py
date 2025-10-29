@@ -32,6 +32,7 @@ async def upload_academic_load_file(
     faculty_id: int = Form(...),
     school_id: int = Form(...),
     term_id: int = Form(...),
+    strict_validation: bool = Form(False),
     db: AsyncSession = Depends(async_get_db),
 ):
     """Subir un archivo Excel de carga académica."""
@@ -87,7 +88,9 @@ async def upload_academic_load_file(
             new_version = 1
 
         # Crear registro en la base de datos
-        load_data = AcademicLoadFileCreate(faculty_id=faculty_id, school_id=school_id, term_id=term_id)
+        load_data = AcademicLoadFileCreate(
+            faculty_id=faculty_id, school_id=school_id, term_id=term_id, strict_validation=strict_validation
+        )
 
         # Obtener el UUID y nombre del usuario
         user_uuid = current_user.get("user_uuid", "")
@@ -147,6 +150,7 @@ async def upload_academic_load_file(
             ingestion_status=load_record.ingestion_status,
             version=load_record.version,
             is_active=load_record.is_active,
+            strict_validation=load_record.strict_validation,
             superseded_at=load_record.superseded_at,
             superseded_by_id=load_record.superseded_by_id,
         )
@@ -212,6 +216,7 @@ async def get_academic_load_files(
             notes=file.notes,
             version=file.version,
             is_active=file.is_active,
+            strict_validation=file.strict_validation,
         )
         for file in files
     ]
@@ -392,6 +397,7 @@ async def get_version_history(
             notes=v.notes,
             version=v.version,
             is_active=v.is_active,
+            strict_validation=v.strict_validation,
         )
         for v in versions
     ]
