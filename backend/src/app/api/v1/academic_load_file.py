@@ -560,10 +560,10 @@ async def get_academic_load_statistics(
     error_classes = len([c for c in classes if c.validation_status == "error"])
 
     # Profesores únicos
-    unique_professors = len(set([c.professor_name for c in classes if c.professor_name]))
+    unique_professors = len({c.professor_name for c in classes if c.professor_name})
 
     # Asignaturas únicas
-    unique_subjects = len(set([c.subject_code for c in classes if c.subject_code]))
+    unique_subjects = len({c.subject_code for c in classes if c.subject_code})
 
     return {
         "total_classes": total_classes,
