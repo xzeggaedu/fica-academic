@@ -30,9 +30,12 @@ class AcademicLoadClassCRUD:
         self, db: AsyncSession, file_id: int, *, skip: int = 0, limit: int = 100
     ) -> list[AcademicLoadClass]:
         """Obtener todas las clases de un archivo específico."""
+        from sqlalchemy import asc
+
         result = await db.execute(
             select(AcademicLoadClass)
             .filter(AcademicLoadClass.academic_load_file_id == file_id)
+            .order_by(asc(AcademicLoadClass.id))
             .offset(skip)
             .limit(limit)
         )

@@ -1,5 +1,5 @@
 import os
-import uuid
+import uuid as uuid_pkg
 from pathlib import Path
 from typing import Annotated
 
@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.dependencies import get_current_user
 from ...core.db.database import async_get_db
 from ...core.rbac_scope import get_user_scope_filters, user_has_access_to_school
+from ...crud.academic_load_class import academic_load_class
 from ...crud.academic_load_file import academic_load_file
 from ...crud.crud_faculties import get_faculty_by_id
 from ...crud.crud_schools import get_school_by_id
@@ -49,7 +50,10 @@ async def upload_academic_load_file(
         raise HTTPException(status_code=403, detail="No tienes permisos para subir archivos")
 
     if user_role == UserRoleEnum.DIRECTOR:
-        has_access = await user_has_access_to_school(db=db, user_id=user_id, user_role=user_role, school_id=school_id)
+        user_uuid = uuid_pkg.UUID(user_id) if user_id else None
+        has_access = await user_has_access_to_school(
+            db=db, user_uuid=user_uuid, user_role=user_role, school_id=school_id
+        )
         if not has_access:
             raise HTTPException(status_code=403, detail="No puedes subir archivos para una escuela no asignada")
     # Validar que sea un archivo Excel
@@ -72,7 +76,7 @@ async def upload_academic_load_file(
         raise HTTPException(status_code=404, detail="Período no encontrado")
 
     # Generar nombres únicos para los archivos
-    file_id = str(uuid.uuid4())
+    file_id = str(uuid_pkg.uuid4())
     original_filename = f"{file_id}_{file.filename}"
 
     # Rutas de archivos
@@ -215,7 +219,12 @@ async def get_academic_load_files(
         files = await academic_load_file.get_multi(db, skip=skip, limit=limit)
     else:
         # Obtener alcance del usuario
-        scope = await get_user_scope_filters(db=db, user_id=user_id, user_role=user_role)
+        user_uuid = uuid_pkg.UUID(user_id) if user_id else None
+        scope = (
+            await get_user_scope_filters(db=db, user_uuid=user_uuid, user_role=user_role)
+            if user_uuid
+            else {"faculty_id": None, "school_ids": None}
+        )
         from sqlalchemy import desc, select
         from sqlalchemy.orm import joinedload
 
@@ -277,7 +286,7 @@ async def get_academic_load_files(
     return {"data": response_data, "total": total_count}
 
 
-@router.get("/{file_id}", response_model=AcademicLoadFileResponse)
+@router.get("/{file_id}")
 async def get_academic_load_file(
     file_id: int, current_user: Annotated[dict, Depends(get_current_user)], db: AsyncSession = Depends(async_get_db)
 ):
@@ -286,7 +295,17 @@ async def get_academic_load_file(
     if not file:
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
 
-    return file
+    # Convertir a dict y agregar las relaciones
+    response_dict = AcademicLoadFileResponse.model_validate(file).model_dump()
+    response_dict["faculty_name"] = file.faculty.name if file.faculty else None
+    response_dict["faculty_acronym"] = file.faculty.acronym if file.faculty else None
+    response_dict["school_name"] = file.school.name if file.school else None
+    response_dict["school_acronym"] = file.school.acronym if file.school else None
+    response_dict["term_name"] = f"{file.term.term} {file.term.year}" if file.term else None
+    response_dict["term_term"] = file.term.term if file.term else None
+    response_dict["term_year"] = file.term.year if file.term else None
+
+    return response_dict
 
 
 @router.put("/{file_id}", response_model=AcademicLoadFileResponse)
@@ -307,7 +326,7 @@ async def update_academic_load_file(
     # Convertir user_uuid a UUID si es string
     if isinstance(user_uuid, str):
         try:
-            user_uuid = uuid.UUID(user_uuid)
+            user_uuid = uuid_pkg.UUID(user_uuid)
         except ValueError:
             raise HTTPException(status_code=400, detail="User UUID inválido")
 
@@ -335,7 +354,7 @@ async def delete_academic_load_file(
     # Convertir user_uuid a UUID si es string
     if isinstance(user_uuid, str):
         try:
-            user_uuid = uuid.UUID(user_uuid)
+            user_uuid = uuid_pkg.UUID(user_uuid)
         except ValueError:
             raise HTTPException(status_code=400, detail="User UUID inválido")
 
@@ -456,3 +475,101 @@ async def get_version_history(
     ]
 
     return {"data": response_data, "total": len(versions)}
+
+
+@router.get("/{file_id}/download")
+async def download_academic_load_file(
+    file_id: int, current_user: Annotated[dict, Depends(get_current_user)], db: AsyncSession = Depends(async_get_db)
+):
+    """Descargar archivo original de carga académica."""
+    file = await academic_load_file.get(db, id=file_id)
+    if not file:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+
+    # Verificar permisos
+    user_uuid = current_user.get("user_uuid", "")
+    user_role = current_user.get("role", "")
+
+    if isinstance(user_uuid, str):
+        try:
+            user_uuid = uuid_pkg.UUID(user_uuid)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="User UUID inválido")
+
+    # Permitir descarga si es el propietario o si es admin/vicerrector
+    from ...models.role import UserRoleEnum
+
+    if isinstance(user_role, str):
+        user_role = UserRoleEnum(user_role)
+
+    if file.user_id != user_uuid and user_role not in [UserRoleEnum.ADMIN, UserRoleEnum.VICERRECTOR]:
+        raise HTTPException(status_code=403, detail="No tienes permisos para descargar este archivo")
+
+    # Verificar que el archivo existe
+    file_path = Path(file.original_file_path)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Archivo no encontrado en el servidor")
+
+    from fastapi.responses import FileResponse
+
+    return FileResponse(
+        path=str(file_path),
+        filename=file.original_filename,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@router.get("/{file_id}/classes", response_model=dict)
+async def get_academic_load_classes(
+    file_id: int, current_user: Annotated[dict, Depends(get_current_user)], db: AsyncSession = Depends(async_get_db)
+):
+    """Obtener todas las clases de un archivo de carga académica."""
+    # Verificar que el archivo existe
+    file = await academic_load_file.get(db, id=file_id)
+    if not file:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+
+    # Obtener todas las clases (sin paginación para el detalle completo)
+    classes = await academic_load_class.get_by_file_id(db, file_id=file_id, skip=0, limit=10000)
+
+    # Convertir a response model
+    from ...schemas.academic_load_class import AcademicLoadClassResponse
+
+    response_data = [AcademicLoadClassResponse.model_validate(cls) for cls in classes]
+
+    return {"data": response_data, "total": len(response_data)}
+
+
+@router.get("/{file_id}/statistics")
+async def get_academic_load_statistics(
+    file_id: int, current_user: Annotated[dict, Depends(get_current_user)], db: AsyncSession = Depends(async_get_db)
+):
+    """Obtener estadísticas de un archivo de carga académica."""
+    # Verificar que el archivo existe
+    file = await academic_load_file.get(db, id=file_id)
+    if not file:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+
+    # Obtener todas las clases
+    classes = await academic_load_class.get_by_file_id(db, file_id=file_id, skip=0, limit=10000)
+
+    # Calcular estadísticas
+    total_classes = len(classes)
+    valid_classes = len([c for c in classes if c.validation_status == "valid"])
+    warning_classes = len([c for c in classes if c.validation_status == "warning"])
+    error_classes = len([c for c in classes if c.validation_status == "error"])
+
+    # Profesores únicos
+    unique_professors = len(set([c.professor_name for c in classes if c.professor_name]))
+
+    # Asignaturas únicas
+    unique_subjects = len(set([c.subject_code for c in classes if c.subject_code]))
+
+    return {
+        "total_classes": total_classes,
+        "valid_classes": valid_classes,
+        "warning_classes": warning_classes,
+        "error_classes": error_classes,
+        "unique_professors": unique_professors,
+        "unique_subjects": unique_subjects,
+    }

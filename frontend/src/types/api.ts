@@ -597,3 +597,48 @@ export interface AcademicLoadFileUpdate {
   term_id?: number;
   ingestion_status?: string;
 }
+
+// Academic Load Class Types
+export interface AcademicLoadClass {
+  id: number;
+  academic_load_file_id: number;
+  correlative?: string | null;
+  coordination_code?: string | null;
+  subject_code: string;
+  subject_name: string;
+  section_unique?: string | null;
+  class_section: string;
+  class_service_assigned?: string | null;
+  class_duration: number;
+  class_schedule: string;
+  class_days: string;
+  class_type: string;
+  professor_institute?: string | null;
+  professor_academic_title?: string | null;
+  professor_name: string;
+  professor_raw_cont?: string | null;
+  professor_phone?: string | null;
+  professor_id?: string | null;
+  professor_category?: string | null;
+  professor_is_billing: boolean;
+  professor_profile?: string | null;
+  professor_final_note?: string | null;
+  professor_masters: number;
+  professor_institutional_email?: string | null;
+  professor_personal_email?: string | null;
+  observations?: string | null;
+  team_channel_responsible?: string | null;
+  validation_status: string;
+  validation_errors?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface AcademicLoadStatistics {
+  total_classes: number;
+  valid_classes: number;
+  warning_classes: number;
+  error_classes: number;
+  unique_professors: number;
+  unique_subjects: number;
+}
