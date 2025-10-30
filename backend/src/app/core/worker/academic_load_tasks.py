@@ -197,9 +197,9 @@ async def _process_row_strict_mode(
         # Extraer datos de la fila normalizada
         subject_name = get_clean_value(normalized_row.get("ASIGNATURA", None))
         subject_code = get_clean_value(normalized_row.get("COD_ASIG", None))
-        section = get_str_value(normalized_row.get("SECCION", ""), "")
-        schedule = get_str_value(normalized_row.get("HORARIO", ""), "")
-        days = get_str_value(normalized_row.get("DIAS", ""), "")
+        _ = get_str_value(normalized_row.get("SECCION", ""), "")
+        _ = get_str_value(normalized_row.get("HORARIO", ""), "")
+        _ = get_str_value(normalized_row.get("DIAS", ""), "")
 
         # Ejecutar validaciones
         validation_passed, validation_messages = await validate_row_data(db, normalized_row, strict_mode)

@@ -67,18 +67,8 @@ export const useTemplateGenerationCrud = () => {
     },
   });
 
-  // Hook de eliminación
-  const deleteHook = useDelete({
-    resource: "template-generation",
-    mutationOptions: {
-      onSuccess: () => {
-        invalidate({ invalidates: ["list"], resource: "template-generation" });
-      },
-      onError: (error: any) => {
-        toast.error(error?.response?.data?.detail || "Error al eliminar plantilla");
-      },
-    },
-  });
+  // Hook de eliminación (callbacks manejados manualmente por el consumidor)
+  const deleteHook = useDelete();
 
   const createMutation = createHook.mutate;
   const updateMutation = updateHook.mutate;

@@ -24,20 +24,18 @@ class TestAcademicLoadClassCRUD:
         # Create academic load class data
         obj_in = AcademicLoadClassCreate(
             academic_load_file_id=1,
-            subject_id=1,
-            coordination_id=1,
-            professor_id=1,
             subject_name="Test Subject",
             subject_code="TEST001",
-            section="01",
-            schedule="08:00-10:00",
-            duration=2,
-            days="L, M, W",
-            modality="Presencial",
+            class_section="01",
+            class_schedule="08:00-10:00",
+            class_duration=120,
+            class_days="Lu-Ma-Mi",
+            class_type="Presencial",
+            professor_name="Dr Test",
+            professor_id="1",
             professor_category="DHC",
             professor_academic_title="Dr.",
-            professor_is_bilingual=False,
-            professor_doctorates=0,
+            professor_is_billing=False,
             professor_masters=0,
         )
 
@@ -131,7 +129,7 @@ class TestAcademicLoadClassCRUD:
         db_session.commit = AsyncMock()
         db_session.refresh = AsyncMock()
 
-        obj_in = AcademicLoadClassUpdate(section="02")
+        obj_in = AcademicLoadClassUpdate(class_section="02")
 
         await crud.update(db=db_session, db_obj=mock_class, obj_in=obj_in)
 

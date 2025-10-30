@@ -96,6 +96,9 @@ ignore = [
     "F401", # unused import
     "F403", # star imports
 ]
+"src/app/core/worker/academic_load_tasks.py" = [
+    "C901", # function too complex; allowed here due to orchestrating workflow
+]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 24

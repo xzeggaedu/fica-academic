@@ -94,7 +94,12 @@ class SubjectValidator(BaseValidator):
                             results.append(
                                 ValidationResult(
                                     level=level,
-                                    message=f"Asignatura: Código '{subject_code}' corresponde a '{catalog_subject.subject_name}' (nivel diferente), pero se encontró '{subject_name}'",
+                                    message=(
+                                        "Asignatura: Código "
+                                        f"'{subject_code}' corresponde a "
+                                        f"'{catalog_subject.subject_name}' (nivel diferente), "
+                                        f"pero se encontró '{subject_name}'"
+                                    ),
                                     field="ASIGNATURA",
                                     expected=catalog_subject.subject_name,
                                     actual=subject_name,
@@ -106,7 +111,11 @@ class SubjectValidator(BaseValidator):
                             results.append(
                                 ValidationResult(
                                     level=level,
-                                    message=f"Asignatura: Nombre similar pero no exacto. Esperado '{catalog_subject.subject_name}', encontrado '{subject_name}'",
+                                    message=(
+                                        "Asignatura: Nombre similar pero no exacto. "
+                                        f"Esperado '{catalog_subject.subject_name}', "
+                                        f"encontrado '{subject_name}'"
+                                    ),
                                     field="ASIGNATURA",
                                     expected=catalog_subject.subject_name,
                                     actual=subject_name,
@@ -118,7 +127,12 @@ class SubjectValidator(BaseValidator):
                         results.append(
                             ValidationResult(
                                 level=level,
-                                message=f"Asignatura: Código '{subject_code}' corresponde a '{catalog_subject.subject_name}', pero se encontró '{subject_name}'",
+                                message=(
+                                    "Asignatura: Código "
+                                    f"'{subject_code}' corresponde a "
+                                    f"'{catalog_subject.subject_name}', "
+                                    f"pero se encontró '{subject_name}'"
+                                ),
                                 field="ASIGNATURA",
                                 expected=catalog_subject.subject_name,
                                 actual=subject_name,
@@ -130,7 +144,11 @@ class SubjectValidator(BaseValidator):
                     results.append(
                         ValidationResult(
                             level=level,
-                            message=f"Asignatura: Código '{subject_code}' válido pero nombre vacío. Nombre en catálogo: '{catalog_subject.subject_name}'",
+                            message=(
+                                "Asignatura: Código '"
+                                f"{subject_code}' válido pero nombre vacío. "
+                                f"Nombre en catálogo: '{catalog_subject.subject_name}'"
+                            ),
                             field="ASIGNATURA",
                             expected=catalog_subject.subject_name,
                             actual="",
@@ -156,7 +174,10 @@ class SubjectValidator(BaseValidator):
             results.append(
                 ValidationResult(
                     level=level,
-                    message=f"Asignatura: Código vacío pero nombre provisto '{subject_name}'. No se puede validar contra catálogo.",
+                    message=(
+                        "Asignatura: Código vacío pero nombre provisto "
+                        f"'{subject_name}'. No se puede validar contra catálogo."
+                    ),
                     field="COD_ASIG",
                     actual="",
                 )
