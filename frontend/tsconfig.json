@@ -20,10 +20,11 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
+    "types": ["vitest/globals"],
     "paths": {
       "@/*": ["./src/*"],
       "@providers/*": ["./src/providers/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "src/test", "src/test/**/*.ts", "src/test/**/*.tsx"]
 }

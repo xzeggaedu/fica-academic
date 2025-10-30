@@ -35,6 +35,8 @@ run_backend_tests() {
 
     cd backend
 
+    source .venv/bin/activate
+
     # Verificar que uv esté instalado
     if ! command -v uv &> /dev/null; then
         print_error "uv no está instalado. Instalando..."

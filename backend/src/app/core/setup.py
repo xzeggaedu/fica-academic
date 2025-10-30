@@ -73,6 +73,7 @@ async def run_seeders() -> None:
         from src.scripts.create_first_superuser import create_first_user
         from src.scripts.seed_academic_levels import seed_academic_levels
         from src.scripts.seed_coordinations import seed_coordinations
+        from src.scripts.seed_demo_users import seed_demo_users
         from src.scripts.seed_faculties_schools import create_faculty_and_schools
         from src.scripts.seed_fixed_holiday_rules import seed_fixed_holiday_rules
         from src.scripts.seed_holidays import seed_holidays
@@ -108,6 +109,10 @@ async def run_seeders() -> None:
 
             await seed_schedule_times(session)
             logger.info("✓ Schedule times seeded")
+
+            # Usuarios demo (requiere FACULTAD/ESCUELAS previas)
+            await seed_demo_users(session)
+            logger.info("✓ Demo users seeded")
 
             await seed_terms(session)
             logger.info("✓ Terms seeded")

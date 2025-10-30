@@ -81,7 +81,7 @@ def generate_day_group_name(days_array: list[int]) -> str:
     if not days_array:
         raise ValueError("El array de días no puede estar vacío")
 
-    day_names = {0: "Lu", 1: "Ma", 2: "Mi", 3: "Ju", 4: "Vi", 5: "Sá", 6: "Do"}
+    day_names = {0: "Lu", 1: "Ma", 2: "Mi", 3: "Ju", 4: "Vi", 5: "Sa", 6: "Do"}
 
     # Validar que todos los días estén en el rango válido
     for day in days_array:

@@ -68,6 +68,8 @@ export const AnnualHolidaysList = () => {
         isCreating: creating,
         isUpdating: updating,
         isDeleting: deleting,
+        canEdit,
+        canDelete,
     } = useAnnualHolidaysCrud(holidayId ? parseInt(holidayId) : undefined);
 
     // Hook de paginación y búsqueda (stateless)
@@ -266,6 +268,8 @@ export const AnnualHolidaysList = () => {
 
     // Función para iniciar edición inline
     const handleStartEdit = (item: AnnualHoliday, field: string) => {
+        if (!canEdit?.can) return;
+
         setEditingId(item.id);
         setEditingField(field);
         setEditForm({ ...item });
@@ -336,6 +340,7 @@ export const AnnualHolidaysList = () => {
 
     // Función para abrir modal al hacer click en una fecha del calendario
     const handleCalendarDayClick = (date: Date) => {
+        if (!canCreate?.can) return;
         // Verificar si ya existe un holiday en esta fecha
         const existingHoliday = annualHolidaysData.find(holiday =>
             createLocalDate(holiday.date).toDateString() === date.toDateString()
@@ -710,7 +715,7 @@ export const AnnualHolidaysList = () => {
                                                                         )}
                                                                     </TableCell>
                                                                 )}
-                                                                {visibleColumns.includes("actions") && (
+                                                                {visibleColumns.includes("actions") && canDelete?.can && (
                                                                     <TableCell className="text-center">
                                                                         <Button
                                                                             variant="outline"

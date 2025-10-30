@@ -1,9 +1,12 @@
-import { useState } from "react";
-import { useCreate, useUpdate, useList, useCan, useInvalidate } from "@refinedev/core";
+import { useEffect, useState } from "react";
+import { useCreate, useUpdate, useDelete, useList, useCan, useInvalidate, useDataProvider } from "@refinedev/core";
+import { UserRoleEnum } from "@/types/auth";
 import { toast } from "sonner";
 import type { AcademicLoadFile, AcademicLoadFileCreate, AcademicLoadFileUpdate } from "@/types/api";
 
 export const useAcademicLoadFilesCrud = () => {
+  const getDataProvider = useDataProvider();
+
   // Permisos
   const { data: canAccess } = useCan({ resource: "academic-load-files", action: "list" });
   const { data: canCreate } = useCan({ resource: "academic-load-files", action: "create" });
@@ -30,6 +33,7 @@ export const useAcademicLoadFilesCrud = () => {
 
   // Hook de invalidación para refrescar datos
   const invalidate = useInvalidate();
+  const [myScope, setMyScope] = useState<{ faculty_id?: number | null; school_ids?: number[] | null }>({});
 
   // Estados para formularios
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -67,6 +71,9 @@ export const useAcademicLoadFilesCrud = () => {
     },
   });
 
+  // Hook de eliminación
+  const deleteHook = useDelete();
+
   const createMutation = createHook.mutate;
   const updateMutation = updateHook.mutate;
   const isCreating = (createHook as any).isLoading;
@@ -99,6 +106,43 @@ export const useAcademicLoadFilesCrud = () => {
     setEditingItem(null);
   };
 
+  // Función para verificar si existe una versión activa
+  const verifyActiveVersion = async (facultyId: number, schoolId: number, termId: number): Promise<{ exists: boolean }> => {
+    try {
+      const dataProvider = getDataProvider();
+      // El endpoint incluye /api/v1 porque apiRequest lo construye con API_BASE_URL
+      const url = `/api/v1/academic-load-files/check-active/${facultyId}/${schoolId}/${termId}`;
+      console.log("🔍 Verificando versión activa en:", url);
+
+      const response = await dataProvider.custom<{ exists: boolean }>({
+        url,
+        method: "get",
+      });
+
+      console.log("📦 Respuesta completa del backend:", response);
+      console.log("📦 response.data:", response.data);
+
+      return response.data || { exists: false };
+    } catch (error) {
+      console.error("❌ Error al verificar versión activa:", error);
+      return { exists: false };
+    }
+  };
+
+  // Cargar scope del usuario autenticado (para preselección y filtros en el form)
+  useEffect(() => {
+    const fetchScope = async () => {
+      try {
+        const dp = getDataProvider();
+        const resp = await dp.custom<{ faculty_id?: number | null; school_ids?: number[] | null }>({ url: "/api/v1/users/me/scope", method: "get" });
+        setMyScope(resp.data || {});
+      } catch {
+        setMyScope({});
+      }
+    };
+    fetchScope();
+  }, []);
+
   return {
     // Datos
     itemsList,
@@ -129,5 +173,8 @@ export const useAcademicLoadFilesCrud = () => {
     closeCreateModal,
     openEditModal,
     closeEditModal,
+    deleteHook,
+    verifyActiveVersion,
+    myScope,
   };
 };

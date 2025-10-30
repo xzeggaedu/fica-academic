@@ -1,8 +1,11 @@
 """Models package - SQLAlchemy ORM models."""
 
 from .academic_level import AcademicLevel
+from .academic_load_class import AcademicLoadClass
 from .academic_load_file import AcademicLoadFile
 from .annual_holiday import AnnualHoliday
+from .catalog_coordination import CatalogCoordination
+from .catalog_professor import CatalogProfessor
 from .catalog_schedule_time import CatalogScheduleTime
 from .catalog_subject import CatalogSubject
 from .faculty import Faculty
@@ -34,4 +37,7 @@ __all__ = [
     "Term",
     "TemplateGeneration",
     "AcademicLoadFile",
+    "AcademicLoadClass",
+    "CatalogProfessor",
+    "CatalogCoordination",
 ]

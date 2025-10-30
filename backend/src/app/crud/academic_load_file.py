@@ -16,6 +16,8 @@ class AcademicLoadFileCRUD:
         original_filename: str,
         original_file_path: str,
         ingestion_status: str = "pending",
+        version: int = 1,
+        is_active: bool = True,
     ) -> AcademicLoadFile:
         """Crear un nuevo registro de carga académica."""
         db_obj = AcademicLoadFile(
@@ -27,6 +29,9 @@ class AcademicLoadFileCRUD:
             original_filename=original_filename,
             original_file_path=original_file_path,
             ingestion_status=ingestion_status,
+            version=version,
+            is_active=is_active,
+            strict_validation=obj_in.strict_validation if hasattr(obj_in, "strict_validation") else False,
         )
         db.add(db_obj)
         await db.commit()
@@ -100,6 +105,37 @@ class AcademicLoadFileCRUD:
             await db.delete(obj)
             await db.commit()
         return obj
+
+    async def get_latest_version(
+        self, db: AsyncSession, faculty_id: int, school_id: int, term_id: int
+    ) -> AcademicLoadFile | None:
+        """Obtener la última versión de un documento por contexto."""
+        result = await db.execute(
+            select(AcademicLoadFile)
+            .filter(
+                AcademicLoadFile.faculty_id == faculty_id,
+                AcademicLoadFile.school_id == school_id,
+                AcademicLoadFile.term_id == term_id,
+            )
+            .order_by(desc(AcademicLoadFile.version))
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_all_versions(
+        self, db: AsyncSession, faculty_id: int, school_id: int, term_id: int
+    ) -> list[AcademicLoadFile]:
+        """Obtener todas las versiones de un documento."""
+        result = await db.execute(
+            select(AcademicLoadFile)
+            .filter(
+                AcademicLoadFile.faculty_id == faculty_id,
+                AcademicLoadFile.school_id == school_id,
+                AcademicLoadFile.term_id == term_id,
+            )
+            .order_by(desc(AcademicLoadFile.version))
+        )
+        return result.scalars().all()
 
 
 academic_load_file = AcademicLoadFileCRUD()

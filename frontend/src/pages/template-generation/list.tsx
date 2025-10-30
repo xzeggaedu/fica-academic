@@ -21,7 +21,7 @@ import { TableFilters } from "@/components/ui/data/table-filters";
 import { TablePagination } from "@/components/ui/data/table-pagination";
 import type { TemplateGeneration, TemplateGenerationCreate, TemplateGenerationUpdate, Faculty, School } from "@/types/api";
 import { getTableColumnClass } from "@/components/refine-ui/theme/theme-table";
-import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
+import { HardDeleteConfirmDialog } from "@/components/ui/hard-delete-confirm-dialog";
 import { Unauthorized } from "../unauthorized";
 import {
     Tooltip,
@@ -57,6 +57,7 @@ export const TemplateGenerationList: React.FC = () => {
         closeCreateModal,
         openEditModal,
         closeEditModal,
+        deleteHook,
     } = useTemplateGenerationCrud();
 
     // Ref para tracking de items que estaban pendientes (sin causar re-renders)
@@ -317,11 +318,19 @@ export const TemplateGenerationList: React.FC = () => {
     };
 
     // Función para eliminar item
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (itemToDelete) {
-            // TODO: Implementar eliminación
-            toast.success("Plantilla eliminada exitosamente", { richColors: true });
-            closeDeleteModal();
+            try {
+                // Llamar al API para eliminar la plantilla
+                await deleteHook.mutateAsync({
+                    resource: "template-generation",
+                    id: itemToDelete.id
+                });
+                toast.success("Plantilla eliminada exitosamente", { richColors: true });
+                closeDeleteModal();
+            } catch (error) {
+                toast.error("Error al eliminar la plantilla", { richColors: true });
+            }
         }
     };
 
@@ -775,7 +784,7 @@ export const TemplateGenerationList: React.FC = () => {
                 </Card>
 
                 {/* Modal de confirmación de eliminación */}
-                <DeleteConfirmDialog
+                <HardDeleteConfirmDialog
                     isOpen={isDeleteModalOpen}
                     onClose={closeDeleteModal}
                     onConfirm={handleDelete}

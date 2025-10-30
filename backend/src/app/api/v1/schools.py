@@ -9,8 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.dependencies import get_current_superuser, get_current_user
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import DuplicateValueException, NotFoundException
+from ...core.rbac_scope import get_user_scope_filters
 from ...crud.crud_faculties import get_faculty_by_uuid
 from ...crud.crud_schools import crud_schools, get_school_by_uuid, school_acronym_exists, school_exists
+from ...models.role import UserRoleEnum
 from ...schemas.school import SchoolCreate, SchoolRead, SchoolUpdate
 
 router = APIRouter(prefix="/catalog/schools", tags=["catalog-schools"])
@@ -96,6 +98,28 @@ async def list_schools(
         filters["fk_faculty"] = faculty_id
     if is_active is not None:
         filters["is_active"] = is_active
+
+    # Aplicar filtro por alcance para Director y Decano
+    user_role = current_user.get("role")
+    user_id = current_user.get("user_uuid")
+    if isinstance(user_role, str):
+        user_role = UserRoleEnum(user_role)
+
+    # Director: limitar a sus escuelas
+    if user_role == UserRoleEnum.DIRECTOR:
+        scope = await get_user_scope_filters(db=db, user_id=user_id, user_role=user_role)
+        school_ids = scope.get("school_ids") or []
+        if school_ids:
+            filters["id__in"] = list(school_ids)
+        else:
+            # Sin escuelas asignadas ⇒ devolver vacío con estructura esperada
+            return paginated_response(crud_data={"items": [], "total": 0}, page=page, items_per_page=items_per_page)
+
+    # Decano: limitar a su facultad si no se filtró explícitamente
+    if user_role == UserRoleEnum.DECANO and "fk_faculty" not in filters:
+        scope = await get_user_scope_filters(db=db, user_id=user_id, user_role=user_role)
+        if scope.get("faculty_id") is not None:
+            filters["fk_faculty"] = scope["faculty_id"]
 
     schools_data = await crud_schools.get_multi(
         db=db, offset=compute_offset(page, items_per_page), limit=items_per_page, **filters

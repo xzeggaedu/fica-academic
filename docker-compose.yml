@@ -151,25 +151,25 @@ services:
     networks:
       - dev-network
 
-  init_db:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    env_file:
-      - ./backend/src/.env
-    environment:
-      - TZ=UTC
-    depends_on:
-      db:
-        condition: service_healthy
-      api:
-        condition: service_healthy
-    command: python -m src.scripts.init_db
-    volumes:
-      - ./backend/src:/code/src
-    restart: "no"
-    networks:
-      - dev-network
+  # init_db:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   env_file:
+  #     - ./backend/src/.env
+  #   environment:
+  #     - TZ=UTC
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     api:
+  #       condition: service_healthy
+  #   command: python -m src.scripts.init_db
+  #   volumes:
+  #     - ./backend/src:/code/src
+  #   restart: "no"
+  #   networks:
+  #     - dev-network
 
 volumes:
   postgres-data:

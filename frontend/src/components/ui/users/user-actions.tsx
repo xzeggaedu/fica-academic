@@ -96,7 +96,7 @@ export function UserActions({ userId, userName, userRole, onSuccess, isCurrentUs
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={handleDelete}
-            className="text-orange-600"
+            className="text-red-600"
             disabled={isCurrentUser}
           >
             <Archive className="mr-2 h-4 w-4" />

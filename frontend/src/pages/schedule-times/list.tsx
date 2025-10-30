@@ -26,7 +26,7 @@ const WEEK_DAYS = [
   { index: 2, key: 'wednesday', label: 'Miércoles', short: 'Mi' },
   { index: 3, key: 'thursday', label: 'Jueves', short: 'Ju' },
   { index: 4, key: 'friday', label: 'Viernes', short: 'Vi' },
-  { index: 5, key: 'saturday', label: 'Sábado', short: 'Sá' },
+  { index: 5, key: 'saturday', label: 'Sábado', short: 'Sa' },
   { index: 6, key: 'sunday', label: 'Domingo', short: 'Do' },
 ] as const;
 
@@ -36,7 +36,7 @@ const generateDayGroupName = (selectedDayIndexes: number[]): string => {
 
   // Mapear índices a abreviaciones
   const dayMap: Record<number, string> = {
-    0: 'Lu', 1: 'Ma', 2: 'Mi', 3: 'Ju', 4: 'Vi', 5: 'Sá', 6: 'Do'
+    0: 'Lu', 1: 'Ma', 2: 'Mi', 3: 'Ju', 4: 'Vi', 5: 'Sa', 6: 'Do'
   };
 
   // Ordenar los índices
@@ -82,7 +82,7 @@ const parseDayGroupName = (dayGroupName: string): number[] => {
   if (!dayGroupName) return [];
 
   const shortToIndex: Record<string, number> = {
-    'Lu': 0, 'Ma': 1, 'Mi': 2, 'Ju': 3, 'Vi': 4, 'Sá': 5, 'Do': 6
+    'Lu': 0, 'Ma': 1, 'Mi': 2, 'Ju': 3, 'Vi': 4, 'Sa': 5, 'Do': 6
   };
 
   // Si es un solo día
