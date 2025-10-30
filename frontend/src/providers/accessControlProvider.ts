@@ -258,16 +258,18 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Todos los usuarios autenticados pueden ver asuetos y su detalle
+              return { can: true };
             case "create":
             case "edit":
             case "delete":
-              // Solo administradores pueden gestionar asuetos del año
+              // Solo administradores pueden crear/editar/eliminar
               if (canAccessAdminFeatures(userRole)) {
                 return { can: true };
               }
               return {
                 can: false,
-                reason: "Solo los administradores pueden gestionar asuetos del año",
+                reason: "Solo los administradores pueden modificar asuetos del año",
               };
 
             default:
@@ -298,16 +300,18 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Todos los usuarios autenticados pueden ver el detalle anual
+              return { can: true };
             case "create":
             case "edit":
             case "delete":
-              // Solo administradores pueden gestionar asuetos anuales
+              // Solo administradores pueden modificar
               if (canAccessAdminFeatures(userRole)) {
                 return { can: true };
               }
               return {
                 can: false,
-                reason: "Solo los administradores pueden gestionar asuetos anuales",
+                reason: "Solo los administradores pueden modificar asuetos anuales",
               };
 
             default:

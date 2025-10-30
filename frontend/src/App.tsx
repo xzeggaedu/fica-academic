@@ -94,6 +94,15 @@ function App() {
                       },
                     },
                     {
+                      name: "academic-load-files",
+                      list: "/academic-planning/academic-load-files",
+                      meta: {
+                        label: "Carga Académica",
+                        parent: "academic-planning",
+                        icon: "Upload",
+                      },
+                    },
+                    {
                       name: "terms",
                       list: "/academic-planning/terms",
                       meta: {
@@ -110,15 +119,6 @@ function App() {
                         label: "Generar Plantilla",
                         parent: "academic-planning",
                         icon: "FileSpreadsheet",
-                      },
-                    },
-                    {
-                      name: "academic-load-files",
-                      list: "/academic-planning/academic-load-files",
-                      meta: {
-                        label: "Carga Académica",
-                        parent: "academic-planning",
-                        icon: "Upload",
                       },
                     },
                     {

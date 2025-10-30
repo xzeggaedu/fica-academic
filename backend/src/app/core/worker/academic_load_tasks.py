@@ -228,7 +228,7 @@ async def _process_row_strict_mode(
                 "reason": "Validación falló en modo estricto",
             }
 
-            _log_stderr(f"❌ Fila {idx} rechazada en modo estricto: " f"{clean_error_msg}")
+            _log_stderr(f"❌ Fila {idx} rechazada en modo estricto: {clean_error_msg}")
             return None, 1, [sample_error]
 
         # Si pasó validación, retornar fila validada
@@ -685,7 +685,7 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
                         return {"error": error_msg, "file_id": file_id}
 
                     # Insertar todas las filas validadas
-                    _log_stderr(f"✅ Todas las filas pasaron validación. " f"Insertando {len(validated_rows)} filas...")
+                    _log_stderr(f"✅ Todas las filas pasaron validación. Insertando {len(validated_rows)} filas...")
                     for validated in validated_rows:
                         class_data_dict = map_excel_row_to_class_data(
                             validated["normalized_row"],
@@ -779,7 +779,7 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
                             rows_failed += 1
                             continue
 
-                _log_stderr(f"✅ Ingestion completada: {rows_inserted} clases insertadas, " f"{rows_failed} errores")
+                _log_stderr(f"✅ Ingestion completada: {rows_inserted} clases insertadas, {rows_failed} errores")
 
                 # Preparar notas con resumen
                 notes_payload = None
@@ -827,9 +827,7 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
                             errors_by_type=_initialize_error_counters(),
                             sample_errors=[],
                         )
-                        _log_stderr(
-                            f"⚠️ Modo flexible: Se guardaron {rows_inserted} " f"filas con {rows_failed} warnings"
-                        )
+                        _log_stderr(f"⚠️ Modo flexible: Se guardaron {rows_inserted} filas con {rows_failed} warnings")
 
                 # Actualizar estado a "completed" (con notes si hay warnings)
                 await academic_load_file.update(

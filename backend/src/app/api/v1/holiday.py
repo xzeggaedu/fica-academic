@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...api.dependencies import get_current_superuser, get_current_user
 from ...core.db.database import async_get_db
 from ...crud import crud_holiday
 from ...schemas.annual_holiday import AnnualHolidayRead
@@ -16,6 +17,7 @@ router = APIRouter()
 @router.get("/", response_model=dict)
 async def list_holidays(
     session: Annotated[AsyncSession, Depends(async_get_db)],
+    _current_user: Annotated[dict, Depends(get_current_user)],  # cualquier usuario autenticado
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
     year: Annotated[int | None, Query(ge=2020, le=2100)] = None,
@@ -51,6 +53,7 @@ async def list_holidays(
 async def get_holiday(
     holiday_id: int,
     session: Annotated[AsyncSession, Depends(async_get_db)],
+    _current_user: Annotated[dict, Depends(get_current_user)],  # cualquier usuario autenticado
 ) -> dict:
     """Get a specific holiday by ID with all its annual holidays.
 
@@ -86,6 +89,7 @@ async def get_holiday(
 async def create_holiday(
     holiday_data: HolidayCreate,
     session: Annotated[AsyncSession, Depends(async_get_db)],
+    _admin: Annotated[dict, Depends(get_current_superuser)],  # solo admin
 ) -> dict:
     """Create a new holiday year group and auto-generate annual holidays from fixed rules.
 
@@ -124,6 +128,7 @@ async def update_holiday(
     holiday_id: int,
     holiday_data: HolidayUpdate,
     session: Annotated[AsyncSession, Depends(async_get_db)],
+    _admin: Annotated[dict, Depends(get_current_superuser)],  # solo admin
 ) -> HolidayRead:
     """Update an existing holiday.
 
@@ -158,6 +163,7 @@ async def update_holiday(
 async def delete_holiday(
     holiday_id: int,
     session: Annotated[AsyncSession, Depends(async_get_db)],
+    _admin: Annotated[dict, Depends(get_current_superuser)],  # solo admin
 ) -> None:
     """Delete a holiday and all its annual holidays (hard delete with cascade).
 

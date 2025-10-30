@@ -1,6 +1,5 @@
 """Unit tests para academic_load_tasks.py."""
 
-
 import pandas as pd
 import pytest
 

@@ -43,6 +43,7 @@ class AcademicLoadFileResponse(AcademicLoadFileBase):
 
 class AcademicLoadFileListResponse(BaseModel):
     id: int
+    user_id: UUID
     faculty_name: str
     faculty_acronym: str
     school_name: str

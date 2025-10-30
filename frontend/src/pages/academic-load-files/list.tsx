@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useTablePagination } from "@/hooks/useTablePagination";
 import { useAcademicLoadFilesCrud } from "@/hooks/useAcademicLoadFilesCrud";
-import { useList } from "@refinedev/core";
+import { useList, useGetIdentity } from "@refinedev/core";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -103,6 +103,23 @@ export const AcademicLoadFilesList: React.FC = () => {
     // Estados para filtros y paginación
     const [searchTerm, setSearchTerm] = useState("");
     const [showIdColumn, setShowIdColumn] = useState(false);
+
+    // Identidad del usuario autenticado (Refine)
+    const { data: identity } = useGetIdentity<any>();
+    const currentUserUuid: string | null = (
+        identity?.user_uuid ?? identity?.uuid ?? identity?.id ?? null
+    )?.toString?.() ?? null;
+    const currentUserRole: string | null = (
+        identity?.role ?? identity?.user_role ?? null
+    )?.toString?.().toLowerCase?.() ?? null;
+
+    const canDeleteRow = (item: AcademicLoadFile) => {
+        if (canDelete) return true; // Admin
+        if (currentUserRole === "director" && item.user_id && currentUserUuid) {
+            return item.user_id.toString() === currentUserUuid.toString();
+        }
+        return false;
+    };
 
     // Columnas disponibles
     const availableColumns = [
@@ -929,7 +946,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                                 </Tooltip>
                                                             </TooltipProvider>
 
-                                                            {canDelete && (
+                                                            {canDeleteRow(item) && (
                                                                 <TooltipProvider>
                                                                     <Tooltip>
                                                                         <TooltipTrigger asChild>

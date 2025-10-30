@@ -260,6 +260,8 @@ export const HolidaysList = () => {
     };
 
     const handleStartEdit = (item: Holiday, field: string) => {
+        if (!canEdit?.can) return;
+
         setEditingId(item.id);
         setEditingField(field);
         setEditForm({ ...item });

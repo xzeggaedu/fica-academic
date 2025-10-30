@@ -1,6 +1,5 @@
 """Unit tests para validar el procesamiento de carga académica."""
 
-
 import pandas as pd
 
 from src.app.core.worker.academic_load_tasks import extract_duration
