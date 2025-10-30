@@ -114,6 +114,7 @@ def determine_validation_status(validation_passed: bool, validation_messages: li
 
 
 def _get_clean_value(val, default=None):
+    """Obtiene un valor limpio (lowercase) con default opcional."""
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return default
     val_str = str(val).strip().lower()
@@ -123,12 +124,227 @@ def _get_clean_value(val, default=None):
 
 
 def _get_str_value(val, default: str = "") -> str:
+    """Obtiene un valor string limpio (preserva case) con default opcional."""
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return default
     val_str = str(val).strip()
     if val_str.lower() in ["nan", "none", "", "null"]:
         return default
     return val_str
+
+
+def _initialize_error_counters() -> dict[str, int]:
+    """Inicializa el diccionario de contadores de errores por tipo."""
+    return {
+        "missing_coordination": 0,
+        "missing_subject": 0,
+        "missing_professor": 0,
+        "invalid_schedule": 0,
+    }
+
+
+def _update_error_counters(error_type_str: str, counters: dict[str, int]) -> None:
+    """Actualiza los contadores de errores basado en el tipo de error."""
+    if "Coordinación" in error_type_str:
+        counters["missing_coordination"] += 1
+    if "Asignatura" in error_type_str:
+        counters["missing_subject"] += 1
+    if "Profesor" in error_type_str:
+        counters["missing_professor"] += 1
+    if "Horario" in error_type_str:
+        counters["invalid_schedule"] += 1
+
+
+def _get_helpers() -> tuple:
+    """Retorna funciones helper reutilizables para limpiar valores."""
+
+    def get_clean_value(val, default=None):
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return default
+        val_str = str(val).strip().lower()
+        if val_str in ["nan", "none", "", "null"]:
+            return default
+        return val
+
+    def get_str_value(val, default=""):
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return default
+        val_str = str(val).strip()
+        if val_str.lower() in ["nan", "none", "", "null"]:
+            return default
+        return val_str
+
+    return get_clean_value, get_str_value
+
+
+async def _process_row_strict_mode(
+    *, idx: int, row: pd.Series, db, file_id: int, strict_mode: bool
+) -> tuple[dict | None, int, list]:
+    """Procesa una sola fila en modo estricto.
+
+    Returns:
+        Tuple de (validated_row_dict, error_count, sample_errors_list)
+    """
+    import json
+
+    try:
+        # Normalizar fila antes de validar
+        row_dict = row.to_dict()
+        normalized_row, norm_changes = apply_normalizers_to_row(row_dict, strict_mode)
+
+        get_clean_value, get_str_value = _get_helpers()
+
+        # Extraer datos de la fila normalizada
+        subject_name = get_clean_value(normalized_row.get("ASIGNATURA", None))
+        subject_code = get_clean_value(normalized_row.get("COD_ASIG", None))
+        section = get_str_value(normalized_row.get("SECCION", ""), "")
+        schedule = get_str_value(normalized_row.get("HORARIO", ""), "")
+        days = get_str_value(normalized_row.get("DIAS", ""), "")
+
+        # Ejecutar validaciones
+        validation_passed, validation_messages = await validate_row_data(db, normalized_row, strict_mode)
+
+        # Determinar status de validación
+        validation_status, validation_errors_str = determine_validation_status(validation_passed, validation_messages)
+
+        # Agregar cambios de normalización como información
+        if norm_changes:
+            changes_json = json.dumps({"changes": norm_changes}, ensure_ascii=False)
+            if validation_errors_str:
+                validation_errors_str = f"{validation_errors_str}; {changes_json}"
+            else:
+                validation_errors_str = changes_json
+
+        # Si falla validación, retornar error
+        if not validation_passed:
+            clean_error_msg = (
+                validation_errors_str.split("; {")[0] if "; {" in validation_errors_str else validation_errors_str
+            )
+            sample_error = {
+                "row": int(idx),
+                "field": f"COD_ASIG: {subject_code}, ASIGNATURA: {subject_name}",
+                "value": clean_error_msg[:100],
+                "reason": "Validación falló en modo estricto",
+            }
+
+            _log_stderr(f"❌ Fila {idx} rechazada en modo estricto: " f"{clean_error_msg}")
+            return None, 1, [sample_error]
+
+        # Si pasó validación, retornar fila validada
+        return (
+            {
+                "idx": idx,
+                "normalized_row": normalized_row,
+                "validation_status": validation_status,
+                "validation_errors_str": validation_errors_str,
+            },
+            0,
+            [],
+        )
+
+    except Exception as e:
+        _log_stderr(f"⚠️ Error validando fila {idx}: {e}")
+        return None, 1, []
+
+
+def _create_error_summary(*, total_rows: int, failed: int, errors_by_type: dict, sample_errors: list) -> str:
+    """Crea un resumen de errores en formato JSON."""
+    import json
+
+    detailed_errors = {
+        "summary": {
+            "total_rows": total_rows,
+            "validated": total_rows,
+            "inserted": 0,
+            "failed": failed,
+        },
+        "errors_by_type": errors_by_type,
+        "sample_errors": sample_errors,
+    }
+    return json.dumps(detailed_errors, indent=2)
+
+
+async def _validate_all_rows_strict_mode(
+    *, df: pd.DataFrame, db, file_id: int, strict_mode: bool
+) -> tuple[list[dict], int, dict[str, int], list]:
+    """Valida todas las filas en modo estricto.
+
+    Returns:
+        Tuple de (validated_rows, rows_failed, errors_by_type, sample_errors)
+    """
+    _log_stderr("📋 Modo estricto: Validando todas las filas antes de insertar...")
+
+    validated_rows = []
+    rows_failed = 0
+    errors_by_type = _initialize_error_counters()
+    sample_errors = []
+
+    for idx, row in df.iterrows():
+        validated_row, failed_count, row_errors = await _process_row_strict_mode(
+            idx=idx, row=row, db=db, file_id=file_id, strict_mode=strict_mode
+        )
+
+        rows_failed += failed_count
+        sample_errors.extend(row_errors)
+
+        if validated_row:
+            validated_rows.append(validated_row)
+            # Actualizar contadores basado en errores de validación
+            if validated_row.get("validation_errors_str"):
+                _update_error_counters(validated_row["validation_errors_str"], errors_by_type)
+
+    return validated_rows, rows_failed, errors_by_type, sample_errors
+
+
+def _clean_sample_errors(sample_errors: list) -> list:
+    """Limpia los errores de muestra removiendo JSON de normalización."""
+    clean_sample_errors = []
+    for err in sample_errors:
+        clean_error = dict(err)
+        value = clean_error.get("value", "")
+        if "; {" in value:
+            error_msg_only = value.split("; {")[0]
+            clean_error["value"] = error_msg_only
+        clean_sample_errors.append(clean_error)
+    return clean_sample_errors
+
+
+def _create_detailed_errors_strict(*, total_rows: int, failed: int, errors_by_type: dict, sample_errors: list) -> str:
+    """Crea resumen detallado de errores en modo estricto."""
+    import json
+
+    clean_sample_errors = _clean_sample_errors(sample_errors)
+
+    detailed_errors = {
+        "summary": {
+            "total_rows": total_rows,
+            "inserted": 0,
+            "failed": failed,
+            "warnings": 0,
+        },
+        "errors_by_type": errors_by_type,
+        "sample_errors": clean_sample_errors,
+    }
+    return json.dumps(detailed_errors, indent=2)
+
+
+def _create_detailed_warnings_flexible(
+    *, total_rows: int, inserted: int, failed: int, errors_by_type: dict, sample_errors: list
+) -> str:
+    """Crea resumen detallado de warnings en modo flexible."""
+    import json
+
+    detailed_warnings = {
+        "summary": {
+            "total_rows": total_rows,
+            "inserted": inserted,
+            "failed": failed,
+            "warnings": failed,
+        },
+        "warnings_by_type": errors_by_type,
+        "sample_warnings": sample_errors,
+    }
+    return json.dumps(detailed_warnings, indent=2)
 
 
 async def _handle_strict_failure(
@@ -427,139 +643,27 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
 
                 _log_stderr(f"INFO: strict_mode: {'Enabled' if strict_mode else 'Disabled'}")
 
-                # Inicializar contadores de errores por tipo
-                errors_by_type = {
-                    "missing_coordination": 0,
-                    "missing_subject": 0,
-                    "missing_professor": 0,
-                    "invalid_schedule": 0,
-                }
-                sample_errors = []  # Máximo 10 errores de ejemplo
-
-                # PASO 1: Validar TODAS las filas primero (en modo estricto)
+                # PASO 1: Modo estricto - Validar y luego insertar
                 if strict_mode:
-                    _log_stderr("📋 Modo estricto: Validando todas las filas antes de insertar...")
-                    validated_rows = []
+                    validated_rows, rows_failed, errors_by_type, sample_errors = await _validate_all_rows_strict_mode(
+                        df=df, db=db, file_id=file_id, strict_mode=strict_mode
+                    )
 
-                    for idx, row in df.iterrows():
-                        try:
-                            # Normalizar fila antes de validar
-                            row_dict = row.to_dict()
-                            normalized_row, norm_changes = apply_normalizers_to_row(row_dict, strict_mode)
-
-                            # Helpers de limpieza
-                            def get_clean_value(val, default=None):
-                                if val is None or (isinstance(val, float) and pd.isna(val)):
-                                    return default
-                                val_str = str(val).strip().lower()
-                                if val_str in ["nan", "none", "", "null"]:
-                                    return default
-                                return val
-
-                            def get_str_value(val, default=""):
-                                if val is None or (isinstance(val, float) and pd.isna(val)):
-                                    return default
-                                val_str = str(val).strip()
-                                if val_str.lower() in ["nan", "none", "", "null"]:
-                                    return default
-                                return val_str
-
-                            # Extraer datos de la fila normalizada
-                            subject_name = get_clean_value(normalized_row.get("ASIGNATURA", None))
-                            subject_code = get_clean_value(normalized_row.get("COD_ASIG", None))
-                            section = get_str_value(normalized_row.get("SECCION", ""), "")
-                            schedule = get_str_value(normalized_row.get("HORARIO", ""), "")
-                            days = get_str_value(normalized_row.get("DIAS", ""), "")
-
-                            # Ejecutar validaciones
-                            validation_passed, validation_messages = await validate_row_data(
-                                db, normalized_row, strict_mode
-                            )
-
-                            # Determinar status de validación
-                            validation_status, validation_errors_str = determine_validation_status(
-                                validation_passed, validation_messages
-                            )
-
-                            # Agregar cambios de normalización como información
-                            if norm_changes:
-                                import json
-
-                                changes_json = json.dumps({"changes": norm_changes}, ensure_ascii=False)
-                                if validation_errors_str:
-                                    validation_errors_str = f"{validation_errors_str}; {changes_json}"
-                                else:
-                                    validation_errors_str = changes_json
-
-                            # Si falla validación, registrar error y NO agregar a validated_rows
-                            if not validation_passed:
-                                rows_failed += 1
-
-                                # Actualizar contadores de errores
-                                if "Coordinación" in validation_errors_str:
-                                    errors_by_type["missing_coordination"] += 1
-                                if "Asignatura" in validation_errors_str:
-                                    errors_by_type["missing_subject"] += 1
-                                if "Profesor" in validation_errors_str:
-                                    errors_by_type["missing_professor"] += 1
-                                if "Horario" in validation_errors_str:
-                                    errors_by_type["invalid_schedule"] += 1
-
-                                # Agregar a ejemplos
-                                if len(sample_errors) < 10:
-                                    error_subject_code = normalized_row.get("COD_ASIG", "")
-                                    error_subject_name = normalized_row.get("ASIGNATURA", "")
-                                    clean_error_msg = (
-                                        validation_errors_str.split("; {")[0]
-                                        if "; {" in validation_errors_str
-                                        else validation_errors_str
-                                    )
-                                    sample_errors.append(
-                                        {
-                                            "row": int(idx),
-                                            "field": f"COD_ASIG: {error_subject_code}, ASIGNATURA: {error_subject_name}",
-                                            "value": clean_error_msg[:100],
-                                            "reason": "Validación falló en modo estricto",
-                                        }
-                                    )
-
-                                _log_stderr(
-                                    f"❌ Fila {idx} rechazada en modo estricto: {validation_errors_str.split('; {')[0] if '; {' in validation_errors_str else validation_errors_str}"
-                                )
-                                continue  # NO agregar esta fila a validated_rows
-
-                            # Si pasó validación, agregar a validated_rows para insertar después
-                            validated_rows.append(
-                                {
-                                    "idx": idx,
-                                    "normalized_row": normalized_row,
-                                    "validation_status": validation_status,
-                                    "validation_errors_str": validation_errors_str,
-                                }
-                            )
-
-                        except Exception as e:
-                            _log_stderr(f"⚠️ Error validando fila {idx}: {e}")
-                            rows_failed += 1
-                            continue
-
-                    # Si hay errores en modo estricto, terminar sin guardar nada
+                    # Si hay errores, terminar sin guardar
                     if rows_failed > 0:
                         import json
 
-                        detailed_errors = {
-                            "summary": {
-                                "total_rows": len(df),
-                                "validated": len(df),
-                                "inserted": 0,
-                                "failed": rows_failed,
-                            },
-                            "errors_by_type": errors_by_type,
-                            "sample_errors": sample_errors,
-                        }
-                        notes_payload = json.dumps(detailed_errors, indent=2)
-
-                        error_msg = f"Validación estricta falló: {rows_failed} filas rechazadas de {len(df)} totales. No se insertó ninguna fila."
+                        notes_payload = _create_error_summary(
+                            total_rows=len(df),
+                            failed=rows_failed,
+                            errors_by_type=errors_by_type,
+                            sample_errors=sample_errors,
+                        )
+                        error_msg = (
+                            f"Validación estricta falló: {rows_failed} filas "
+                            f"rechazadas de {len(df)} totales. "
+                            f"No se insertó ninguna fila."
+                        )
                         _log_stderr(f"❌ {error_msg}")
                         if sample_errors:
                             _log_stderr(f"📋 Primeros errores: {json.dumps(sample_errors[:3], indent=2)}")
@@ -571,8 +675,8 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
                         )
                         return {"error": error_msg, "file_id": file_id}
 
-                    # Si todas las validaciones pasaron, ahora SÍ insertar las filas validadas
-                    _log_stderr(f"✅ Todas las filas pasaron validación. Insertando {len(validated_rows)} filas...")
+                    # Insertar todas las filas validadas
+                    _log_stderr(f"✅ Todas las filas pasaron validación. " f"Insertando {len(validated_rows)} filas...")
                     for validated in validated_rows:
                         class_data_dict = map_excel_row_to_class_data(
                             validated["normalized_row"],
@@ -666,77 +770,56 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
                             rows_failed += 1
                             continue
 
-                _log_stderr(f"✅ DEBUG: Ingestion completada: {rows_inserted} clases insertadas, {rows_failed} errores")
-                _log_stderr(f"✅ Ingestion completada: {rows_inserted} clases insertadas, {rows_failed} errores")
+                _log_stderr(f"✅ Ingestion completada: {rows_inserted} clases insertadas, " f"{rows_failed} errores")
 
                 # Preparar notas con resumen
                 notes_payload = None
 
-                # Modo estricto: TODO O NADA - Si hay errores, eliminar filas insertadas y marcar como failed
-                if strict_mode and rows_failed > 0:
-                    import json
+                # Manejar errores según el modo
+                if rows_failed > 0:
+                    if strict_mode:
+                        # Eliminar todas las filas insertadas en modo estricto
+                        if rows_inserted > 0:
+                            _log_stderr(
+                                f"🗑️ Modo estricto: Eliminando {rows_inserted} "
+                                f"filas insertadas debido a {rows_failed} errores "
+                                f"(TODO O NADA)"
+                            )
+                            await academic_load_class.delete_multi_filter_by(db=db, academic_load_file_id=file_id)
+                            await db.commit()
 
-                    # Eliminar todas las filas que se insertaron
-                    if rows_inserted > 0:
-                        _log_stderr(
-                            f"🗑️ Modo estricto: Eliminando {rows_inserted} filas insertadas debido a {rows_failed} errores (TODO O NADA)"
+                        notes_payload = _create_detailed_errors_strict(
+                            total_rows=len(df),
+                            failed=rows_failed,
+                            errors_by_type=errors_by_type,
+                            sample_errors=sample_errors,
                         )
-                        await academic_load_class.delete_multi_filter_by(db=db, academic_load_file_id=file_id)
-                        await db.commit()
 
-                    # Preparar resumen de errores en notes
-                    # Limpiar el JSON de validation_errors_str de los cambios de normalización
-                    clean_sample_errors = []
-                    for err in sample_errors:
-                        clean_error = dict(err)
-                        # Si el valor contiene JSON de cambios, extraer solo el mensaje de error
-                        value = clean_error.get("value", "")
-                        if "; {" in value:
-                            # Separar mensaje de error del JSON de cambios
-                            error_msg_only = value.split("; {")[0]
-                            clean_error["value"] = error_msg_only
-                        clean_sample_errors.append(clean_error)
+                        error_msg = (
+                            f"Validación estricta falló: {rows_failed} filas "
+                            f"rechazadas de {len(df)} totales. "
+                            f"No se insertó ninguna fila (TODO O NADA)"
+                        )
+                        _log_stderr(f"❌ {error_msg}")
 
-                    detailed_errors = {
-                        "summary": {
-                            "total_rows": len(df),
-                            "inserted": 0,  # Siempre 0 en modo estricto con errores
-                            "failed": rows_failed,
-                            "warnings": 0,
-                        },
-                        "errors_by_type": errors_by_type,
-                        "sample_errors": clean_sample_errors,
-                    }
-                    notes_payload = json.dumps(detailed_errors, indent=2)
-
-                    error_msg = f"Validación estricta falló: {rows_failed} filas rechazadas de {len(df)} totales. No se insertó ninguna fila (TODO O NADA)"
-                    _log_stderr(f"❌ {error_msg}")
-                    if clean_sample_errors:
-                        _log_stderr(f"📋 Primeros errores: {json.dumps(clean_sample_errors[:3], indent=2)}")
-
-                    await academic_load_file.update(
-                        db=db,
-                        db_obj=load_record,
-                        obj_in=AcademicLoadFileUpdate(ingestion_status="failed", notes=notes_payload),
-                    )
-                    return {"error": error_msg, "file_id": file_id}
-
-                # Modo flexible: Si hay warnings (normalizaciones), guardar en notes
-                if not strict_mode and rows_failed > 0:
-                    import json
-
-                    detailed_warnings = {
-                        "summary": {
-                            "total_rows": len(df),
-                            "inserted": rows_inserted,
-                            "failed": rows_failed,
-                            "warnings": rows_failed,
-                        },
-                        "warnings_by_type": errors_by_type,
-                        "sample_warnings": sample_errors,
-                    }
-                    notes_payload = json.dumps(detailed_warnings, indent=2)
-                    _log_stderr(f"⚠️ Modo flexible: Se guardaron {rows_inserted} filas con {rows_failed} warnings")
+                        await academic_load_file.update(
+                            db=db,
+                            db_obj=load_record,
+                            obj_in=AcademicLoadFileUpdate(ingestion_status="failed", notes=notes_payload),
+                        )
+                        return {"error": error_msg, "file_id": file_id}
+                    else:
+                        # Modo flexible: guardar warnings
+                        notes_payload = _create_detailed_warnings_flexible(
+                            total_rows=len(df),
+                            inserted=rows_inserted,
+                            failed=rows_failed,
+                            errors_by_type=errors_by_type,
+                            sample_errors=sample_errors,
+                        )
+                        _log_stderr(
+                            f"⚠️ Modo flexible: Se guardaron {rows_inserted} " f"filas con {rows_failed} warnings"
+                        )
 
                 # Actualizar estado a "completed" (con notes si hay warnings)
                 await academic_load_file.update(

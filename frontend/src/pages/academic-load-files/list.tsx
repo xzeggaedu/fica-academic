@@ -1100,7 +1100,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                                 {/* Ejemplos de Errores */}
                                 {errorDetails.sample_errors && errorDetails.sample_errors.length > 0 && (
                                     <div>
-                                        <h3 className="font-semibold mb-2">Ejemplos de Errores</h3>
+                                        <h3 className="font-semibold mb-2">Errores</h3>
                                         <div className="space-y-2">
                                             {errorDetails.sample_errors.map((error: any, idx: number) => {
                                                 const fieldTranslations: Record<string, string> = {
@@ -1113,9 +1113,9 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                 const displayField = fieldTranslations[error.field] || error.field;
                                                 return (
                                                     <div key={idx} className="border border-red-200 rounded-lg p-3">
-                                                        <div className="flex justify-between items-start mb-2">
+                                                        <div className="flex flex-col justify-between items-start mb-2">
                                                             <span className="font-medium text-sm">Fila {error.row}</span>
-                                                            <Badge variant="outline" className="text-xs">{displayField}</Badge>
+                                                            <span className="text-xs">{displayField}</span>
                                                         </div>
                                                         <p className="text-sm text-gray-600 mb-1">
                                                             <strong>Valor:</strong> {error.value}
