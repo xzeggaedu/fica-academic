@@ -223,7 +223,8 @@ async def _process_row_strict_mode(
             sample_error = {
                 "row": int(idx),
                 "field": f"COD_ASIG: {subject_code}, ASIGNATURA: {subject_name}",
-                "value": clean_error_msg[:100],
+                # Guardar el mensaje completo para evitar recortes en el front
+                "value": clean_error_msg,
                 "reason": "Validación falló en modo estricto",
             }
 
@@ -286,6 +287,12 @@ async def _validate_all_rows_strict_mode(
 
         rows_failed += failed_count
         sample_errors.extend(row_errors)
+        # Si la fila falló, usar el mensaje detallado para clasificar el tipo
+        if failed_count > 0 and row_errors:
+            for err in row_errors:
+                msg = err.get("value", "")
+                if isinstance(msg, str) and msg:
+                    _update_error_counters(msg, errors_by_type)
 
         if validated_row:
             validated_rows.append(validated_row)
@@ -637,6 +644,8 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
 
                 rows_inserted = 0
                 rows_failed = 0
+                # En modo flexible no generamos muestras; definir por defecto
+                sample_errors: list = []
 
                 # Obtener modo de validación
                 strict_mode = load_record.strict_validation if hasattr(load_record, "strict_validation") else False
@@ -810,12 +819,13 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
                         return {"error": error_msg, "file_id": file_id}
                     else:
                         # Modo flexible: guardar warnings
+                        # En modo flexible no llevamos contadores detallados; usar contadores vacíos
                         notes_payload = _create_detailed_warnings_flexible(
                             total_rows=len(df),
                             inserted=rows_inserted,
                             failed=rows_failed,
-                            errors_by_type=errors_by_type,
-                            sample_errors=sample_errors,
+                            errors_by_type=_initialize_error_counters(),
+                            sample_errors=[],
                         )
                         _log_stderr(
                             f"⚠️ Modo flexible: Se guardaron {rows_inserted} " f"filas con {rows_failed} warnings"

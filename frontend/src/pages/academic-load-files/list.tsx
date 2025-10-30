@@ -401,7 +401,7 @@ export const AcademicLoadFilesList: React.FC = () => {
     const [itemToDelete, setItemToDelete] = useState<AcademicLoadFile | null>(null);
     const [isVersionConfirmOpen, setIsVersionConfirmOpen] = useState(false);
     const [pendingUpload, setPendingUpload] = useState<FormData | null>(null);
-    const [versionConfirmData, setVersionConfirmData] = useState<{facultyName: string; schoolName: string; termName: string} | null>(null);
+    const [versionConfirmData, setVersionConfirmData] = useState<{ facultyName: string; schoolName: string; termName: string } | null>(null);
     const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
     const [errorDetails, setErrorDetails] = useState<any>(null);
     const [isChangesModalOpen, setIsChangesModalOpen] = useState(false);
@@ -768,7 +768,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                                    {isLoading ? (
+                                    {isLoading ? (
                                         <TableRow>
                                             <TableCell colSpan={showIdColumn ? 10 : 9} className="text-center py-8">
                                                 Cargando archivos...
@@ -835,108 +835,108 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                             "N/A"
                                                         )}
                                                     </TableCell>
-                                                <TableCell className={getTableColumnClass("name")}>
-                                                    {item.school?.acronym ? (
-                                                        <Badge variant="secondary" className="font-mono">
-                                                            {item.school.acronym}
-                                                        </Badge>
-                                                    ) : (
-                                                        "N/A"
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className={getTableColumnClass("name")}>
-                                                    Ciclo 0{item.term_name || "N/A"}
-                                                </TableCell>
-                                                <TableCell className={getTableColumnClass("name")}>
-                                                    {item.user_name || "N/A"}
-                                                </TableCell>
-                                                <TableCell className={getTableColumnClass("date")}>
-                                                    {format(new Date(item.upload_date), "dd/MM/yyyy HH:mm", { locale: es })}
-                                                </TableCell>
-                                                <TableCell className={getTableColumnClass("status")}>
-                                                    <div className="flex items-center gap-2">
-                                                        {item.ingestion_status === "failed" && item.notes ? (
-                                                            <Button
-                                                                variant="destructive"
-                                                                size="sm"
-                                                                onClick={() => openErrorModal(item)}
-                                                                className="text-xs"
-                                                            >
-                                                                <XCircle className="w-3 h-3 mr-1" />
-                                                                Ver Errores ({parseErrorDetails(item.notes)?.summary?.failed || 0})
-                                                            </Button>
+                                                    <TableCell className={getTableColumnClass("name")}>
+                                                        {item.school?.acronym ? (
+                                                            <Badge variant="secondary" className="font-mono">
+                                                                {item.school.acronym}
+                                                            </Badge>
                                                         ) : (
-                                                            getStatusDisplay(item.ingestion_status, item.notes)
+                                                            "N/A"
                                                         )}
+                                                    </TableCell>
+                                                    <TableCell className={getTableColumnClass("name")}>
+                                                        Ciclo 0{item.term_name || "N/A"}
+                                                    </TableCell>
+                                                    <TableCell className={getTableColumnClass("name")}>
+                                                        {item.user_name || "N/A"}
+                                                    </TableCell>
+                                                    <TableCell className={getTableColumnClass("date")}>
+                                                        {format(new Date(item.upload_date), "dd/MM/yyyy HH:mm", { locale: es })}
+                                                    </TableCell>
+                                                    <TableCell className={getTableColumnClass("status")}>
+                                                        <div className="flex items-center gap-2">
+                                                            {item.ingestion_status === "failed" && item.notes ? (
+                                                                <Button
+                                                                    variant="destructive"
+                                                                    size="sm"
+                                                                    onClick={() => openErrorModal(item)}
+                                                                    className="text-xs"
+                                                                >
+                                                                    <XCircle className="w-3 h-3 mr-1" />
+                                                                    Ver Errores ({parseErrorDetails(item.notes)?.summary?.failed || 0})
+                                                                </Button>
+                                                            ) : (
+                                                                getStatusDisplay(item.ingestion_status, item.notes)
+                                                            )}
 
-                                                        {/* Botón de Cambios si hay cambios en notes */}
-                                                        {parseChangesDetails(item.notes) && (
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => openChangesModal(item)}
-                                                                className="text-xs"
-                                                            >
-                                                                Ver Cambios
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className={getTableColumnClass("actions")}>
-                                                    <div className="flex items-center gap-2">
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleView(item)}
-                                                                        disabled={item.ingestion_status !== "completed"}
-                                                                    >
-                                                                        <Eye className="h-4 w-4" />
-                                                                    </Button>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>
-                                                                    <p>
-                                                                        {item.ingestion_status === "completed"
-                                                                            ? "Ver detalles"
-                                                                            : "Solo disponible para archivos completados"}
-                                                                    </p>
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-
-                                                        {canDelete && (
+                                                            {/* Botón de Cambios si hay cambios en notes */}
+                                                            {parseChangesDetails(item.notes) && (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => openChangesModal(item)}
+                                                                    className="text-xs"
+                                                                >
+                                                                    Ver Cambios
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className={getTableColumnClass("actions")}>
+                                                        <div className="flex items-center gap-2">
                                                             <TooltipProvider>
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
                                                                         <Button
                                                                             variant="outline"
                                                                             size="sm"
-                                                                            onClick={() => openDeleteModal(item)}
-                                                                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                                                                            disabled={item.ingestion_status === "pending" || item.ingestion_status === "processing" || !item.is_active}
+                                                                            onClick={() => handleView(item)}
+                                                                            disabled={item.ingestion_status !== "completed"}
                                                                         >
-                                                                            <Trash2 className="h-4 w-4" />
+                                                                            <Eye className="h-4 w-4" />
                                                                         </Button>
                                                                     </TooltipTrigger>
                                                                     <TooltipContent>
                                                                         <p>
-                                                                            {!item.is_active
-                                                                                ? "Solo se puede eliminar la versión activa"
-                                                                                : item.ingestion_status === "pending" || item.ingestion_status === "processing"
-                                                                                  ? "No se puede eliminar durante el procesamiento"
-                                                                                  : item.ingestion_status === "failed"
-                                                                                    ? "Eliminar archivo fallido"
-                                                                                    : "Eliminar archivo"}
+                                                                            {item.ingestion_status === "completed"
+                                                                                ? "Ver detalles"
+                                                                                : "Solo disponible para archivos completados"}
                                                                         </p>
                                                                     </TooltipContent>
                                                                 </Tooltip>
                                                             </TooltipProvider>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
+
+                                                            {canDelete && (
+                                                                <TooltipProvider>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={() => openDeleteModal(item)}
+                                                                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                                                                                disabled={item.ingestion_status === "pending" || item.ingestion_status === "processing" || !item.is_active}
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent>
+                                                                            <p>
+                                                                                {!item.is_active
+                                                                                    ? "Solo se puede eliminar la versión activa"
+                                                                                    : item.ingestion_status === "pending" || item.ingestion_status === "processing"
+                                                                                        ? "No se puede eliminar durante el procesamiento"
+                                                                                        : item.ingestion_status === "failed"
+                                                                                            ? "Eliminar archivo fallido"
+                                                                                            : "Eliminar archivo"}
+                                                                            </p>
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
                                             );
                                         })
                                     )}
@@ -1054,20 +1054,23 @@ export const AcademicLoadFilesList: React.FC = () => {
                             <div className="space-y-4">
                                 {/* Resumen */}
                                 {errorDetails.summary && (
-                                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                                        <h3 className="font-semibold text-red-900 mb-2">Resumen</h3>
+                                    <div className="pt-3 flex gap-4 justify-between pb-3">
+                                        <h3 className="font-semibold mb-2 max-w-[80px]">Resumen de errores</h3>
                                         <div className="grid grid-cols-3 gap-4 text-sm">
-                                            <div>
-                                                <span className="text-gray-600">Total de filas:</span>
-                                                <p className="font-medium">{errorDetails.summary.total_rows}</p>
+                                            <div className="border-r border-gray-200 pr-4">
+                                                <p className="text-4xl font-bold">{errorDetails.summary.total_rows}</p>
+                                                <span className="text-gray-600">Total</span>
+
                                             </div>
-                                            <div>
-                                                <span className="text-gray-600">Insertadas:</span>
-                                                <p className="font-medium text-green-600">{errorDetails.summary.inserted}</p>
+                                            <div className="border-r border-gray-200 pr-4">
+                                                <p className="text-4xl text-green-600 font-bold">{errorDetails.summary.inserted}</p>
+                                                <span className="text-gray-600">Insertadas</span>
+
                                             </div>
-                                            <div>
-                                                <span className="text-gray-600">Fallidas:</span>
-                                                <p className="font-medium text-red-600">{errorDetails.summary.failed}</p>
+                                            <div className="border-r border-gray-200 pr-4">
+                                                <p className="text-4xl text-red-600 font-bold">{errorDetails.summary.failed}</p>
+                                                <span className="text-gray-600">Fallidas</span>
+
                                             </div>
                                         </div>
                                     </div>
@@ -1100,7 +1103,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                                 {/* Ejemplos de Errores */}
                                 {errorDetails.sample_errors && errorDetails.sample_errors.length > 0 && (
                                     <div>
-                                        <h3 className="font-semibold mb-2">Errores</h3>
+                                        <h3 className="font-semibold mb-2">Errores encontrados</h3>
                                         <div className="space-y-2">
                                             {errorDetails.sample_errors.map((error: any, idx: number) => {
                                                 const fieldTranslations: Record<string, string> = {
@@ -1110,12 +1113,24 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                     "HORARIO / DIAS": "Horario / Días",
                                                     "general": "General",
                                                 };
-                                                const displayField = fieldTranslations[error.field] || error.field;
+                                                // Normaliza valores de campo que llegan con datos incrustados
+                                                // Ej.: "COD_ASIG: INF1-Ikl, ASIGNATURA: INFORMÁTICA" → "COD_ASIG / ASIGNATURA"
+                                                const normalizeFieldKey = (field: string | undefined) => {
+                                                    if (!field) return "general";
+                                                    const upper = field.toUpperCase();
+                                                    if (upper.startsWith("COD_ASIG")) return "COD_ASIG / ASIGNATURA";
+                                                    if (upper.startsWith("CODIGO") || upper.includes("DOCENTE")) return "CODIGO / DOCENTE";
+                                                    if (upper.startsWith("COD_CATEDRA") || upper.startsWith("COORD")) return "COD_CATEDRA";
+                                                    if (upper.includes("HORARIO") || upper.includes("DIAS")) return "HORARIO / DIAS";
+                                                    return field;
+                                                };
+                                                const normalizedField = normalizeFieldKey(error.field);
+                                                const displayField = fieldTranslations[normalizedField] || normalizedField;
                                                 return (
                                                     <div key={idx} className="border border-red-200 rounded-lg p-3">
-                                                        <div className="flex flex-col justify-between items-start mb-2">
-                                                            <span className="font-medium text-sm">Fila {error.row}</span>
-                                                            <span className="text-xs">{displayField}</span>
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <span className="font-medium text-xs uppercase">Fila {error.row}</span>
+                                                            <Badge variant="outline" className="text-xs">{displayField}</Badge>
                                                         </div>
                                                         <p className="text-sm text-gray-600 mb-1">
                                                             <strong>Valor:</strong> {error.value}
