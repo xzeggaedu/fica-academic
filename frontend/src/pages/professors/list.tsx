@@ -68,6 +68,8 @@ export const ProfessorList = () => {
         isCreating,
         isUpdating,
         isDeleting,
+        canDelete,
+        canEdit,
     } = useProfessorsCrud();
 
 
@@ -369,7 +371,9 @@ export const ProfessorList = () => {
                                         {visibleColumns.is_active && (
                                             <TableHead className="text-center w-[100px]">Estado</TableHead>
                                         )}
-                                        <TableHead className="text-center w-[100px] max-w-[100px]">Acciones</TableHead>
+                                        {(canDelete?.can || canEdit?.can) && (
+                                            <TableHead className="text-center w-[100px] max-w-[100px]">Acciones</TableHead>
+                                        )}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -464,35 +468,37 @@ export const ProfessorList = () => {
                                                         )}
                                                     </TableCell>
                                                 )}
-                                                <TableCell className="text-center w-[100px] max-w-[100px]">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" className="h-8 w-8 p-0">
-                                                                <span className="sr-only">Abrir menú</span>
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem onClick={() => handleOpenEditSheet(professor)}>
-                                                                <Pencil className="mr-2 h-4 w-4" />
-                                                                Editar
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem
-                                                                className="text-destructive"
-                                                                onClick={() => {
-                                                                    setSelectedProfessor({ id: professor.id, name: professor.professor_name });
-                                                                    setDeleteDialogOpen(true);
-                                                                }}
-                                                            >
-                                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                                Eliminar
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </TableCell>
+                                                {(canDelete?.can || canEdit?.can) && (
+                                                    <TableCell className="text-center w-[100px] max-w-[100px]">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                                                    <span className="sr-only">Abrir menú</span>
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem onClick={() => handleOpenEditSheet(professor)}>
+                                                                    <Pencil className="mr-2 h-4 w-4" />
+                                                                    Editar
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    className="text-destructive"
+                                                                    onClick={() => {
+                                                                        setSelectedProfessor({ id: professor.id, name: professor.professor_name });
+                                                                        setDeleteDialogOpen(true);
+                                                                    }}
+                                                                >
+                                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                                    Eliminar
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </TableCell>
+                                                )}
                                             </TableRow>
                                         ))
                                     )}
@@ -540,33 +546,35 @@ export const ProfessorList = () => {
                 )}
 
                 {/* Sheet de crear/editar profesor */}
-                <ProfessorFormSheet
-                    isOpen={isCreateModalOpen || isEditModalOpen}
-                    onClose={handleCloseSheet}
-                    editingProfessor={editingProfessor}
-                    formData={formData}
-                    onFormChange={setFormData}
-                    onSubmit={() => {
-                        // Limpiar espacios en blanco al inicio y final
-                        const cleanedFormData = {
-                            ...formData,
-                            professor_id: formData.professor_id.trim(),
-                            professor_name: formData.professor_name.trim(),
-                            institutional_email: formData.institutional_email.trim(),
-                            personal_email: formData.personal_email.trim(),
-                            phone_number: formData.phone_number.trim(),
-                            professor_category: formData.professor_category.trim(),
-                            academic_title: formData.academic_title.trim(),
-                        };
+                {(canEdit?.can || canCreate?.can) && (
+                    <ProfessorFormSheet
+                        isOpen={isCreateModalOpen || isEditModalOpen}
+                        onClose={handleCloseSheet}
+                        editingProfessor={editingProfessor}
+                        formData={formData}
+                        onFormChange={setFormData}
+                        onSubmit={() => {
+                            // Limpiar espacios en blanco al inicio y final
+                            const cleanedFormData = {
+                                ...formData,
+                                professor_id: formData.professor_id.trim(),
+                                professor_name: formData.professor_name.trim(),
+                                institutional_email: formData.institutional_email.trim(),
+                                personal_email: formData.personal_email.trim(),
+                                phone_number: formData.phone_number.trim(),
+                                professor_category: formData.professor_category.trim(),
+                                academic_title: formData.academic_title.trim(),
+                            };
 
-                        if (editingProfessor) {
-                            updateItem(editingProfessor.id, cleanedFormData, handleCloseSheet);
-                        } else {
-                            createItem(cleanedFormData, handleCloseSheet);
-                        }
-                    }}
-                    isSubmitting={isCreating || isUpdating}
-                />
+                            if (editingProfessor) {
+                                updateItem(editingProfessor.id, cleanedFormData, handleCloseSheet);
+                            } else {
+                                createItem(cleanedFormData, handleCloseSheet);
+                            }
+                        }}
+                        isSubmitting={isCreating || isUpdating}
+                    />
+                )}
             </div>
         </CanAccess >
     );
