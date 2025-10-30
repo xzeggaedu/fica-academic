@@ -50,12 +50,14 @@ export const AcademicLoadFilesList: React.FC = () => {
         isLoading,
         isError,
         isCreating,
+        canCreate,
         canAccess,
         canDelete,
         createItem,
         invalidate,
         deleteHook,
         verifyActiveVersion,
+        myScope,
     } = useAcademicLoadFilesCrud();
 
     // Ref para tracking de items que estaban pendientes
@@ -137,6 +139,21 @@ export const AcademicLoadFilesList: React.FC = () => {
     const faculties = facultiesResult?.data || [];
     const schools = schoolsResult?.data || [];
     const terms = termsResult?.data || [];
+
+    // Preseleccionar facultad/escuela para DIRECTOR según scope
+    useEffect(() => {
+        const scopeSchools = (myScope?.school_ids as number[] | undefined) || [];
+        if (canCreate && scopeSchools.length > 0 && formData.school_id === 0) {
+            const firstSchool = schools.find((s: any) => s.id === scopeSchools[0]);
+            if (firstSchool) {
+                setFormData((prev) => ({
+                    ...prev,
+                    faculty_id: firstSchool.fk_faculty,
+                    school_id: firstSchool.id,
+                }));
+            }
+        }
+    }, [canCreate, myScope, schools]);
 
     // Filtrar y agrupar datos por versión
     const filteredItems = itemsList
@@ -527,209 +544,215 @@ export const AcademicLoadFilesList: React.FC = () => {
                 </div>
 
                 {/* Card del formulario de creación */}
-                <Card className="mb-6">
-                    <CardContent>
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            {/* Selección de archivo */}
-                            <Label htmlFor="file">Archivo Excel *</Label>
-                            <div className="flex space-x-4">
-                                {!selectedFile ? (
-                                    <div
-                                        className={`flex-1 flex flex-col justify-center items-center border-2 border-dashed rounded-lg transition-colors
-                                            ${isDragOver
-                                                ? 'border-blue-500 bg-blue-50'
-                                                : 'border-gray-300 hover:border-gray-400'
-                                            }`}
-                                        onDragOver={(e) => {
-                                            e.preventDefault();
-                                            setIsDragOver(true);
-                                        }}
-                                        onDragLeave={() => setIsDragOver(false)}
-                                        onDrop={handleDrop}
-                                    >
-                                        <FileSpreadsheet className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                                        <p className="text-lg font-medium text-gray-600 mb-2">
-                                            Arrastra tu archivo Excel aquí
-                                        </p>
-                                        <p className="text-sm text-gray-500 mb-4">
-                                            o haz clic para seleccionar
-                                        </p>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => document.getElementById('file-input')?.click()}
+                {canCreate && (
+                    <Card className="mb-6">
+                        <CardContent>
+                            <form onSubmit={handleSubmit} className="space-y-6">
+                                {/* Selección de archivo */}
+                                <Label htmlFor="file">Archivo Excel *</Label>
+                                <div className="flex space-x-4">
+                                    {!selectedFile ? (
+                                        <div
+                                            className={`flex-1 flex flex-col justify-center items-center border-2 border-dashed rounded-lg transition-colors
+                                                ${isDragOver
+                                                    ? 'border-blue-500 bg-blue-50'
+                                                    : 'border-gray-300 hover:border-gray-400'
+                                                }`}
+                                            onDragOver={(e) => {
+                                                e.preventDefault();
+                                                setIsDragOver(true);
+                                            }}
+                                            onDragLeave={() => setIsDragOver(false)}
+                                            onDrop={handleDrop}
                                         >
-                                            <Upload className="h-4 w-4 mr-2" />
-                                            Seleccionar Archivo
-                                        </Button>
-                                        <input
-                                            id="file-input"
-                                            type="file"
-                                            accept=".xlsx,.xls"
-                                            onChange={handleFileChange}
-                                            className="hidden"
-                                        />
-                                        <p className="text-xs text-gray-400 mt-2">
-                                            Formatos soportados: .xlsx, .xls (máximo 10MB)
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="flex-1 flex flex-col justify-center border rounded-lg p-4">
-                                        <div className="flex gap-4 justify-center items-start">
-                                            <FileSpreadsheet className="h-8 w-8 text-green-600" />
-                                            <div>
-                                                <p className="text-green-800 text-xs">
-                                                    {selectedFile.name}
-                                                </p>
-                                                <p className="text-sm text-green-600">
-                                                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                                                </p>
-                                            </div>
-
+                                            <FileSpreadsheet className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                                            <p className="text-lg font-medium text-gray-600 mb-2">
+                                                Arrastra tu archivo Excel aquí
+                                            </p>
+                                            <p className="text-sm text-gray-500 mb-4">
+                                                o haz clic para seleccionar
+                                            </p>
                                             <Button
                                                 type="button"
                                                 variant="outline"
-                                                className="bg-green-600 text-white hover:bg-green-700 rounded-full w-6 h-6"
-                                                size="sm"
-                                                onClick={removeFile}
+                                                onClick={() => document.getElementById('file-input')?.click()}
                                             >
-                                                <X className="h-4 w-4" />
+                                                <Upload className="h-4 w-4 mr-2" />
+                                                Seleccionar Archivo
                                             </Button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Selección de facultad, escuela y período */}
-                                <div className="flex-1 flex flex-col gap-4 ml-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="faculty">Facultad *</Label>
-                                        <select
-                                            id="faculty"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                            value={formData.faculty_id}
-                                            onChange={(e) => {
-                                                const facultyId = parseInt(e.target.value);
-                                                setFormData({
-                                                    ...formData,
-                                                    faculty_id: facultyId,
-                                                    school_id: 0,
-                                                });
-                                            }}
-                                            required
-                                        >
-                                            <option value={0}>Seleccione una facultad</option>
-                                            {faculties.map((faculty) => (
-                                                <option key={faculty.id} value={faculty.id}>
-                                                    {faculty.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="school">Escuela *</Label>
-                                        <select
-                                            id="school"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                            value={formData.school_id}
-                                            onChange={(e) => {
-                                                setFormData({
-                                                    ...formData,
-                                                    school_id: parseInt(e.target.value),
-                                                });
-                                            }}
-                                            required
-                                            disabled={!formData.faculty_id}
-                                        >
-                                            <option value={0}>Seleccione una escuela</option>
-                                            {schools.filter(school =>
-                                                school.fk_faculty === formData.faculty_id
-                                            ).map((school) => (
-                                                <option key={school.id} value={school.id}>
-                                                    {school.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="term">Período Académico *</Label>
-                                        <select
-                                            id="term"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                            value={formData.term_id}
-                                            onChange={(e) => {
-                                                setFormData({
-                                                    ...formData,
-                                                    term_id: parseInt(e.target.value),
-                                                });
-                                            }}
-                                            required
-                                        >
-                                            <option value={0}>Seleccione un período</option>
-                                            {terms.map((term) => (
-                                                <option key={term.id} value={term.id}>
-                                                    Ciclo 0{term.term}-{term.year}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {/* Checkbox de validación estricta */}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="strict_validation" className="flex items-center gap-2 cursor-pointer">
                                             <input
-                                                type="checkbox"
-                                                id="strict_validation"
-                                                checked={formData.strict_validation}
+                                                id="file-input"
+                                                type="file"
+                                                accept=".xlsx,.xls"
+                                                onChange={handleFileChange}
+                                                className="hidden"
+                                            />
+                                            <p className="text-xs text-gray-400 mt-2">
+                                                Formatos soportados: .xlsx, .xls (máximo 10MB)
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1 flex flex-col justify-center border rounded-lg p-4">
+                                            <div className="flex gap-4 justify-center items-start">
+                                                <FileSpreadsheet className="h-8 w-8 text-green-600" />
+                                                <div>
+                                                    <p className="text-green-800 text-xs">
+                                                        {selectedFile.name}
+                                                    </p>
+                                                    <p className="text-sm text-green-600">
+                                                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                                                    </p>
+                                                </div>
+
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className="bg-green-600 text-white hover:bg-green-700 rounded-full w-6 h-6"
+                                                    size="sm"
+                                                    onClick={removeFile}
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Selección de facultad, escuela y período */}
+                                    <div className="flex-1 flex flex-col gap-4 ml-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="faculty">Facultad *</Label>
+                                            <select
+                                                id="faculty"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                                value={formData.faculty_id}
+                                                onChange={(e) => {
+                                                    const facultyId = parseInt(e.target.value);
+                                                    setFormData({
+                                                        ...formData,
+                                                        faculty_id: facultyId,
+                                                        school_id: 0,
+                                                    });
+                                                }}
+                                                required
+                                            >
+                                                <option value={0}>Seleccione una facultad</option>
+                                                {faculties.map((faculty) => (
+                                                    <option key={faculty.id} value={faculty.id}>
+                                                        {faculty.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="school">Escuela *</Label>
+                                            <select
+                                                id="school"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                                value={formData.school_id}
                                                 onChange={(e) => {
                                                     setFormData({
                                                         ...formData,
-                                                        strict_validation: e.target.checked,
+                                                        school_id: parseInt(e.target.value),
                                                     });
                                                 }}
-                                                className="w-4 h-4"
-                                            />
-                                            <span>Validación estricta</span>
-                                        </Label>
-                                        <p className="text-xs text-gray-500">
-                                            Si está activado, los errores de validación bloquearán la ingestión de datos.
-                                            Si está desactivado, solo se reportarán warnings.
-                                        </p>
-                                    </div>
+                                                required
+                                                disabled={!formData.faculty_id}
+                                            >
+                                                <option value={0}>Seleccione una escuela</option>
+                                                {schools
+                                                    .filter((school: any) => {
+                                                        const scopeSchools = (myScope?.school_ids as number[] | undefined) || null;
+                                                        const inScope = scopeSchools ? scopeSchools.includes(school.id) : true;
+                                                        const sameFaculty = school.fk_faculty === formData.faculty_id;
+                                                        return inScope && sameFaculty;
+                                                    })
+                                                    .map((school: any) => (
+                                                    <option key={school.id} value={school.id}>
+                                                        {school.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
 
-                                    {/* Botones */}
-                                    <div className="flex justify-end gap-4 mt-4">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={resetForm}
-                                        >
-                                            Limpiar
-                                        </Button>
-                                        <Button
-                                            type="submit"
-                                            disabled={isCreating}
-                                        >
-                                            {isCreating ? (
-                                                <>
-                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                                                    Subiendo...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Upload className="h-4 w-4 mr-2" />
-                                                    Subir Archivo
-                                                </>
-                                            )}
-                                        </Button>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="term">Período Académico *</Label>
+                                            <select
+                                                id="term"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                                value={formData.term_id}
+                                                onChange={(e) => {
+                                                    setFormData({
+                                                        ...formData,
+                                                        term_id: parseInt(e.target.value),
+                                                    });
+                                                }}
+                                                required
+                                            >
+                                                <option value={0}>Seleccione un período</option>
+                                                {terms.map((term) => (
+                                                    <option key={term.id} value={term.id}>
+                                                        Ciclo 0{term.term}-{term.year}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Checkbox de validación estricta */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="strict_validation" className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    id="strict_validation"
+                                                    checked={formData.strict_validation}
+                                                    onChange={(e) => {
+                                                        setFormData({
+                                                            ...formData,
+                                                            strict_validation: e.target.checked,
+                                                        });
+                                                    }}
+                                                    className="w-4 h-4"
+                                                />
+                                                <span>Validación estricta</span>
+                                            </Label>
+                                            <p className="text-xs text-gray-500">
+                                                Si está activado, los errores de validación bloquearán la ingestión de datos.
+                                                Si está desactivado, solo se reportarán warnings.
+                                            </p>
+                                        </div>
+
+                                        {/* Botones */}
+                                        <div className="flex justify-end gap-4 mt-4">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={resetForm}
+                                            >
+                                                Limpiar
+                                            </Button>
+                                            <Button
+                                                type="submit"
+                                                disabled={isCreating}
+                                            >
+                                                {isCreating ? (
+                                                    <>
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                                        Subiendo...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Upload className="h-4 w-4 mr-2" />
+                                                        Subir Archivo
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </form>
-                    </CardContent>
-                </Card>
-
+                            </form>
+                        </CardContent>
+                    </Card>
+                )}
                 {/* Card de la tabla */}
                 <Card>
                     <CardHeader>

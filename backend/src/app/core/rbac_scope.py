@@ -40,12 +40,12 @@ async def get_user_scope_filters(
 
     # DECANO: Get faculty scope
     if user_role == UserRoleEnum.DECANO:
-        faculty_id = await get_user_faculty_scope(db=db, user_id=user_id)
+        faculty_id = await get_user_faculty_scope(db, user_id)
         return {"faculty_id": faculty_id, "school_ids": None}
 
     # DIRECTOR: Get school scopes
     if user_role == UserRoleEnum.DIRECTOR:
-        school_ids = await get_user_school_scopes(db=db, user_id=user_id)
+        school_ids = await get_user_school_scopes(db, user_id)
         return {"faculty_id": None, "school_ids": school_ids}
 
     # Default: No scope

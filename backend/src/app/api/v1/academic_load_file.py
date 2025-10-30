@@ -8,10 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_current_user
 from ...core.db.database import async_get_db
+from ...core.rbac_scope import get_user_scope_filters, user_has_access_to_school
 from ...crud.academic_load_file import academic_load_file
 from ...crud.crud_faculties import get_faculty_by_id
 from ...crud.crud_schools import get_school_by_id
 from ...crud.crud_term import get_term
+from ...models.role import UserRoleEnum
 from ...schemas.academic_load_file import (
     AcademicLoadFileCreate,
     AcademicLoadFileListResponse,
@@ -36,6 +38,20 @@ async def upload_academic_load_file(
     db: AsyncSession = Depends(async_get_db),
 ):
     """Subir un archivo Excel de carga académica."""
+    # RBAC: Solo ADMIN o DIRECTOR pueden subir; DIRECTOR solo para sus escuelas
+    user_role = current_user.get("role")
+    user_id = current_user.get("user_uuid")
+
+    if isinstance(user_role, str):
+        user_role = UserRoleEnum(user_role)
+
+    if user_role not in [UserRoleEnum.ADMIN, UserRoleEnum.DIRECTOR]:
+        raise HTTPException(status_code=403, detail="No tienes permisos para subir archivos")
+
+    if user_role == UserRoleEnum.DIRECTOR:
+        has_access = await user_has_access_to_school(db=db, user_id=user_id, user_role=user_role, school_id=school_id)
+        if not has_access:
+            raise HTTPException(status_code=403, detail="No puedes subir archivos para una escuela no asignada")
     # Validar que sea un archivo Excel
     if not file.filename.endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="Solo se permiten archivos Excel (.xlsx, .xls)")
@@ -188,7 +204,43 @@ async def get_academic_load_files(
     db: AsyncSession = Depends(async_get_db),
 ):
     """Obtener lista de archivos de carga académica."""
-    files = await academic_load_file.get_multi(db, skip=skip, limit=limit)
+    # Filtrado por rol/alcance
+    user_role = current_user.get("role")
+    user_id = current_user.get("user_uuid")
+
+    if isinstance(user_role, str):
+        user_role = UserRoleEnum(user_role)
+
+    if user_role in [UserRoleEnum.ADMIN, UserRoleEnum.VICERRECTOR]:
+        files = await academic_load_file.get_multi(db, skip=skip, limit=limit)
+    else:
+        # Obtener alcance del usuario
+        scope = await get_user_scope_filters(db=db, user_id=user_id, user_role=user_role)
+        from sqlalchemy import desc, select
+        from sqlalchemy.orm import joinedload
+
+        from ...models.academic_load_file import AcademicLoadFile
+
+        stmt = (
+            select(AcademicLoadFile)
+            .options(
+                joinedload(AcademicLoadFile.user),
+                joinedload(AcademicLoadFile.faculty),
+                joinedload(AcademicLoadFile.school),
+                joinedload(AcademicLoadFile.term),
+            )
+            .order_by(desc(AcademicLoadFile.upload_date))
+            .offset(skip)
+            .limit(limit)
+        )
+
+        if user_role == UserRoleEnum.DECANO and scope.get("faculty_id"):
+            stmt = stmt.filter(AcademicLoadFile.faculty_id == scope["faculty_id"])
+        if user_role == UserRoleEnum.DIRECTOR and scope.get("school_ids"):
+            stmt = stmt.filter(AcademicLoadFile.school_id.in_(scope["school_ids"]))
+
+        result = await db.execute(stmt)
+        files = result.scalars().all()
 
     # Obtener el total de registros
     from sqlalchemy import func, select

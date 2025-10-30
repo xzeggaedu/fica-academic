@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCreate, useUpdate, useDelete, useList, useCan, useInvalidate, useDataProvider } from "@refinedev/core";
+import { UserRoleEnum } from "@/types/auth";
 import { toast } from "sonner";
 import type { AcademicLoadFile, AcademicLoadFileCreate, AcademicLoadFileUpdate } from "@/types/api";
 
@@ -32,6 +33,7 @@ export const useAcademicLoadFilesCrud = () => {
 
   // Hook de invalidación para refrescar datos
   const invalidate = useInvalidate();
+  const [myScope, setMyScope] = useState<{ faculty_id?: number | null; school_ids?: number[] | null }>({});
 
   // Estados para formularios
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -127,6 +129,21 @@ export const useAcademicLoadFilesCrud = () => {
     }
   };
 
+  // Cargar scope del usuario autenticado (para preselección y filtros en el form)
+  useEffect(() => {
+    const fetchScope = async () => {
+      try {
+        const dp = getDataProvider();
+        const resp = await dp.custom<{ faculty_id?: number | null; school_ids?: number[] | null }>({ url: "/api/v1/users/me/scope", method: "get" });
+        setMyScope(resp.data || {});
+      } catch {
+        setMyScope({});
+      }
+    };
+    fetchScope();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return {
     // Datos
     itemsList,
@@ -159,5 +176,6 @@ export const useAcademicLoadFilesCrud = () => {
     closeEditModal,
     deleteHook,
     verifyActiveVersion,
+    myScope,
   };
 };

@@ -19,7 +19,7 @@ export const accessControlProvider: AccessControlProvider = {
     try {
       // Decodificar el token JWT para obtener el rol
       const payload = JSON.parse(atob(token.split('.')[1]));
-      const userRole = payload.role;
+      const userRole = (payload.role || payload.user_role || "").toString().toLowerCase();
 
       // Definir permisos por recurso y acción
       switch (resource) {
@@ -336,10 +336,17 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Todos los roles autenticados pueden ver según su alcance
+              return { can: true };
             case "create":
+              // Admin y Directores pueden subir
+              if (userRole === UserRoleEnum.ADMIN || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return { can: false, reason: "Solo administradores o directores pueden subir archivos" };
             case "edit":
             case "delete":
-              // Solo administradores pueden gestionar carga académica
+              // Solo administradores para operaciones destructivas
               if (canAccessAdminFeatures(userRole)) {
                 return { can: true };
               }
