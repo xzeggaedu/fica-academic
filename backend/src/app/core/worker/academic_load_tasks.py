@@ -436,144 +436,313 @@ async def process_academic_load_file(ctx: Worker, file_id: int) -> dict[str, Any
                 }
                 sample_errors = []  # Máximo 10 errores de ejemplo
 
-                for idx, row in df.iterrows():
-                    try:
-                        # DEBUG: Ver todas las filas para debug (partido para cumplir E501)
-                        debug_msg = (
-                            f"DEBUG Fila {idx}: NO='{row.get('NO', 'N/A')}' "
-                            f"COD_CATEDRA='{row.get('COD_CATEDRA', 'N/A')}' "
-                            f"COD_ASIG='{row.get('COD_ASIG', 'N/A')}' "
-                            f"ASIGNATURA='{row.get('ASIGNATURA', 'N/A')}'\n"
-                        )
-                        sys.stderr.write(debug_msg)
-                        sys.stderr.flush()
+                # PASO 1: Validar TODAS las filas primero (en modo estricto)
+                if strict_mode:
+                    _log_stderr("📋 Modo estricto: Validando todas las filas antes de insertar...")
+                    validated_rows = []
 
-                        # Normalizar fila antes de validar
-                        row_dict = row.to_dict()
-                        normalized_row, norm_changes = apply_normalizers_to_row(row_dict, strict_mode)
+                    for idx, row in df.iterrows():
+                        try:
+                            # Normalizar fila antes de validar
+                            row_dict = row.to_dict()
+                            normalized_row, norm_changes = apply_normalizers_to_row(row_dict, strict_mode)
 
-                        # Helpers de limpieza
-                        def get_clean_value(val, default=None):
-                            if val is None or (isinstance(val, float) and pd.isna(val)):
-                                return default
-                            val_str = str(val).strip().lower()
-                            if val_str in ["nan", "none", "", "null"]:
-                                return default
-                            return val
+                            # Helpers de limpieza
+                            def get_clean_value(val, default=None):
+                                if val is None or (isinstance(val, float) and pd.isna(val)):
+                                    return default
+                                val_str = str(val).strip().lower()
+                                if val_str in ["nan", "none", "", "null"]:
+                                    return default
+                                return val
 
-                        def get_str_value(val, default=""):
-                            if val is None or (isinstance(val, float) and pd.isna(val)):
-                                return default
-                            val_str = str(val).strip()
-                            if val_str.lower() in ["nan", "none", "", "null"]:
-                                return default
-                            return val_str
+                            def get_str_value(val, default=""):
+                                if val is None or (isinstance(val, float) and pd.isna(val)):
+                                    return default
+                                val_str = str(val).strip()
+                                if val_str.lower() in ["nan", "none", "", "null"]:
+                                    return default
+                                return val_str
 
-                        # Extraer datos de la fila normalizada
-                        subject_name = get_clean_value(normalized_row.get("ASIGNATURA", None))
-                        subject_code = get_clean_value(normalized_row.get("COD_ASIG", None))
-                        section = get_str_value(normalized_row.get("SECCION", ""), "")
-                        schedule = get_str_value(normalized_row.get("HORARIO", ""), "")
-                        days = get_str_value(normalized_row.get("DIAS", ""), "")
+                            # Extraer datos de la fila normalizada
+                            subject_name = get_clean_value(normalized_row.get("ASIGNATURA", None))
+                            subject_code = get_clean_value(normalized_row.get("COD_ASIG", None))
+                            section = get_str_value(normalized_row.get("SECCION", ""), "")
+                            schedule = get_str_value(normalized_row.get("HORARIO", ""), "")
+                            days = get_str_value(normalized_row.get("DIAS", ""), "")
 
-                        # SKIP: Si faltan datos esenciales, no procesar esta fila
-                        # Verificar que tenga al menos COD_ASIG o ASIGNATURA
-                        if not subject_code or not subject_name or not section or not schedule or not days:
-                            sys.stderr.write(f"⏭️  Saltando fila {idx}: sin materia ni código\n")
-                            sys.stderr.flush()
-                            continue
-
-                        # Ejecutar validaciones sobre fila normalizada
-                        validation_passed, validation_messages = await validate_row_data(
-                            db, normalized_row, strict_mode
-                        )
-
-                        # Determinar status de validación
-                        validation_status, validation_errors_str = determine_validation_status(
-                            validation_passed, validation_messages
-                        )
-                        # Agregar cambios de normalización como información
-                        if norm_changes:
-                            import json
-
-                            changes_json = json.dumps({"changes": norm_changes}, ensure_ascii=False)
-                            if validation_errors_str:
-                                validation_errors_str = f"{validation_errors_str}; {changes_json}"
-                            else:
-                                validation_errors_str = changes_json
-
-                        # Si no pasa en strict_mode, guardar error y continuar
-                        if not validation_passed and strict_mode:
-                            _log_stderr(f"⚠️ Fila {idx} no pasó validación en modo estricto: {validation_errors_str}")
-                            rows_failed += 1
-
-                            # Manejo unificado de caso estricto fallido
-                            await _handle_strict_failure(
-                                idx=idx,
-                                normalized_row=normalized_row,
-                                validation_errors_str=validation_errors_str,
-                                errors_by_type=errors_by_type,
-                                sample_errors=sample_errors,
-                                db=db,
-                                file_id=file_id,
+                            # Ejecutar validaciones
+                            validation_passed, validation_messages = await validate_row_data(
+                                db, normalized_row, strict_mode
                             )
 
+                            # Determinar status de validación
+                            validation_status, validation_errors_str = determine_validation_status(
+                                validation_passed, validation_messages
+                            )
+
+                            # Agregar cambios de normalización como información
+                            if norm_changes:
+                                import json
+
+                                changes_json = json.dumps({"changes": norm_changes}, ensure_ascii=False)
+                                if validation_errors_str:
+                                    validation_errors_str = f"{validation_errors_str}; {changes_json}"
+                                else:
+                                    validation_errors_str = changes_json
+
+                            # Si falla validación, registrar error y NO agregar a validated_rows
+                            if not validation_passed:
+                                rows_failed += 1
+
+                                # Actualizar contadores de errores
+                                if "Coordinación" in validation_errors_str:
+                                    errors_by_type["missing_coordination"] += 1
+                                if "Asignatura" in validation_errors_str:
+                                    errors_by_type["missing_subject"] += 1
+                                if "Profesor" in validation_errors_str:
+                                    errors_by_type["missing_professor"] += 1
+                                if "Horario" in validation_errors_str:
+                                    errors_by_type["invalid_schedule"] += 1
+
+                                # Agregar a ejemplos
+                                if len(sample_errors) < 10:
+                                    error_subject_code = normalized_row.get("COD_ASIG", "")
+                                    error_subject_name = normalized_row.get("ASIGNATURA", "")
+                                    clean_error_msg = (
+                                        validation_errors_str.split("; {")[0]
+                                        if "; {" in validation_errors_str
+                                        else validation_errors_str
+                                    )
+                                    sample_errors.append(
+                                        {
+                                            "row": int(idx),
+                                            "field": f"COD_ASIG: {error_subject_code}, ASIGNATURA: {error_subject_name}",
+                                            "value": clean_error_msg[:100],
+                                            "reason": "Validación falló en modo estricto",
+                                        }
+                                    )
+
+                                _log_stderr(
+                                    f"❌ Fila {idx} rechazada en modo estricto: {validation_errors_str.split('; {')[0] if '; {' in validation_errors_str else validation_errors_str}"
+                                )
+                                continue  # NO agregar esta fila a validated_rows
+
+                            # Si pasó validación, agregar a validated_rows para insertar después
+                            validated_rows.append(
+                                {
+                                    "idx": idx,
+                                    "normalized_row": normalized_row,
+                                    "validation_status": validation_status,
+                                    "validation_errors_str": validation_errors_str,
+                                }
+                            )
+
+                        except Exception as e:
+                            _log_stderr(f"⚠️ Error validando fila {idx}: {e}")
+                            rows_failed += 1
                             continue
 
-                        # Crear registro de clase usando mapeo
+                    # Si hay errores en modo estricto, terminar sin guardar nada
+                    if rows_failed > 0:
+                        import json
+
+                        detailed_errors = {
+                            "summary": {
+                                "total_rows": len(df),
+                                "validated": len(df),
+                                "inserted": 0,
+                                "failed": rows_failed,
+                            },
+                            "errors_by_type": errors_by_type,
+                            "sample_errors": sample_errors,
+                        }
+                        notes_payload = json.dumps(detailed_errors, indent=2)
+
+                        error_msg = f"Validación estricta falló: {rows_failed} filas rechazadas de {len(df)} totales. No se insertó ninguna fila."
+                        _log_stderr(f"❌ {error_msg}")
+                        if sample_errors:
+                            _log_stderr(f"📋 Primeros errores: {json.dumps(sample_errors[:3], indent=2)}")
+
+                        await academic_load_file.update(
+                            db=db,
+                            db_obj=load_record,
+                            obj_in=AcademicLoadFileUpdate(ingestion_status="failed", notes=notes_payload),
+                        )
+                        return {"error": error_msg, "file_id": file_id}
+
+                    # Si todas las validaciones pasaron, ahora SÍ insertar las filas validadas
+                    _log_stderr(f"✅ Todas las filas pasaron validación. Insertando {len(validated_rows)} filas...")
+                    for validated in validated_rows:
                         class_data_dict = map_excel_row_to_class_data(
-                            normalized_row, file_id, validation_status, validation_errors_str
+                            validated["normalized_row"],
+                            file_id,
+                            validated["validation_status"],
+                            validated["validation_errors_str"],
                         )
                         class_data = AcademicLoadClassCreate(**class_data_dict)
-
                         await academic_load_class.create(db, obj_in=class_data)
                         rows_inserted += 1
 
-                        if (rows_inserted + rows_failed) % 100 == 0:
-                            _log_stderr(f"📊 Progreso: {rows_inserted} insertadas, {rows_failed} fallidas")
+                # PASO 2: Modo flexible - validar y guardar en el mismo paso
+                else:
+                    for idx, row in df.iterrows():
+                        try:
+                            # DEBUG: Ver todas las filas para debug (partido para cumplir E501)
+                            debug_msg = (
+                                f"DEBUG Fila {idx}: NO='{row.get('NO', 'N/A')}' "
+                                f"COD_CATEDRA='{row.get('COD_CATEDRA', 'N/A')}' "
+                                f"COD_ASIG='{row.get('COD_ASIG', 'N/A')}' "
+                                f"ASIGNATURA='{row.get('ASIGNATURA', 'N/A')}'\n"
+                            )
+                            _log_stderr(debug_msg)
 
-                    except Exception as e:
-                        _log_stderr(f"⚠️ Error procesando fila {idx}: {e}")
-                        rows_failed += 1
-                        continue
+                            # Normalizar fila antes de validar
+                            row_dict = row.to_dict()
+                            normalized_row, norm_changes = apply_normalizers_to_row(row_dict, strict_mode)
 
-                sys.stderr.write(
-                    f"✅ DEBUG: Ingestion completada: {rows_inserted} clases insertadas, {rows_failed} errores\n"
-                )
-                sys.stderr.flush()
+                            # Helpers de limpieza
+                            def get_clean_value(val, default=None):
+                                if val is None or (isinstance(val, float) and pd.isna(val)):
+                                    return default
+                                val_str = str(val).strip().lower()
+                                if val_str in ["nan", "none", "", "null"]:
+                                    return default
+                                return val
+
+                            def get_str_value(val, default=""):
+                                if val is None or (isinstance(val, float) and pd.isna(val)):
+                                    return default
+                                val_str = str(val).strip()
+                                if val_str.lower() in ["nan", "none", "", "null"]:
+                                    return default
+                                return val_str
+
+                            # Extraer datos de la fila normalizada
+                            subject_name = get_clean_value(normalized_row.get("ASIGNATURA", None))
+                            subject_code = get_clean_value(normalized_row.get("COD_ASIG", None))
+                            section = get_str_value(normalized_row.get("SECCION", ""), "")
+                            schedule = get_str_value(normalized_row.get("HORARIO", ""), "")
+                            days = get_str_value(normalized_row.get("DIAS", ""), "")
+
+                            # En modo flexible, verificar datos esenciales antes de procesar
+                            if not strict_mode:
+                                if not subject_code or not subject_name or not section or not schedule or not days:
+                                    _log_stderr(f"⏭️  Saltando fila {idx}: sin materia ni código")
+                                    continue
+
+                            # Sin validación estricta en modo flexible
+                            validation_passed = True
+                            validation_messages = []
+
+                            # Determinar status de validación
+                            validation_status, validation_errors_str = determine_validation_status(
+                                validation_passed, validation_messages
+                            )
+
+                            # Agregar cambios de normalización como información
+                            if norm_changes:
+                                import json
+
+                                changes_json = json.dumps({"changes": norm_changes}, ensure_ascii=False)
+                                if validation_errors_str:
+                                    validation_errors_str = f"{validation_errors_str}; {changes_json}"
+                                else:
+                                    validation_errors_str = changes_json
+
+                            # Crear y guardar registro de clase
+                            class_data_dict = map_excel_row_to_class_data(
+                                normalized_row, file_id, validation_status, validation_errors_str
+                            )
+                            class_data = AcademicLoadClassCreate(**class_data_dict)
+                            await academic_load_class.create(db, obj_in=class_data)
+                            rows_inserted += 1
+
+                            if (rows_inserted + rows_failed) % 100 == 0:
+                                _log_stderr(f"📊 Progreso: {rows_inserted} insertadas, {rows_failed} fallidas")
+
+                        except Exception as e:
+                            _log_stderr(f"⚠️ Error procesando fila {idx}: {e}")
+                            rows_failed += 1
+                            continue
+
+                _log_stderr(f"✅ DEBUG: Ingestion completada: {rows_inserted} clases insertadas, {rows_failed} errores")
                 _log_stderr(f"✅ Ingestion completada: {rows_inserted} clases insertadas, {rows_failed} errores")
 
-                # Si hay errores en modo estricto y no se insertó ninguna fila, marcar como failed
-                if strict_mode and rows_failed > 0 and rows_inserted == 0:
-                    # Crear JSON detallado de errores
+                # Preparar notas con resumen
+                notes_payload = None
+
+                # Modo estricto: TODO O NADA - Si hay errores, eliminar filas insertadas y marcar como failed
+                if strict_mode and rows_failed > 0:
                     import json
+
+                    # Eliminar todas las filas que se insertaron
+                    if rows_inserted > 0:
+                        _log_stderr(
+                            f"🗑️ Modo estricto: Eliminando {rows_inserted} filas insertadas debido a {rows_failed} errores (TODO O NADA)"
+                        )
+                        await academic_load_class.delete_multi_filter_by(db=db, academic_load_file_id=file_id)
+                        await db.commit()
+
+                    # Preparar resumen de errores en notes
+                    # Limpiar el JSON de validation_errors_str de los cambios de normalización
+                    clean_sample_errors = []
+                    for err in sample_errors:
+                        clean_error = dict(err)
+                        # Si el valor contiene JSON de cambios, extraer solo el mensaje de error
+                        value = clean_error.get("value", "")
+                        if "; {" in value:
+                            # Separar mensaje de error del JSON de cambios
+                            error_msg_only = value.split("; {")[0]
+                            clean_error["value"] = error_msg_only
+                        clean_sample_errors.append(clean_error)
 
                     detailed_errors = {
                         "summary": {
                             "total_rows": len(df),
-                            "inserted": rows_inserted,
+                            "inserted": 0,  # Siempre 0 en modo estricto con errores
                             "failed": rows_failed,
                             "warnings": 0,
                         },
                         "errors_by_type": errors_by_type,
-                        "sample_errors": sample_errors,
+                        "sample_errors": clean_sample_errors,
                     }
+                    notes_payload = json.dumps(detailed_errors, indent=2)
 
-                    error_msg = f"Validación estricta falló: {rows_failed} filas rechazadas"
-                    notes_json = json.dumps(detailed_errors, indent=2)
+                    error_msg = f"Validación estricta falló: {rows_failed} filas rechazadas de {len(df)} totales. No se insertó ninguna fila (TODO O NADA)"
                     _log_stderr(f"❌ {error_msg}")
-                    _log_stderr(f"📊 Errores detallados: {notes_json[:200]}...")
+                    if clean_sample_errors:
+                        _log_stderr(f"📋 Primeros errores: {json.dumps(clean_sample_errors[:3], indent=2)}")
 
                     await academic_load_file.update(
                         db=db,
                         db_obj=load_record,
-                        obj_in=AcademicLoadFileUpdate(ingestion_status="failed", notes=notes_json),
+                        obj_in=AcademicLoadFileUpdate(ingestion_status="failed", notes=notes_payload),
                     )
                     return {"error": error_msg, "file_id": file_id}
 
-                # Actualizar estado a "completed"
+                # Modo flexible: Si hay warnings (normalizaciones), guardar en notes
+                if not strict_mode and rows_failed > 0:
+                    import json
+
+                    detailed_warnings = {
+                        "summary": {
+                            "total_rows": len(df),
+                            "inserted": rows_inserted,
+                            "failed": rows_failed,
+                            "warnings": rows_failed,
+                        },
+                        "warnings_by_type": errors_by_type,
+                        "sample_warnings": sample_errors,
+                    }
+                    notes_payload = json.dumps(detailed_warnings, indent=2)
+                    _log_stderr(f"⚠️ Modo flexible: Se guardaron {rows_inserted} filas con {rows_failed} warnings")
+
+                # Actualizar estado a "completed" (con notes si hay warnings)
                 await academic_load_file.update(
-                    db=db, db_obj=load_record, obj_in=AcademicLoadFileUpdate(ingestion_status="completed")
+                    db=db,
+                    db_obj=load_record,
+                    obj_in=AcademicLoadFileUpdate(ingestion_status="completed", notes=notes_payload),
                 )
 
                 _log_stderr(f"✅ Carga académica ID {file_id} procesada exitosamente")

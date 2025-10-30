@@ -1078,12 +1078,21 @@ export const AcademicLoadFilesList: React.FC = () => {
                                     <div>
                                         <h3 className="font-semibold mb-2">Errores por Tipo</h3>
                                         <div className="grid grid-cols-2 gap-2">
-                                            {Object.entries(errorDetails.errors_by_type).map(([type, count]) => (
-                                                <div key={type} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                                                    <span className="text-sm capitalize">{type.replace(/_/g, ' ')}</span>
-                                                    <Badge variant="destructive">{count as number}</Badge>
-                                                </div>
-                                            ))}
+                                            {Object.entries(errorDetails.errors_by_type).map(([type, count]) => {
+                                                const typeTranslations: Record<string, string> = {
+                                                    missing_coordination: "Coordinación Faltante",
+                                                    missing_subject: "Asignatura Faltante",
+                                                    missing_professor: "Profesor Faltante",
+                                                    invalid_schedule: "Horario Inválido",
+                                                };
+                                                const displayType = typeTranslations[type] || type.replace(/_/g, ' ');
+                                                return (
+                                                    <div key={type} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                        <span className="text-sm">{displayType}</span>
+                                                        <Badge variant="destructive">{count as number}</Badge>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
@@ -1093,20 +1102,30 @@ export const AcademicLoadFilesList: React.FC = () => {
                                     <div>
                                         <h3 className="font-semibold mb-2">Ejemplos de Errores</h3>
                                         <div className="space-y-2">
-                                            {errorDetails.sample_errors.map((error: any, idx: number) => (
-                                                <div key={idx} className="border border-red-200 rounded-lg p-3">
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <span className="font-medium text-sm">Fila {error.row}</span>
-                                                        <Badge variant="outline" className="text-xs">{error.field}</Badge>
+                                            {errorDetails.sample_errors.map((error: any, idx: number) => {
+                                                const fieldTranslations: Record<string, string> = {
+                                                    "COD_CATEDRA": "Código de Cátedra",
+                                                    "COD_ASIG / ASIGNATURA": "Código / Asignatura",
+                                                    "CODIGO / DOCENTE": "Código / Docente",
+                                                    "HORARIO / DIAS": "Horario / Días",
+                                                    "general": "General",
+                                                };
+                                                const displayField = fieldTranslations[error.field] || error.field;
+                                                return (
+                                                    <div key={idx} className="border border-red-200 rounded-lg p-3">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <span className="font-medium text-sm">Fila {error.row}</span>
+                                                            <Badge variant="outline" className="text-xs">{displayField}</Badge>
+                                                        </div>
+                                                        <p className="text-sm text-gray-600 mb-1">
+                                                            <strong>Valor:</strong> {error.value}
+                                                        </p>
+                                                        <p className="text-sm text-red-600">
+                                                            <strong>Razón:</strong> {error.reason}
+                                                        </p>
                                                     </div>
-                                                    <p className="text-sm text-gray-600 mb-1">
-                                                        <strong>Valor:</strong> {error.value}
-                                                    </p>
-                                                    <p className="text-sm text-red-600">
-                                                        <strong>Razón:</strong> {error.reason}
-                                                    </p>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
