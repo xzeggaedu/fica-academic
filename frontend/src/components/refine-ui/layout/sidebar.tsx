@@ -147,7 +147,7 @@ function SidebarItemGroup({ item, selectedKey }: MenuItemProps) {
   };
 
   return (
-    <div className={cn("border-t", "border-sidebar-border", "pt-4")}>
+    <div className={cn("border-t first:border-t-0", "border-sidebar-border", "pt-4")}>
       <span
         className={cn(
           "ml-3",
