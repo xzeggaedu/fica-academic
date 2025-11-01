@@ -60,3 +60,14 @@ class MonthlyBudgetByBlock(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class BillingReportResponse(BaseModel):
+    """Schema para respuesta completa del reporte de facturación."""
+
+    schedule_blocks: list[ScheduleBlockResponse] = Field(..., description="Bloques únicos de horarios")
+    payment_summary: list[PaymentSummaryByBlock] = Field(..., description="Resumen de tasas por nivel y bloque")
+    monthly_budget: list[MonthlyBudgetByBlock] = Field(..., description="Presupuesto mensual por bloque")
+
+    class Config:
+        from_attributes = True

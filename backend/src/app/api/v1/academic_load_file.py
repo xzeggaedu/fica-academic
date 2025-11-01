@@ -31,7 +31,7 @@ from ...schemas.academic_load_file import (
     AcademicLoadFileResponse,
     AcademicLoadFileUpdate,
 )
-from ...schemas.billing import MonthlyBudgetByBlock, PaymentSummaryByBlock, ScheduleBlockResponse
+from ...schemas.billing import BillingReportResponse, MonthlyBudgetByBlock, PaymentSummaryByBlock, ScheduleBlockResponse
 
 router = APIRouter()
 
@@ -853,3 +853,169 @@ async def get_billing_monthly_budget(
         )
 
     return {"data": monthly_budgets, "total": len(monthly_budgets)}
+
+
+@router.get("/{file_id}/billing-report", response_model=BillingReportResponse)
+async def get_billing_report(
+    file_id: int, current_user: Annotated[dict, Depends(get_current_user)], db: AsyncSession = Depends(async_get_db)
+):
+    """Obtener reporte completo de facturación inmutable para la planilla mensual.
+
+    Este endpoint integra todos los bloques del reporte:
+    - Bloques únicos de horarios (días, horario, duración)
+    - Resumen de tasas de pago por nivel académico
+    - Presupuesto mensual con cálculos completos
+
+    Este reporte es inmutable y representa un snapshot de la carga académica en el momento de la generación.
+
+    Args:
+        file_id: ID del archivo de carga académica
+        current_user: Usuario autenticado
+        db: Sesión de base de datos
+
+    Returns:
+        Reporte completo de facturación con todos los bloques integrados
+
+    Raises:
+        HTTPException: 404 si el archivo o término no existen
+    """
+    from decimal import Decimal
+
+    from ...crud.crud_hourly_rate_history import get_current_rate
+
+    # Verificar que el archivo existe
+    file = await academic_load_file.get(db, id=file_id)
+    if not file:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+
+    # Obtener el término asociado
+    term = await get_term(db, term_id=file.term_id)
+    if not term:
+        raise HTTPException(status_code=404, detail="Término no encontrado")
+
+    # Obtener mapeo de códigos de nivel a IDs
+    level_ids_map = await get_academic_level_ids_map(db)
+
+    # Obtener todas las clases del archivo
+    classes = await academic_load_class.get_by_file_id(db, file_id=file_id, skip=0, limit=10000)
+
+    # Agrupar clases por horario único
+    grouped_classes = group_classes_by_schedule(classes)
+
+    # Obtener lista de meses del término
+    term_months = get_term_months(term.start_date, term.end_date)
+
+    # BLOQUE 1: Horarios únicos
+    schedule_blocks = []
+    for (class_days, class_schedule, class_duration), _ in grouped_classes.items():
+        schedule_blocks.append(
+            ScheduleBlockResponse(
+                class_days=class_days,
+                class_schedule=class_schedule,
+                class_duration=class_duration,
+            )
+        )
+
+    # BLOQUE 2: Resumen de tasas por nivel
+    payment_summaries = []
+    # BLOQUE 3: Presupuesto mensual
+    monthly_budgets = []
+
+    for (class_days, class_schedule, class_duration), class_list in grouped_classes.items():
+        # Calcular resumen de tasas de pago por nivel para este bloque
+        rates_by_level = {
+            "GDO": 0.0,
+            "M1": 0.0,
+            "M2": 0.0,
+            "DR": 0.0,
+            "BLG": 0.0,
+        }
+
+        for cls in class_list:
+            academic_level = determine_academic_level(
+                is_bilingual=cls.is_bilingual,
+                professor_is_doctor=cls.professor_is_doctor,
+                professor_masters=cls.professor_masters,
+            )
+
+            if academic_level:
+                rates_by_level[academic_level] += float(cls.professor_payment_rate)
+
+        # Agregar a BLOQUE 2
+        from ...schemas.billing import PaymentRateByLevel
+
+        payment_summaries.append(
+            PaymentSummaryByBlock(
+                class_days=class_days,
+                class_schedule=class_schedule,
+                class_duration=class_duration,
+                payment_rates_by_level=PaymentRateByLevel(
+                    grado=rates_by_level["GDO"],
+                    maestria_1=rates_by_level["M1"],
+                    maestria_2=rates_by_level["M2"],
+                    doctor=rates_by_level["DR"],
+                    bilingue=rates_by_level["BLG"],
+                ),
+            )
+        )
+
+        # Convertir class_days a weekdays para calculate_workdays
+        weekdays = class_days_to_weekdays(class_days)
+
+        # Calcular presupuesto para cada mes
+        monthly_items = []
+        for year, month in term_months:
+            # Calcular número de sesiones
+            sessions = await calculate_workable_days_for_month(session=db, term=term, month=month, weekdays=weekdays)
+
+            # Calcular tiempo real en minutos
+            real_time_minutes = sessions * class_duration
+
+            # Calcular total de horas clase (dividir entre 50)
+            total_class_hours = Decimal(real_time_minutes) / Decimal(50)
+
+            # Calcular total en dólares
+            total_dollars = Decimal(0.0)
+            for level_code, payment_rate_sum in rates_by_level.items():
+                if payment_rate_sum > 0 and level_code in level_ids_map:
+                    level_id = level_ids_map[level_code]
+
+                    # Obtener tarifa vigente para este nivel y fecha (primer día del mes)
+                    month_date = date(year, month, 1)
+                    hourly_rate = await get_current_rate(session=db, level_id=level_id, reference_date=month_date)
+
+                    if hourly_rate:
+                        # Calcular: (suma de tasas de pago) × tarifa por hora × total de horas clase
+                        total_dollars += (
+                            Decimal(payment_rate_sum) * Decimal(hourly_rate.rate_per_hour) * total_class_hours
+                        )
+
+            from ...schemas.billing import MonthlyBudgetItem
+
+            monthly_items.append(
+                MonthlyBudgetItem(
+                    year=year,
+                    month=month,
+                    month_name=get_month_name(month),
+                    sessions=sessions,
+                    real_time_minutes=real_time_minutes,
+                    total_class_hours=total_class_hours,
+                    total_dollars=total_dollars,
+                )
+            )
+
+        # Agregar a BLOQUE 3
+        monthly_budgets.append(
+            MonthlyBudgetByBlock(
+                class_days=class_days,
+                class_schedule=class_schedule,
+                class_duration=class_duration,
+                months=monthly_items,
+            )
+        )
+
+    return BillingReportResponse(
+        schedule_blocks=schedule_blocks,
+        payment_summary=payment_summaries,
+        monthly_budget=monthly_budgets,
+    )
