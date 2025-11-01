@@ -36,3 +36,27 @@ class PaymentSummaryByBlock(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class MonthlyBudgetItem(BaseModel):
+    """Schema para presupuesto mensual de un bloque de horario."""
+
+    year: int = Field(..., description="Año del mes")
+    month: int = Field(..., description="Número del mes (1-12)")
+    month_name: str = Field(..., description="Nombre del mes")
+    sessions: int = Field(..., description="Número de sesiones de clase")
+    real_time_minutes: int = Field(..., description="Tiempo real en minutos")
+    total_class_hours: Decimal = Field(..., description="Total de horas clase")
+    total_dollars: Decimal = Field(..., description="Total en dólares")
+
+
+class MonthlyBudgetByBlock(BaseModel):
+    """Schema para presupuesto mensual por bloque de horario."""
+
+    class_days: str = Field(..., description="Días de la clase")
+    class_schedule: str = Field(..., description="Horario de la clase")
+    class_duration: int = Field(..., description="Duración en minutos")
+    months: list[MonthlyBudgetItem] = Field(..., description="Lista de presupuestos por mes")
+
+    class Config:
+        from_attributes = True
