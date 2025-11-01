@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_current_user
+from ...core.billing import group_classes_by_schedule
 from ...core.db.database import async_get_db
 from ...core.rbac_scope import get_user_scope_filters, user_has_access_to_school
 from ...crud.academic_load_class import academic_load_class
@@ -21,6 +22,7 @@ from ...schemas.academic_load_file import (
     AcademicLoadFileResponse,
     AcademicLoadFileUpdate,
 )
+from ...schemas.billing import ScheduleBlockResponse
 
 router = APIRouter()
 
@@ -591,3 +593,50 @@ async def get_academic_load_statistics(
         "unique_professors": unique_professors,
         "unique_subjects": unique_subjects,
     }
+
+
+@router.get("/{file_id}/billing-schedule-blocks", response_model=dict)
+async def get_billing_schedule_blocks(
+    file_id: int, current_user: Annotated[dict, Depends(get_current_user)], db: AsyncSession = Depends(async_get_db)
+):
+    """Obtener bloques únicos de horarios para la planilla de facturación.
+
+    Devuelve una lista de bloques únicos agrupados por combinación de:
+    - Días de la clase (class_days)
+    - Horario (class_schedule)
+    - Duración (class_duration)
+
+    Args:
+        file_id: ID del archivo de carga académica
+        current_user: Usuario autenticado
+        db: Sesión de base de datos
+
+    Returns:
+        Diccionario con lista de bloques de horarios únicos
+
+    Raises:
+        HTTPException: 404 si el archivo no existe
+    """
+    # Verificar que el archivo existe
+    file = await academic_load_file.get(db, id=file_id)
+    if not file:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+
+    # Obtener todas las clases del archivo
+    classes = await academic_load_class.get_by_file_id(db, file_id=file_id, skip=0, limit=10000)
+
+    # Agrupar clases por horario único (días, horario, duración)
+    grouped_classes = group_classes_by_schedule(classes)
+
+    # Convertir a lista de bloques únicos
+    schedule_blocks = []
+    for (class_days, class_schedule, class_duration), _ in grouped_classes.items():
+        schedule_blocks.append(
+            ScheduleBlockResponse(
+                class_days=class_days,
+                class_schedule=class_schedule,
+                class_duration=class_duration,
+            )
+        )
+
+    return {"data": schedule_blocks, "total": len(schedule_blocks)}
