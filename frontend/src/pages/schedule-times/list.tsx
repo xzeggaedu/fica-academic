@@ -141,6 +141,8 @@ export function ScheduleTimesList() {
     softDeleteItem,
     isCreating,
     isDeleting,
+    canDelete,
+    canEdit,
   } = useScheduleTimesCrud();
 
   // Estados locales para la UI
@@ -787,7 +789,9 @@ export function ScheduleTimesList() {
                     <TableHead>Hora Fin Ext</TableHead>
                     <TableHead>Duración (min)</TableHead>
                     <TableHead className="text-center w-[100px]">Estado</TableHead>
-                    <TableHead className="text-center w-[100px]">Acciones</TableHead>
+                    {canDelete?.can && (
+                      <TableHead className="text-center w-[100px]">Acciones</TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -801,7 +805,7 @@ export function ScheduleTimesList() {
                     >
                       <TableCell className="font-medium">{scheduleTime.id}</TableCell>
                       <TableCell>
-                        {editingId === scheduleTime.id && editingField === "days_array" ? (
+                        {canEdit?.can && editingId === scheduleTime.id && editingField === "days_array" ? (
                           <Popover open={isEditingDayDropdownOpen} onOpenChange={setIsEditingDayDropdownOpen}>
                             <PopoverTrigger asChild>
                               <Button variant="outline" size="sm" className="w-full justify-between">
@@ -876,7 +880,7 @@ export function ScheduleTimesList() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        {editingId === scheduleTime.id && editingField === "start_time" ? (
+                        {canEdit?.can && editingId === scheduleTime.id && editingField === "start_time" ? (
                           <Input
                             type="time"
                             value={editingValue}
@@ -905,7 +909,7 @@ export function ScheduleTimesList() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {editingId === scheduleTime.id && editingField === "end_time" ? (
+                        {canEdit?.can && editingId === scheduleTime.id && editingField === "end_time" ? (
                           <Input
                             type="time"
                             value={editingValue}
@@ -934,7 +938,7 @@ export function ScheduleTimesList() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {editingId === scheduleTime.id && editingField === "start_time_ext" ? (
+                        {canEdit?.can && editingId === scheduleTime.id && editingField === "start_time_ext" ? (
                           <Input
                             type="time"
                             value={editingValue}
@@ -963,7 +967,7 @@ export function ScheduleTimesList() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {editingId === scheduleTime.id && editingField === "end_time_ext" ? (
+                        {canEdit?.can && editingId === scheduleTime.id && editingField === "end_time_ext" ? (
                           <Input
                             type="time"
                             value={editingValue}
@@ -996,8 +1000,10 @@ export function ScheduleTimesList() {
                         <Switch
                           checked={scheduleTime.is_active}
                           onCheckedChange={(checked) => handleToggleActive(scheduleTime.id, checked)}
+                          disabled={!canEdit?.can}
                         />
                       </TableCell>
+                      {canDelete?.can && (
                       <TableCell className="text-center">
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -1015,6 +1021,7 @@ export function ScheduleTimesList() {
                           </TooltipContent>
                         </Tooltip>
                       </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

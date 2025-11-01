@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useCreate, useUpdate, useDelete, useList, useCan, useInvalidate, useDataProvider } from "@refinedev/core";
 import { UserRoleEnum } from "@/types/auth";
 import { toast } from "sonner";
+import { API_BASE_PATH } from "@/providers/dataProvider";
 import type { AcademicLoadFile, AcademicLoadFileCreate, AcademicLoadFileUpdate } from "@/types/api";
 
 export const useAcademicLoadFilesCrud = () => {
@@ -134,7 +135,7 @@ export const useAcademicLoadFilesCrud = () => {
     const fetchScope = async () => {
       try {
         const dp = getDataProvider();
-        const resp = await dp.custom<{ faculty_id?: number | null; school_ids?: number[] | null }>({ url: "/api/v1/users/me/scope", method: "get" });
+        const resp = await dp.custom<{ faculty_id?: number | null; school_ids?: number[] | null }>({ url: `${API_BASE_PATH}/me/scope`, method: "get" });
         setMyScope(resp.data || {});
       } catch {
         setMyScope({});

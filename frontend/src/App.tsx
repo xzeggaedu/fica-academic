@@ -26,11 +26,6 @@ import {
   UserShow,
 } from "./pages/users";
 import {
-  TaskCreate,
-  TaskList,
-  TaskShow,
-} from "./pages/tasks";
-import {
   FacultyList,
 } from "./pages/faculties";
 import { SubjectsList } from "./pages/subjects";
@@ -44,8 +39,7 @@ import { TermsList } from "./pages/terms/list";
 import { HolidaysList } from "./pages/holidays";
 import { FixedHolidayRulesList } from "./pages/fixed-holiday-rules";
 import { AnnualHolidaysList } from "./pages/annual-holidays";
-import { TemplateGenerationCreate, TemplateGenerationList } from "./pages/template-generation";
-import { AcademicLoadFilesList } from "./pages/academic-load-files";
+import { AcademicLoadFilesList, AcademicLoadFileShow } from "./pages/academic-load-files";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -68,24 +62,7 @@ function App() {
                   authProvider={authProvider}
                   accessControlProvider={accessControlProvider}
                   resources={[
-                    // Top-level resources in order: Tasks, Academic Planning, then Catalogs
-                    {
-                      name: "tasks",
-                      list: "/tasks",
-                      create: "/tasks/create",
-                      show: "/tasks/show/:id",
-                      meta: {
-                        label: "Tareas",
-                        canDelete: true,
-                      },
-                    },
-                    {
-                      name: "separator-planning",
-                      meta: {
-                        group: true,
-                        label: "separator",
-                      },
-                    },
+                    // Top-level resources in order: Academic Planning, then Catalogs
                     {
                       name: "academic-planning",
                       meta: {
@@ -109,16 +86,6 @@ function App() {
                         label: "Ciclos Académicos",
                         parent: "academic-planning",
                         icon: "Calendar",
-                      },
-                    },
-                    {
-                      name: "template-generation",
-                      list: "/academic-planning/template-generation",
-                      create: "/academic-planning/template-generation/create",
-                      meta: {
-                        label: "Generar Plantilla",
-                        parent: "academic-planning",
-                        icon: "FileSpreadsheet",
                       },
                     },
                     {
@@ -291,7 +258,7 @@ function App() {
                     >
                       <Route
                         index
-                        element={<NavigateToResource resource="tasks" />}
+                        element={<NavigateToResource resource="academic-load-files" />}
                       />
                       <Route path="/users">
                         <Route index element={<UserList />} />
@@ -301,11 +268,6 @@ function App() {
                       </Route>
                       <Route path="/faculties">
                         <Route index element={<FacultyList />} />
-                      </Route>
-                      <Route path="/tasks">
-                        <Route index element={<TaskList />} />
-                        <Route path="create" element={<TaskCreate />} />
-                        <Route path="show/:id" element={<TaskShow />} />
                       </Route>
                       <Route path="/catalogs">
                         <Route path="schedule-times" element={<ScheduleTimesList />} />
@@ -320,9 +282,8 @@ function App() {
                       </Route>
                       <Route path="/academic-planning">
                         <Route path="terms" element={<TermsList />} />
-                        <Route path="template-generation" element={<TemplateGenerationList />} />
-                        <Route path="template-generation/create" element={<TemplateGenerationCreate />} />
                         <Route path="academic-load-files" element={<AcademicLoadFilesList />} />
+                        <Route path="academic-load-files/show/:id" element={<AcademicLoadFileShow />} />
                         <Route path="holidays" element={<HolidaysList />} />
                         <Route path="fixed-holiday-rules" element={<FixedHolidayRulesList />} />
                         <Route path="annual-holidays/:holidayId" element={<AnnualHolidaysList />} />

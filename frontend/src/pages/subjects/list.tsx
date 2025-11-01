@@ -63,6 +63,8 @@ export const SubjectsList = () => {
     isCreating: creating,
     isUpdating: updating,
     isDeleting: deleting,
+    canDelete,
+    canEdit
   } = useSubjectsCrud();
 
   // Hooks para entidades relacionadas
@@ -558,7 +560,7 @@ export const SubjectsList = () => {
                     {visibleColumns.includes("is_bilingual") && <TableHead className="text-center w-[100px]">Bilingüe</TableHead>}
                     {visibleColumns.includes("schools") && <TableHead>Escuelas</TableHead>}
                     {visibleColumns.includes("is_active") && <TableHead className="text-center w-[100px]">Estado</TableHead>}
-                    {visibleColumns.includes("actions") && <TableHead className="text-center w-[100px]">Acciones</TableHead>}
+                    {(canDelete?.can || canEdit?.can) && visibleColumns.includes("actions") && <TableHead className="text-center w-[100px]">Acciones</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -579,7 +581,7 @@ export const SubjectsList = () => {
                         {/* Código del Curso */}
                         {visibleColumns.includes("subject_code") && (
                           <TableCell>
-                            {editingId === subject.id && (!editingField || editingField === 'subject_code') ? (
+                            {canEdit?.can && editingId === subject.id && (!editingField || editingField === 'subject_code') ? (
                               <Input
                                 value={editForm.subject_code || ""}
                                 onChange={(e) =>
@@ -608,7 +610,7 @@ export const SubjectsList = () => {
                         {/* Nombre del Curso */}
                         {visibleColumns.includes("subject_name") && (
                           <TableCell>
-                            {editingId === subject.id && (!editingField || editingField === 'subject_name') ? (
+                            {canEdit?.can && editingId === subject.id && (!editingField || editingField === 'subject_name') ? (
                               <Input
                                 value={editForm.subject_name || ""}
                                 onChange={(e) =>
@@ -637,7 +639,7 @@ export const SubjectsList = () => {
                         {/* Coordinación */}
                         {visibleColumns.includes("coordination_code") && (
                           <TableCell>
-                            {editingId === subject.id && (!editingField || editingField === 'coordination_code') ? (
+                            {canEdit?.can && editingId === subject.id && (!editingField || editingField === 'coordination_code') ? (
                               <Select
                                 value={editForm.coordination_code || undefined}
                                 onValueChange={(value) => {
@@ -692,7 +694,7 @@ export const SubjectsList = () => {
                                   subject.is_bilingual
                                 );
                               }}
-                              disabled={deleting || updating}
+                              disabled={deleting || updating || !canEdit?.can}
                             />
                           </TableCell>
                         )}
@@ -700,7 +702,7 @@ export const SubjectsList = () => {
                         {/* Escuelas */}
                         {visibleColumns.includes("schools") && (
                           <TableCell>
-                            {editingId === subject.id && (!editingField || editingField === 'schools') ? (
+                            {canEdit?.can && editingId === subject.id && (!editingField || editingField === 'schools') ? (
                               <Popover
                                 open={openSchoolsPopoverId === subject.id}
                                 onOpenChange={(open) => {
@@ -806,7 +808,7 @@ export const SubjectsList = () => {
                             <Switch
                               checked={subject.is_active}
                               onCheckedChange={() => handleToggleActive(subject.id, subject.is_active)}
-                              disabled={editingId === subject.id || togglingIds.has(subject.id) || updating}
+                              disabled={editingId === subject.id || togglingIds.has(subject.id) || updating || !canEdit?.can}
                             />
                           </TableCell>
                         )}
@@ -814,21 +816,24 @@ export const SubjectsList = () => {
                         {/* Acciones */}
                         {visibleColumns.includes("actions") && (
                           <TableCell className="text-center">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => openDeleteDialog(subject.id, subject.subject_name)}
-                                  className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Eliminar</p>
-                              </TooltipContent>
-                            </Tooltip>
+                            {canDelete?.can &&
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => openDeleteDialog(subject.id, subject.subject_name)}
+                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Eliminar</p>
+                                </TooltipContent>
+
+                              </Tooltip>
+                            }
                           </TableCell>
                         )}
 

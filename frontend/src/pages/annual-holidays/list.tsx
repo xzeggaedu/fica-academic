@@ -617,7 +617,7 @@ export const AnnualHolidaysList = () => {
                                                         {visibleColumns.includes("date") && <TableHead>Fecha</TableHead>}
                                                         {visibleColumns.includes("name") && <TableHead>Nombre</TableHead>}
                                                         {visibleColumns.includes("type") && <TableHead>Tipo</TableHead>}
-                                                        {visibleColumns.includes("actions") && <TableHead className="text-center w-[100px]">Acciones</TableHead>}
+                                                        {canDelete?.can && visibleColumns.includes("actions") && <TableHead className="text-center w-[100px]">Acciones</TableHead>}
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -635,7 +635,7 @@ export const AnnualHolidaysList = () => {
                                                                 )}
                                                                 {visibleColumns.includes("date") && (
                                                                     <TableCell>
-                                                                        {editingId === item.id && editingField === "date" ? (
+                                                                        {canEdit?.can && editingId === item.id && editingField === "date" ? (
                                                                             <Input
                                                                                 type="date"
                                                                                 value={editForm.date || ""}
@@ -660,7 +660,7 @@ export const AnnualHolidaysList = () => {
                                                                 )}
                                                                 {visibleColumns.includes("name") && (
                                                                     <TableCell>
-                                                                        {editingId === item.id && editingField === "name" ? (
+                                                                        {canEdit?.can && editingId === item.id && editingField === "name" ? (
                                                                             <Input
                                                                                 value={editForm.name || ""}
                                                                                 onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
@@ -684,7 +684,7 @@ export const AnnualHolidaysList = () => {
                                                                 )}
                                                                 {visibleColumns.includes("type") && (
                                                                     <TableCell>
-                                                                        {editingId === item.id && editingField === "type" ? (
+                                                                        {canEdit?.can && editingId === item.id && editingField === "type" ? (
                                                                             <Select
                                                                                 value={editForm.type || ""}
                                                                                 onValueChange={(value) => setEditForm(prev => ({ ...prev, type: value }))}
@@ -715,7 +715,7 @@ export const AnnualHolidaysList = () => {
                                                                         )}
                                                                     </TableCell>
                                                                 )}
-                                                                {visibleColumns.includes("actions") && canDelete?.can && (
+                                                                {canDelete?.can && visibleColumns.includes("actions") && (
                                                                     <TableCell className="text-center">
                                                                         <Button
                                                                             variant="outline"

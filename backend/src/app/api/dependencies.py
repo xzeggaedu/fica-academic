@@ -72,7 +72,7 @@ async def get_current_superuser(current_user: Annotated[dict, Depends(get_curren
 
 async def get_current_user_scope(
     current_user: Annotated[dict, Depends(get_current_user)], db: Annotated[AsyncSession, Depends(async_get_db)]
-) -> dict[str, list[uuid_pkg.UUID] | uuid_pkg.UUID | None]:
+) -> dict[str, list[int] | int | None]:
     """Get the hierarchical scope for the current authenticated user.
 
     This dependency retrieves the scope assignments (faculty or schools) for the
@@ -94,10 +94,16 @@ async def get_current_user_scope(
             school_ids = scope.get("school_ids")
             # Apply filtering based on scope
     """
-    user_id = current_user.get("user_id")
+    user_uuid_str = current_user.get("user_uuid")
     user_role = current_user.get("role")
 
-    scope = await get_user_scope_filters(db=db, user_id=user_id, user_role=user_role)
+    if not user_uuid_str:
+        return {"faculty_id": None, "school_ids": None}
+
+    # Convert UUID string to UUID object
+    user_uuid = uuid_pkg.UUID(user_uuid_str)
+
+    scope = await get_user_scope_filters(db=db, user_uuid=user_uuid, user_role=user_role)
     return scope
 
 

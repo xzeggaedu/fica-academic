@@ -1,5 +1,5 @@
 import { AccessControlProvider } from "@refinedev/core";
-import { UserRoleEnum, hasRolePermission, canAccessAdminFeatures } from "../types/auth";
+import { UserRoleEnum, hasRolePermission, canAccessAdminFeatures, isAdmin } from "../types/auth";
 
 // Usar la misma clave que el authProvider
 const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
@@ -118,6 +118,14 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Directores y administradores pueden ver asignaturas
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver asignaturas",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -138,6 +146,14 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Directores y administradores pueden ver horarios
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver horarios",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -158,6 +174,14 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Directores y administradores pueden ver profesores
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver profesores",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -178,6 +202,14 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Directores y administradores pueden ver coordinaciones
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver coordinaciones",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -238,6 +270,14 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Directores y administradores pueden ver ciclos académicos
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver ciclos académicos",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -280,6 +320,14 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Directores y administradores pueden ver asuetos fijos
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver asuetos fijos",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -349,15 +397,16 @@ export const accessControlProvider: AccessControlProvider = {
               }
               return { can: false, reason: "Solo administradores o directores pueden subir archivos" };
             case "edit":
+              // La edición no está implementada actualmente
+              return { can: false, reason: "La edición de archivos no está implementada" };
             case "delete":
-              // Solo administradores para operaciones destructivas
-              if (canAccessAdminFeatures(userRole)) {
+              // ADMIN puede eliminar cualquier archivo
+              // Los componentes deben validar adicionalmente si el usuario es propietario
+              if (isAdmin(userRole)) {
                 return { can: true };
               }
-              return {
-                can: false,
-                reason: "Solo los administradores pueden gestionar carga académica",
-              };
+              // Permitir que todos vean el botón, los componentes validarán ownership
+              return { can: true };
 
             default:
               return { can: false, reason: "Acción no permitida" };

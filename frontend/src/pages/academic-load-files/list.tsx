@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { CanAccess } from "@refinedev/core";
 import {
     Table,
@@ -44,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 
 export const AcademicLoadFilesList: React.FC = () => {
+    const navigate = useNavigate();
     const {
         itemsList,
         total,
@@ -114,9 +116,15 @@ export const AcademicLoadFilesList: React.FC = () => {
     )?.toString?.().toLowerCase?.() ?? null;
 
     const canDeleteRow = (item: AcademicLoadFile) => {
-        if (canDelete) return true; // Admin
-        if (currentUserRole === "director" && item.user_id && currentUserUuid) {
+        // ADMIN puede eliminar cualquier archivo
+        if (canDelete) return true;
+        // El propietario puede eliminar sus propios archivos
+        if (item.user_id && currentUserUuid) {
             return item.user_id.toString() === currentUserUuid.toString();
+        }
+        // DIRECTOR puede eliminar archivos de sus escuelas asignadas
+        if (currentUserRole === "director" && myScope?.school_ids && Array.isArray(myScope.school_ids)) {
+            return myScope.school_ids.includes(item.school_id);
         }
         return false;
     };
@@ -523,7 +531,7 @@ export const AcademicLoadFilesList: React.FC = () => {
 
     // Función para ver detalles
     const handleView = (item: AcademicLoadFile) => {
-        toast.info("Funcionalidad de vista en desarrollo", { richColors: true });
+        navigate(`/academic-planning/academic-load-files/show/${item.id}`);
     };
 
     if (!canAccess) {

@@ -1,5 +1,6 @@
 """School endpoints - CRUD operations for schools (Admin only)."""
 
+import uuid as uuid_pkg
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Request
@@ -107,7 +108,12 @@ async def list_schools(
 
     # Director: limitar a sus escuelas
     if user_role == UserRoleEnum.DIRECTOR:
-        scope = await get_user_scope_filters(db=db, user_id=user_id, user_role=user_role)
+        user_uuid = uuid_pkg.UUID(user_id) if user_id else None
+        scope = (
+            await get_user_scope_filters(db=db, user_uuid=user_uuid, user_role=user_role)
+            if user_uuid
+            else {"faculty_id": None, "school_ids": None}
+        )
         school_ids = scope.get("school_ids") or []
         if school_ids:
             filters["id__in"] = list(school_ids)
@@ -117,7 +123,12 @@ async def list_schools(
 
     # Decano: limitar a su facultad si no se filtró explícitamente
     if user_role == UserRoleEnum.DECANO and "fk_faculty" not in filters:
-        scope = await get_user_scope_filters(db=db, user_id=user_id, user_role=user_role)
+        user_uuid = uuid_pkg.UUID(user_id) if user_id else None
+        scope = (
+            await get_user_scope_filters(db=db, user_uuid=user_uuid, user_role=user_role)
+            if user_uuid
+            else {"faculty_id": None, "school_ids": None}
+        )
         if scope.get("faculty_id") is not None:
             filters["fk_faculty"] = scope["faculty_id"]
 
