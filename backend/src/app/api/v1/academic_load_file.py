@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_current_user
-from ...core.billing import group_classes_by_schedule
+from ...core.billing import determine_academic_level, group_classes_by_schedule
 from ...core.db.database import async_get_db
 from ...core.rbac_scope import get_user_scope_filters, user_has_access_to_school
 from ...crud.academic_load_class import academic_load_class
@@ -22,7 +22,7 @@ from ...schemas.academic_load_file import (
     AcademicLoadFileResponse,
     AcademicLoadFileUpdate,
 )
-from ...schemas.billing import ScheduleBlockResponse
+from ...schemas.billing import PaymentSummaryByBlock, ScheduleBlockResponse
 
 router = APIRouter()
 
@@ -640,3 +640,80 @@ async def get_billing_schedule_blocks(
         )
 
     return {"data": schedule_blocks, "total": len(schedule_blocks)}
+
+
+@router.get("/{file_id}/billing-payment-summary", response_model=dict)
+async def get_billing_payment_summary(
+    file_id: int, current_user: Annotated[dict, Depends(get_current_user)], db: AsyncSession = Depends(async_get_db)
+):
+    """Obtener resumen de tasas de pago agrupadas por nivel académico y bloque de horario.
+
+    Devuelve un resumen consolidado de las tasas de pago (professor_payment_rate)
+    agrupadas por nivel académico para cada bloque único de horario.
+
+    Args:
+        file_id: ID del archivo de carga académica
+        current_user: Usuario autenticado
+        db: Sesión de base de datos
+
+    Returns:
+        Diccionario con lista de resúmenes de tasas por bloque de horario
+
+    Raises:
+        HTTPException: 404 si el archivo no existe
+    """
+    # Verificar que el archivo existe
+    file = await academic_load_file.get(db, id=file_id)
+    if not file:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+
+    # Obtener todas las clases del archivo
+    classes = await academic_load_class.get_by_file_id(db, file_id=file_id, skip=0, limit=10000)
+
+    # Agrupar clases por horario único
+    grouped_classes = group_classes_by_schedule(classes)
+
+    # Calcular resumen de tasas por bloque
+    payment_summaries = []
+    for (class_days, class_schedule, class_duration), class_list in grouped_classes.items():
+        # Inicializar contadores por nivel académico
+        rates_by_level = {
+            "GDO": 0.0,
+            "M1": 0.0,
+            "M2": 0.0,
+            "DR": 0.0,
+            "BLG": 0.0,
+        }
+
+        # Sumar tasas de pago por nivel
+        for cls in class_list:
+            # Determinar nivel académico del profesor
+            academic_level = determine_academic_level(
+                is_bilingual=cls.is_bilingual,
+                professor_is_doctor=cls.professor_is_doctor,
+                professor_masters=cls.professor_masters,
+            )
+
+            if academic_level:
+                # Sumar la tasa de pago para este nivel
+                rates_by_level[academic_level] += float(cls.professor_payment_rate)
+
+        # Crear objeto de respuesta con nombres en español
+        from ...schemas.billing import PaymentRateByLevel
+
+        payment_summaries.append(
+            PaymentSummaryByBlock(
+                class_days=class_days,
+                class_schedule=class_schedule,
+                class_duration=class_duration,
+                payment_rates_by_level=PaymentRateByLevel(
+                    grado=rates_by_level["GDO"],
+                    maestria_1=rates_by_level["M1"],
+                    maestria_2=rates_by_level["M2"],
+                    doctor=rates_by_level["DR"],
+                    bilingue=rates_by_level["BLG"],
+                ),
+            )
+        )
+
+    return {"data": payment_summaries, "total": len(payment_summaries)}
