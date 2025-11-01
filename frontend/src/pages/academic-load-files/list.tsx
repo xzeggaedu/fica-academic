@@ -116,9 +116,15 @@ export const AcademicLoadFilesList: React.FC = () => {
     )?.toString?.().toLowerCase?.() ?? null;
 
     const canDeleteRow = (item: AcademicLoadFile) => {
-        if (canDelete) return true; // Admin
-        if (currentUserRole === "director" && item.user_id && currentUserUuid) {
+        // ADMIN puede eliminar cualquier archivo
+        if (canDelete) return true;
+        // El propietario puede eliminar sus propios archivos
+        if (item.user_id && currentUserUuid) {
             return item.user_id.toString() === currentUserUuid.toString();
+        }
+        // DIRECTOR puede eliminar archivos de sus escuelas asignadas
+        if (currentUserRole === "director" && myScope?.school_ids && Array.isArray(myScope.school_ids)) {
+            return myScope.school_ids.includes(item.school_id);
         }
         return false;
     };

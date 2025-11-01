@@ -1,5 +1,5 @@
 import { AccessControlProvider } from "@refinedev/core";
-import { UserRoleEnum, hasRolePermission, canAccessAdminFeatures } from "../types/auth";
+import { UserRoleEnum, hasRolePermission, canAccessAdminFeatures, isAdmin } from "../types/auth";
 
 // Usar la misma clave que el authProvider
 const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
@@ -397,15 +397,16 @@ export const accessControlProvider: AccessControlProvider = {
               }
               return { can: false, reason: "Solo administradores o directores pueden subir archivos" };
             case "edit":
+              // La edición no está implementada actualmente
+              return { can: false, reason: "La edición de archivos no está implementada" };
             case "delete":
-              // Solo administradores para operaciones destructivas
-              if (canAccessAdminFeatures(userRole)) {
+              // ADMIN puede eliminar cualquier archivo
+              // Los componentes deben validar adicionalmente si el usuario es propietario
+              if (isAdmin(userRole)) {
                 return { can: true };
               }
-              return {
-                can: false,
-                reason: "Solo los administradores pueden gestionar carga académica",
-              };
+              // Permitir que todos vean el botón, los componentes validarán ownership
+              return { can: true };
 
             default:
               return { can: false, reason: "Acción no permitida" };

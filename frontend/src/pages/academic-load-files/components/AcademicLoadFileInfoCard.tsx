@@ -1,22 +1,17 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Download, Trash2 } from "lucide-react";
+import { Download } from "lucide-react";
 import type { AcademicLoadFile } from "@/types/api";
 
 interface AcademicLoadFileInfoCardProps {
     file: AcademicLoadFile;
     onDownload: () => void;
-    onDelete: () => void;
-    canDelete: boolean;
 }
 
 export const AcademicLoadFileInfoCard: React.FC<AcademicLoadFileInfoCardProps> = ({
     file,
     onDownload,
-    onDelete,
-    canDelete,
 }) => {
     return (
         <Card>
@@ -29,12 +24,6 @@ export const AcademicLoadFileInfoCard: React.FC<AcademicLoadFileInfoCardProps> =
                                 <Download className="w-4 h-4 mr-2" />
                                 Descargar Excel
                             </Button>
-                            {canDelete && (
-                                <Button variant="destructive" onClick={onDelete}>
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Eliminar
-                                </Button>
-                            )}
                         </div>
 
                     </div>

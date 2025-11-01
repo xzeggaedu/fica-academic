@@ -1,21 +1,10 @@
 import React, { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { useShow, useCan, useDelete, CanAccess } from "@refinedev/core";
-import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Unauthorized } from "../unauthorized";
+import { useParams } from "react-router-dom";
+import { useShow, useCan, CanAccess } from "@refinedev/core";
 import { useAcademicLoadClasses } from "@/hooks/useAcademicLoadClasses";
 import type { AcademicLoadFile } from "@/types/api";
 import { getAuthHeaders } from "@/providers/dataProvider";
+import { toast } from "sonner";
 import {
   AcademicLoadFileBreadcrumbs,
   AcademicLoadFileHeader,
@@ -24,15 +13,14 @@ import {
   AcademicLoadFileTable,
 } from "./components";
 import { getValidationBadge, getFileStatusBadge } from "./utils/badges";
+import { Unauthorized } from "../unauthorized";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export const AcademicLoadFileShow: React.FC = () => {
-  const navigate = useNavigate();
   const params = useParams<{ id: string }>();
   const [searchTerm, setSearchTerm] = useState("");
   const [validationFilter, setValidationFilter] = useState<string>("all");
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Obtener datos del archivo usando useShow
   const { query } = useShow<AcademicLoadFile>({
@@ -49,9 +37,7 @@ export const AcademicLoadFileShow: React.FC = () => {
   });
 
   // Permisos
-  const { mutate: deleteFile } = useDelete();
   const { data: canAccess } = useCan({ resource: "academic-load-files", action: "show" });
-  const { data: canDelete } = useCan({ resource: "academic-load-files", action: "delete" });
 
   // Filtrar clases
   const filteredClasses = classes.filter((cls) => {
@@ -137,8 +123,6 @@ export const AcademicLoadFileShow: React.FC = () => {
       <AcademicLoadFileInfoCard
         file={file}
         onDownload={handleDownload}
-        onDelete={() => setIsDeleteModalOpen(true)}
-        canDelete={canDelete?.can || false}
       />
 
       {statistics && <AcademicLoadFileStats statistics={statistics} />}
@@ -152,43 +136,6 @@ export const AcademicLoadFileShow: React.FC = () => {
         validationFilter={validationFilter}
         onValidationFilterChange={setValidationFilter}
       />
-
-      {/* Modal de Confirmación de Eliminación */}
-      <AlertDialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. Se eliminará permanentemente el archivo y todas sus clases asociadas.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                deleteFile(
-                  {
-                    resource: "academic-load-files",
-                    id: file.id,
-                  },
-                  {
-                    onSuccess: () => {
-                      toast.success("Archivo eliminado exitosamente", { richColors: true });
-                      navigate("/academic-planning/academic-load-files");
-                    },
-                    onError: () => {
-                      toast.error("Error al eliminar el archivo", { richColors: true });
-                    },
-                  }
-                );
-              }}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
     </CanAccess>
   );

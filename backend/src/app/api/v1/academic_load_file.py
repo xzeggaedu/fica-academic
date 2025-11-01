@@ -345,11 +345,12 @@ async def delete_academic_load_file(
     if not file:
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
 
-    # Solo el propietario puede eliminar
+    # El propietario, un ADMIN, o un director de la escuela pueden eliminar
     user_uuid = current_user.get("user_uuid", "")
+    user_role = current_user.get("role")
 
     # Debug: imprimir los valores para verificar
-    print(f"🔍 Delete Debug: file.user_id={file.user_id}, user_uuid={user_uuid}")
+    print(f"🔍 Delete Debug: file.user_id={file.user_id}, user_uuid={user_uuid}, user_role={user_role}")
 
     # Convertir user_uuid a UUID si es string
     if isinstance(user_uuid, str):
@@ -358,8 +359,25 @@ async def delete_academic_load_file(
         except ValueError:
             raise HTTPException(status_code=400, detail="User UUID inválido")
 
-    if file.user_id != user_uuid:
-        print(f"❌ Permission denied: file.user_id={file.user_id}, user_uuid={user_uuid}")
+    # Verificar permisos: propietario, ADMIN o director de la escuela pueden eliminar
+    is_owner = file.user_id == user_uuid
+
+    # Convertir user_role a UserRoleEnum si es string
+    if isinstance(user_role, str):
+        user_role = UserRoleEnum(user_role)
+
+    is_admin = user_role == UserRoleEnum.ADMIN
+
+    # Verificar si es director de la escuela del archivo
+    is_director_of_school = False
+    if user_role == UserRoleEnum.DIRECTOR:
+        is_director_of_school = await user_has_access_to_school(db, user_uuid, user_role, file.school_id)
+
+    if not is_owner and not is_admin and not is_director_of_school:
+        print(
+            f"❌ Permission denied: file.user_id={file.user_id}, "
+            f"user_uuid={user_uuid}, user_role={user_role}, school_id={file.school_id}"
+        )
         raise HTTPException(status_code=403, detail="No tienes permisos para eliminar este archivo")
 
     # Eliminar archivos físicos
