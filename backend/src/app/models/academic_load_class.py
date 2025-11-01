@@ -44,6 +44,7 @@ class AcademicLoadClass(Base):
         professor_id: ID del profesor
         professor_category: Categoría del profesor
         professor_is_billing: Si el profesor está activo en facturación
+        professor_is_doctor: Si el profesor tiene título de doctor
         professor_profile: Perfil del profesor
         professor_final_note: Nota final del profesor
         professor_masters: Número de maestrías del profesor
@@ -89,6 +90,7 @@ class AcademicLoadClass(Base):
     professor_id: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
     professor_category: Mapped[str | None] = mapped_column(String(10), nullable=True, default=None)
     professor_is_billing: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    professor_is_doctor: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     professor_profile: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
     professor_final_note: Mapped[str | None] = mapped_column(String(10), nullable=True, default=None)
     professor_masters: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

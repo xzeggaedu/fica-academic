@@ -497,6 +497,13 @@ def map_excel_row_to_class_data(row: dict, file_id: int, validation_status: str,
             else:
                 class_data[model_field] = str(excel_value).strip()
 
+    # Calcular professor_is_doctor basado en professor_academic_title
+    professor_title = class_data.get("professor_academic_title", "")
+    class_data["professor_is_doctor"] = professor_title is not None and str(professor_title).strip().lower() in [
+        "dr.",
+        "dr",
+    ]
+
     return class_data
 
 

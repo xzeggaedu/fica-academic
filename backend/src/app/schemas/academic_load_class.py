@@ -28,6 +28,7 @@ class AcademicLoadClassBase(BaseModel):
     professor_id: str | None = Field(None, description="ID del profesor")
     professor_category: str | None = Field(None, description="Categoría del profesor")
     professor_is_billing: bool = Field(False, description="Si el profesor está activo en facturación")
+    professor_is_doctor: bool = Field(False, description="Si el profesor tiene título de doctor")
     professor_profile: str | None = Field(None, description="Perfil del profesor")
     professor_final_note: str | None = Field(None, description="Nota final del profesor")
     professor_masters: int = Field(0, description="Número de maestrías del profesor")
@@ -68,6 +69,7 @@ class AcademicLoadClassUpdate(BaseModel):
     professor_id: str | None = None
     professor_category: str | None = None
     professor_is_billing: bool | None = None
+    professor_is_doctor: bool | None = None
     professor_profile: str | None = None
     professor_final_note: str | None = None
     professor_masters: int | None = None
