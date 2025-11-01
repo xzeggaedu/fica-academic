@@ -28,6 +28,7 @@ REQUIRED_COLUMNS = [
     "MAESTRIAS",  # Número de maestrías
     "CORREO INSTITUCIONAL",  # Email institucional
     "CORREO PERSONAL",  # Email personal
+    "BLG",  # Bilingüe (asignatura y maestro)
     "OBSERVACIONES",  # Observaciones
     "RESP. CANAL TEAMS  (nivel propietario)",  # Responsable canal Teams
 ]
@@ -58,6 +59,7 @@ EXCEL_TO_MODEL_MAPPING = {
     "MAESTRIAS": "professor_masters",
     "CORREO INSTITUCIONAL": "professor_institutional_email",
     "CORREO PERSONAL": "professor_personal_email",
+    "BLG": "is_bilingual",
     "OBSERVACIONES": "observations",
     "RESP. CANAL TEAMS  (nivel propietario)": "team_channel_responsible",
 }

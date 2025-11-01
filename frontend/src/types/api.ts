@@ -626,6 +626,7 @@ export interface AcademicLoadClass {
   professor_masters: number;
   professor_institutional_email?: string | null;
   professor_personal_email?: string | null;
+  is_bilingual: boolean;
   observations?: string | null;
   team_channel_responsible?: string | null;
   validation_status: string;

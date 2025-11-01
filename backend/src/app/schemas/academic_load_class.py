@@ -33,6 +33,7 @@ class AcademicLoadClassBase(BaseModel):
     professor_masters: int = Field(0, description="Número de maestrías del profesor")
     professor_institutional_email: str | None = Field(None, description="Email institucional del profesor")
     professor_personal_email: str | None = Field(None, description="Email personal del profesor")
+    is_bilingual: bool = Field(False, description="Si la asignatura y maestro son bilingües")
     observations: str | None = Field(None, description="Observaciones")
     team_channel_responsible: str | None = Field(None, description="Responsable del canal de Teams")
     validation_status: str = Field("valid", description="Estado de validación: valid, warning, error")
@@ -72,6 +73,7 @@ class AcademicLoadClassUpdate(BaseModel):
     professor_masters: int | None = None
     professor_institutional_email: str | None = None
     professor_personal_email: str | None = None
+    is_bilingual: bool | None = None
     observations: str | None = None
     team_channel_responsible: str | None = None
     validation_status: str | None = None

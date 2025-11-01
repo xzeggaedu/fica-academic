@@ -49,6 +49,7 @@ class AcademicLoadClass(Base):
         professor_masters: Número de maestrías del profesor
         professor_institutional_email: Email institucional del profesor
         professor_personal_email: Email personal del profesor
+        is_bilingual: Si la asignatura y maestro son bilingües
         observations: Observaciones
         team_channel_responsible: Responsable del canal de Teams
         validation_status: Estado de validación
@@ -93,6 +94,7 @@ class AcademicLoadClass(Base):
     professor_masters: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     professor_institutional_email: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
     professor_personal_email: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
+    is_bilingual: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Campos adicionales
     observations: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)

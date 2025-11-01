@@ -258,6 +258,10 @@ export const AcademicLoadFileTable: React.FC<AcademicLoadFileTableProps> = ({
                                                     <span className="text-muted-foreground min-w-[25%]">Facturación:</span>
                                                     <span className="font-medium">{cls.professor_is_billing ? 'Sí' : 'No'}</span>
                                                 </div>
+                                                <div className="flex justify-start gap-2">
+                                                    <span className="text-muted-foreground min-w-[25%]">Bilingüe:</span>
+                                                    <span className="font-medium">{cls.is_bilingual ? 'Sí' : 'No'}</span>
+                                                </div>
                                             </div>
                                         </div>
 
