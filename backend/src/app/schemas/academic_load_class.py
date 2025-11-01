@@ -1,6 +1,7 @@
 """Schemas para AcademicLoadClass."""
 
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
@@ -27,7 +28,7 @@ class AcademicLoadClassBase(BaseModel):
     professor_phone: str | None = Field(None, description="Teléfono del profesor")
     professor_id: str | None = Field(None, description="ID del profesor")
     professor_category: str | None = Field(None, description="Categoría del profesor")
-    professor_is_billing: bool = Field(False, description="Si el profesor está activo en facturación")
+    professor_payment_rate: Decimal = Field(0.0, description="Tasa de pago del profesor (ej: 1.0 = 100%, 0.5 = 50%)")
     professor_is_doctor: bool = Field(False, description="Si el profesor tiene título de doctor")
     professor_profile: str | None = Field(None, description="Perfil del profesor")
     professor_final_note: str | None = Field(None, description="Nota final del profesor")
@@ -68,7 +69,7 @@ class AcademicLoadClassUpdate(BaseModel):
     professor_phone: str | None = None
     professor_id: str | None = None
     professor_category: str | None = None
-    professor_is_billing: bool | None = None
+    professor_payment_rate: Decimal | None = None
     professor_is_doctor: bool | None = None
     professor_profile: str | None = None
     professor_final_note: str | None = None

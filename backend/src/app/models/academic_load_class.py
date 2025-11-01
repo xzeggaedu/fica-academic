@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -43,7 +43,7 @@ class AcademicLoadClass(Base):
         professor_phone: Teléfono del profesor
         professor_id: ID del profesor
         professor_category: Categoría del profesor
-        professor_is_billing: Si el profesor está activo en facturación
+        professor_payment_rate: Tasa de pago del profesor (ej: 1.0 = 100%, 0.5 = 50%)
         professor_is_doctor: Si el profesor tiene título de doctor
         professor_profile: Perfil del profesor
         professor_final_note: Nota final del profesor
@@ -89,7 +89,7 @@ class AcademicLoadClass(Base):
     professor_phone: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
     professor_id: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
     professor_category: Mapped[str | None] = mapped_column(String(10), nullable=True, default=None)
-    professor_is_billing: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    professor_payment_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0.0, nullable=False)
     professor_is_doctor: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     professor_profile: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
     professor_final_note: Mapped[str | None] = mapped_column(String(10), nullable=True, default=None)

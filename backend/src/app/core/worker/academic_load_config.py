@@ -53,7 +53,7 @@ EXCEL_TO_MODEL_MAPPING = {
     "TELEFONO": "professor_phone",
     "CODIGO": "professor_id",
     "CAT_DOCENTE": "professor_category",
-    "PAG": "professor_is_billing",
+    "PAG": "professor_payment_rate",
     "PERF": "professor_profile",
     "NOTA_FINAL": "professor_final_note",
     "MAESTRIAS": "professor_masters",

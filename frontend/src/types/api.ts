@@ -620,7 +620,7 @@ export interface AcademicLoadClass {
   professor_phone?: string | null;
   professor_id?: string | null;
   professor_category?: string | null;
-  professor_is_billing: boolean;
+  professor_payment_rate: number;
   professor_profile?: string | null;
   professor_final_note?: string | null;
   professor_masters: number;

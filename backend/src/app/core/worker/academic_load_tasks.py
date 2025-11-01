@@ -487,7 +487,10 @@ def map_excel_row_to_class_data(row: dict, file_id: int, validation_status: str,
         elif model_field == "class_duration":
             # Duración usa extract_duration
             class_data[model_field] = extract_duration(excel_value)
-        elif model_field in ["professor_is_billing", "is_bilingual"]:
+        elif model_field == "professor_payment_rate":
+            # Campo decimal para tasa de pago (ej: 1.0 = 100%, 0.5 = 50%)
+            class_data[model_field] = float(excel_value) if pd.notna(excel_value) and excel_value != "" else 0.0
+        elif model_field in ["is_bilingual"]:
             # Campos booleanos
             class_data[model_field] = bool(excel_value) if pd.notna(excel_value) and excel_value != "" else False
         else:
