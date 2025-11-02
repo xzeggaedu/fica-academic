@@ -9,6 +9,7 @@ import {
   PaymentSummaryBlock,
   MonthlyBudgetBlock,
 } from "./components";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const BillingReportShow: React.FC = () => {
   const params = useParams<{ id: string }>();
@@ -47,10 +48,26 @@ export const BillingReportShow: React.FC = () => {
         <BillingReportBreadcrumbs />
 
         <BillingReportHeader report={report} />
+        <Card>
+          <CardHeader>
+            <CardTitle>Resumen de Tasas</CardTitle>
+          </CardHeader>
+          <CardContent>
+          <div className="overflow-x-auto">
+          <div className="flex gap-4 min-w-max">
+            {/* Resumen de tasas - sticky a la izquierda */}
+            <div className="flex-shrink-0">
+              <PaymentSummaryBlock summaries={report.payment_summaries} />
+            </div>
 
-        <PaymentSummaryBlock summaries={report.payment_summaries} />
+            {/* Meses con scroll horizontal */}
+            <MonthlyBudgetBlock items={report.monthly_items} />
+          </div>
+        </div>
+          </CardContent>
+        </Card>
+        {/* Layout horizontal con scroll */}
 
-        <MonthlyBudgetBlock items={report.monthly_items} />
       </div>
     </CanAccess>
   );

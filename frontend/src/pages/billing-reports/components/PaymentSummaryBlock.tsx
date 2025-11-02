@@ -63,9 +63,18 @@ export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summar
 
   sortedDayGroups.forEach(([days, schedules]) => {
     const scheduleEntries = Object.entries(schedules);
+
+    // Ordenar horarios por hora de inicio
+    const sortedScheduleEntries = scheduleEntries.sort(([scheduleA], [scheduleB]) => {
+      // Extraer hora de inicio (primera parte antes del guión)
+      const startA = scheduleA.split('-')[0];
+      const startB = scheduleB.split('-')[0];
+      return startA.localeCompare(startB);
+    });
+
     let isFirstRow = true;
 
-    scheduleEntries.forEach(([schedule, items]) => {
+    sortedScheduleEntries.forEach(([schedule, items]) => {
       // Calcular sumas para este horario
       const totals = {
         grado: items.reduce((sum, item) => sum + Number(item.payment_rate_grado), 0),
@@ -78,7 +87,7 @@ export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summar
       rows.push({
         class_days: days,
         class_schedule: schedule,
-        rowSpan: isFirstRow ? scheduleEntries.length : 0, // Solo la primera fila tiene rowSpan
+        rowSpan: isFirstRow ? sortedScheduleEntries.length : 0, // Solo la primera fila tiene rowSpan
         totals,
         isFirstRow,
       });
@@ -88,55 +97,49 @@ export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summar
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Resumen de Tasas de Pago por Nivel Académico</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-md border">
-          <Table className="">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Días</TableHead>
-                <TableHead className="text-center">Horario</TableHead>
-                <TableHead className="text-center">Grado</TableHead>
-                <TableHead className="text-center">1 Maestría</TableHead>
-                <TableHead className="text-center">2 Maestrías</TableHead>
-                <TableHead className="text-center">Doctor</TableHead>
-                <TableHead className="text-center">Bilingüe</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {summaries.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No hay resúmenes de pago disponibles
+
+    <div className="rounded-md border">
+      <Table className="">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Días</TableHead>
+            <TableHead className="text-center">Horario</TableHead>
+            <TableHead className="text-center">Grado</TableHead>
+            <TableHead className="text-center">1 Maestría</TableHead>
+            <TableHead className="text-center">2 Maestrías</TableHead>
+            <TableHead className="text-center">Doctor</TableHead>
+            <TableHead className="text-center">Bilingüe</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {summaries.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                No hay resúmenes de pago disponibles
+              </TableCell>
+            </TableRow>
+          ) : (
+            rows.map((row, index) => (
+              <TableRow key={index}>
+                {row.rowSpan > 0 ? (
+                  <TableCell
+                    className="font-medium align-top border-r-1 border-gray-200 min-w-[175px]"
+                    rowSpan={row.rowSpan}
+                  >
+                    {row.class_days}
                   </TableCell>
-                </TableRow>
-              ) : (
-                rows.map((row, index) => (
-                  <TableRow key={index}>
-                    {row.rowSpan > 0 ? (
-                      <TableCell
-                        className="font-medium align-top border-r-2 border-gray-200 max-w-18"
-                        rowSpan={row.rowSpan}
-                      >
-                        {row.class_days}
-                      </TableCell>
-                    ) : null}
-                    <TableCell className="text-center max-w-8 border-r-2 border-gray-200">{row.class_schedule}</TableCell>
-                    <TableCell className="text-center max-w-8">{row.totals.grado.toFixed(2)}</TableCell>
-                    <TableCell className="text-center max-w-8">{row.totals.maestria1.toFixed(2)}</TableCell>
-                    <TableCell className="text-center max-w-8">{row.totals.maestria2.toFixed(2)}</TableCell>
-                    <TableCell className="text-center max-w-8">{row.totals.doctor.toFixed(2)}</TableCell>
-                    <TableCell className="text-center max-w-8">{row.totals.bilingue.toFixed(2)}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+                ) : null}
+                <TableCell className="text-center min-w-[100px] border-r-1 border-gray-200">{row.class_schedule}</TableCell>
+                <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.grado}</TableCell>
+                <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.maestria1}</TableCell>
+                <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.maestria2}</TableCell>
+                <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.doctor}</TableCell>
+                <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.bilingue}</TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 };
