@@ -31,7 +31,14 @@ from ...schemas.academic_load_file import (
     AcademicLoadFileResponse,
     AcademicLoadFileUpdate,
 )
-from ...schemas.billing import BillingReportResponse, MonthlyBudgetByBlock, PaymentSummaryByBlock, ScheduleBlockResponse
+from ...schemas.billing import (
+    BillingReportResponse as BillingReportTemporaryResponse,
+)
+from ...schemas.billing import (
+    MonthlyBudgetByBlock,
+    PaymentSummaryByBlock,
+    ScheduleBlockResponse,
+)
 
 router = APIRouter()
 
@@ -855,7 +862,7 @@ async def get_billing_monthly_budget(
     return {"data": monthly_budgets, "total": len(monthly_budgets)}
 
 
-@router.get("/{file_id}/billing-report", response_model=BillingReportResponse)
+@router.get("/{file_id}/billing-report", response_model=BillingReportTemporaryResponse)
 async def get_billing_report(
     file_id: int, current_user: Annotated[dict, Depends(get_current_user)], db: AsyncSession = Depends(async_get_db)
 ):
@@ -1014,21 +1021,19 @@ async def get_billing_report(
             )
         )
 
-    return BillingReportResponse(
+    return BillingReportTemporaryResponse(
         schedule_blocks=schedule_blocks,
         payment_summary=payment_summaries,
         monthly_budget=monthly_budgets,
     )
 
 
-@router.post(
-    "/{file_id}/billing-report/generate", response_model=BillingReportResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/{file_id}/billing-report/generate", status_code=status.HTTP_201_CREATED)
 async def generate_and_save_billing_report(
     file_id: int,
     current_user: Annotated[dict, Depends(get_current_user)],
     db: AsyncSession = Depends(async_get_db),
-) -> BillingReportResponse:
+):
     """Generar y guardar un reporte de facturación para una carga académica.
 
     Este endpoint genera un reporte completo de facturación calculando todos los bloques
