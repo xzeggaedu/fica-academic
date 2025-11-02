@@ -8,6 +8,7 @@ REQUIRED_COLUMNS = [
     "COD_CATEDRA",  # Código de coordinación
     "COD_ASIG",  # Código de asignatura
     "ASIGNATURA",  # Nombre de asignatura
+    "BLG",  # Bilingüe (asignatura y maestro)
     "UNICO",  # Sección única
     "SECCION",  # Número de sección
     "ASIGNAR_SERVICIOS",  # Servicios asignados
@@ -28,7 +29,6 @@ REQUIRED_COLUMNS = [
     "MAESTRIAS",  # Número de maestrías
     "CORREO INSTITUCIONAL",  # Email institucional
     "CORREO PERSONAL",  # Email personal
-    "BLG",  # Bilingüe (asignatura y maestro)
     "OBSERVACIONES",  # Observaciones
     "RESP. CANAL TEAMS  (nivel propietario)",  # Responsable canal Teams
 ]

@@ -2,7 +2,6 @@
 
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
 
 from ..models.billing_report import BillingReport, BillingReportMonthlyItem, BillingReportPaymentSummary
 from ..schemas.billing_report import BillingReportCreate, BillingReportUpdate
@@ -65,29 +64,13 @@ class BillingReportCRUD:
 
     async def get(self, db: AsyncSession, id: int) -> BillingReport | None:
         """Obtener un reporte por ID con todos sus items."""
-        result = await db.execute(
-            select(BillingReport)
-            .options(
-                joinedload(BillingReport.user),
-                joinedload(BillingReport.academic_load_file),
-                joinedload(BillingReport.payment_summaries),
-                joinedload(BillingReport.monthly_items),
-            )
-            .filter(BillingReport.id == id)
-        )
+        result = await db.execute(select(BillingReport).filter(BillingReport.id == id))
         return result.scalar_one_or_none()
 
     async def get_multi(self, db: AsyncSession, *, skip: int = 0, limit: int = 100) -> list[BillingReport]:
         """Obtener múltiples reportes con paginación."""
         result = await db.execute(
-            select(BillingReport)
-            .options(
-                joinedload(BillingReport.user),
-                joinedload(BillingReport.academic_load_file),
-            )
-            .order_by(desc(BillingReport.created_at))
-            .offset(skip)
-            .limit(limit)
+            select(BillingReport).order_by(desc(BillingReport.created_at)).offset(skip).limit(limit)
         )
         return result.scalars().all()
 
@@ -98,10 +81,6 @@ class BillingReportCRUD:
         result = await db.execute(
             select(BillingReport)
             .filter(BillingReport.academic_load_file_id == academic_load_file_id)
-            .options(
-                joinedload(BillingReport.user),
-                joinedload(BillingReport.academic_load_file),
-            )
             .order_by(desc(BillingReport.created_at))
             .offset(skip)
             .limit(limit)

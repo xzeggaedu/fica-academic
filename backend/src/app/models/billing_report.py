@@ -54,22 +54,32 @@ class BillingReport(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, default=func.now()
     )
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, onupdate=func.now())
-
-    # Clave Primaria
-    id: Mapped[int | None] = mapped_column(autoincrement=True, primary_key=True, default=None)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None, onupdate=func.now()
+    )
 
     # Relaciones
-    user: Mapped[User] = relationship("User", init=False)
-    academic_load_file: Mapped[AcademicLoadFile] = relationship("AcademicLoadFile", init=False)
+    user: Mapped[User] = relationship("User", lazy="selectin", init=False)
+    academic_load_file: Mapped[AcademicLoadFile] = relationship("AcademicLoadFile", lazy="selectin", init=False)
 
     # Relaciones con tablas hijas
     payment_summaries: Mapped[list[BillingReportPaymentSummary]] = relationship(
-        "BillingReportPaymentSummary", back_populates="billing_report", cascade="all, delete-orphan", init=False
+        "BillingReportPaymentSummary",
+        back_populates="billing_report",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        init=False,
     )
     monthly_items: Mapped[list[BillingReportMonthlyItem]] = relationship(
-        "BillingReportMonthlyItem", back_populates="billing_report", cascade="all, delete-orphan", init=False
+        "BillingReportMonthlyItem",
+        back_populates="billing_report",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        init=False,
     )
+
+    # Clave Primaria (al final para evitar problemas con dataclasses)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, init=False)
 
     def __repr__(self):
         return (
@@ -118,12 +128,12 @@ class BillingReportPaymentSummary(Base):
     payment_rate_doctor: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
     payment_rate_bilingue: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0.0, nullable=False)
 
-    # Clave Primaria
-    id: Mapped[int | None] = mapped_column(autoincrement=True, primary_key=True, default=None)
+    # Clave Primaria (al final para evitar problemas con dataclasses)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, init=False)
 
     # Relaciones
     billing_report: Mapped[BillingReport] = relationship(
-        "BillingReport", back_populates="payment_summaries", init=False
+        "BillingReport", back_populates="payment_summaries", lazy="selectin", init=False
     )
 
     def __repr__(self):
@@ -190,11 +200,13 @@ class BillingReportMonthlyItem(Base):
     total_class_hours: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     total_dollars: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
 
-    # Clave Primaria
-    id: Mapped[int | None] = mapped_column(autoincrement=True, primary_key=True, default=None)
+    # Clave Primaria (al final para evitar problemas con dataclasses)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, init=False)
 
     # Relaciones
-    billing_report: Mapped[BillingReport] = relationship("BillingReport", back_populates="monthly_items", init=False)
+    billing_report: Mapped[BillingReport] = relationship(
+        "BillingReport", back_populates="monthly_items", lazy="selectin", init=False
+    )
 
     def __repr__(self):
         return (

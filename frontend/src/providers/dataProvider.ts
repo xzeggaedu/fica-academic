@@ -34,6 +34,9 @@ import type {
   TemplateGeneration,
   TemplateGenerationCreate,
   TemplateGenerationUpdate,
+  BillingReport,
+  BillingReportCreate,
+  BillingReportUpdate,
   PaginatedResponse
 } from "../types/api";
 
@@ -83,6 +86,7 @@ const ENDPOINTS = {
   ANNUAL_HOLIDAYS: `${API_BASE_PATH}/annual-holidays`,
   TEMPLATE_GENERATION: `${API_BASE_PATH}/template-generation`,
   ACADEMIC_LOAD_FILES: `${API_BASE_PATH}/academic-load-files`,
+  BILLING_REPORTS: `${API_BASE_PATH}/billing-reports`,
 };
 
 // Helper function to get auth headers
@@ -630,6 +634,19 @@ export const dataProvider: DataProvider = {
         };
       }
 
+      case "billing-reports": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+        const response = await apiRequest<PaginatedResponse<any>>(
+          `${ENDPOINTS.BILLING_REPORTS}/?skip=${(current - 1) * pageSize}&limit=${pageSize}`
+        );
+
+        return {
+          data: response.data as any[],
+          total: response.total || 0,
+        };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported`);
     }
@@ -704,6 +721,11 @@ export const dataProvider: DataProvider = {
 
       case "academic-load-files": {
         const response = await apiRequest<any>(`${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`);
+        return { data: response as any };
+      }
+
+      case "billing-reports": {
+        const response = await apiRequest<any>(`${ENDPOINTS.BILLING_REPORTS}/${id}`);
         return { data: response as any };
       }
 
@@ -888,6 +910,17 @@ export const dataProvider: DataProvider = {
           {
             method: "POST",
             body: variables as FormData,
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "billing-reports": {
+        const response = await apiRequest<BillingReport>(
+          `${ENDPOINTS.BILLING_REPORTS}/`,
+          {
+            method: "POST",
+            body: JSON.stringify(variables),
           }
         );
         return { data: response as any };
@@ -1153,6 +1186,17 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "billing-reports": {
+        const response = await apiRequest<BillingReport>(
+          `${ENDPOINTS.BILLING_REPORTS}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported for update`);
     }
@@ -1314,6 +1358,16 @@ export const dataProvider: DataProvider = {
       case "academic-load-files": {
         await apiRequest(
           `${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
+      }
+
+      case "billing-reports": {
+        await apiRequest(
+          `${ENDPOINTS.BILLING_REPORTS}/${id}`,
           {
             method: "DELETE",
           }

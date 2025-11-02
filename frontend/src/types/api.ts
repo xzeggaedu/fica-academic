@@ -643,3 +643,54 @@ export interface AcademicLoadStatistics {
   unique_professors: number;
   unique_subjects: number;
 }
+
+// Billing Report Types
+export interface BillingReportPaymentSummary {
+  id: number;
+  billing_report_id: number;
+  class_days: string;
+  class_schedule: string;
+  class_duration: number;
+  payment_rate_grado: number;
+  payment_rate_maestria_1: number;
+  payment_rate_maestria_2: number;
+  payment_rate_doctor: number;
+  payment_rate_bilingue: number;
+}
+
+export interface BillingReportMonthlyItem {
+  id: number;
+  billing_report_id: number;
+  class_days: string;
+  class_schedule: string;
+  class_duration: number;
+  year: number;
+  month: number;
+  month_name: string;
+  sessions: number;
+  real_time_minutes: number;
+  total_class_hours: number;
+  total_dollars: number;
+}
+
+export interface BillingReport {
+  id: number;
+  academic_load_file_id: number;
+  user_id: string;
+  user_name: string;
+  is_edited: boolean;
+  notes?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+  payment_summaries: BillingReportPaymentSummary[];
+  monthly_items: BillingReportMonthlyItem[];
+}
+
+export interface BillingReportCreate {
+  academic_load_file_id: number;
+  notes?: string | null;
+}
+
+export interface BillingReportUpdate {
+  notes?: string | null;
+}

@@ -40,6 +40,7 @@ import { HolidaysList } from "./pages/holidays";
 import { FixedHolidayRulesList } from "./pages/fixed-holiday-rules";
 import { AnnualHolidaysList } from "./pages/annual-holidays";
 import { AcademicLoadFilesList, AcademicLoadFileShow } from "./pages/academic-load-files";
+import { BillingReportShow } from "./pages/billing-reports";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -287,6 +288,9 @@ function App() {
                         <Route path="holidays" element={<HolidaysList />} />
                         <Route path="fixed-holiday-rules" element={<FixedHolidayRulesList />} />
                         <Route path="annual-holidays/:holidayId" element={<AnnualHolidaysList />} />
+                      </Route>
+                      <Route path="/billing-reports">
+                        <Route path="show/:id" element={<BillingReportShow />} />
                       </Route>
                       <Route path="*" element={<ErrorComponent />} />
                     </Route>

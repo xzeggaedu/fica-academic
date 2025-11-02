@@ -115,7 +115,7 @@ class AcademicLoadClass(Base):
     )
 
     # Clave Primaria (al final para evitar problemas con dataclasses y orden de defaults)
-    id: Mapped[int | None] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, default=None)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, init=False)
 
     # Relaciones
     academic_load_file: Mapped[AcademicLoadFile] = relationship("AcademicLoadFile", init=False)

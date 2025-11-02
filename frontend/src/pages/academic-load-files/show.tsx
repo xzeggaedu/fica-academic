@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { useParams } from "react-router-dom";
-import { useShow, useCan, CanAccess } from "@refinedev/core";
+import { useParams, useNavigate } from "react-router-dom";
+import { useShow, useCan, CanAccess, useGetIdentity } from "@refinedev/core";
 import { useAcademicLoadClasses } from "@/hooks/useAcademicLoadClasses";
+import { useBillingReports } from "@/hooks/useBillingReports";
 import type { AcademicLoadFile } from "@/types/api";
 import { getAuthHeaders } from "@/providers/dataProvider";
 import { toast } from "sonner";
@@ -14,11 +15,13 @@ import {
 } from "./components";
 import { getValidationBadge, getFileStatusBadge } from "./utils/badges";
 import { Unauthorized } from "../unauthorized";
+import { UserRoleEnum } from "@/types/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export const AcademicLoadFileShow: React.FC = () => {
   const params = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [validationFilter, setValidationFilter] = useState<string>("all");
 
@@ -36,8 +39,17 @@ export const AcademicLoadFileShow: React.FC = () => {
     enabled: !!file?.id,
   });
 
+  // Hook para reportes de facturación
+  const { generateReport, isCreating: isGeneratingReport, itemsList: billingReports } = useBillingReports(file?.id);
+  const billingReportExists = billingReports && billingReports.length > 0;
+  const firstBillingReport = billingReports?.[0];
+
   // Permisos
   const { data: canAccess } = useCan({ resource: "academic-load-files", action: "show" });
+  const { data: identity } = useGetIdentity<{ role?: UserRoleEnum }>();
+
+  // Verificar si el usuario puede generar reportes (admin o director)
+  const canGenerateReport = identity?.role === UserRoleEnum.ADMIN || identity?.role === UserRoleEnum.DIRECTOR;
 
   // Filtrar clases
   const filteredClasses = classes.filter((cls) => {
@@ -86,6 +98,28 @@ export const AcademicLoadFileShow: React.FC = () => {
     }
   };
 
+  // Función para generar reporte
+  const handleGenerateReport = async () => {
+    if (!file) return;
+
+    try {
+      const newReport = await generateReport(file.id);
+      if (newReport?.id) {
+        // Redirigir al detalle de la planilla generada
+        navigate(`/billing-reports/show/${newReport.id}`);
+      }
+    } catch (error) {
+      console.error('Error generating report:', error);
+    }
+  };
+
+  // Función para ver el reporte existente
+  const handleViewBillingReport = () => {
+    if (firstBillingReport?.id) {
+      navigate(`/billing-reports/show/${firstBillingReport.id}`);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -123,6 +157,10 @@ export const AcademicLoadFileShow: React.FC = () => {
       <AcademicLoadFileInfoCard
         file={file}
         onDownload={handleDownload}
+        onGenerateReport={canGenerateReport ? handleGenerateReport : undefined}
+        onViewBillingReport={billingReportExists ? handleViewBillingReport : undefined}
+        isGeneratingReport={isGeneratingReport}
+        billingReportExists={billingReportExists}
       />
 
       {statistics && <AcademicLoadFileStats statistics={statistics} />}

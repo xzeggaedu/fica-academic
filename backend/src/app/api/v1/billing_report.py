@@ -38,7 +38,7 @@ async def create_billing_report(
     if not user_id:
         raise HTTPException(status_code=401, detail="Usuario no autenticado")
 
-    report = await crud_billing_report.billing_report.create(
+    report = await crud_billing_report.create(
         db=db,
         obj_in=obj_in,
         user_id=user_id,
@@ -66,8 +66,10 @@ async def list_billing_reports(
     Returns:
         Lista de reportes
     """
-    reports = await crud_billing_report.billing_report.get_multi(db, skip=skip, limit=limit)
-    return {"data": reports, "total": len(reports)}
+    reports = await crud_billing_report.get_multi(db, skip=skip, limit=limit)
+    # Convertir a schemas Pydantic
+    reports_data = [BillingReportResponse.model_validate(r) for r in reports]
+    return {"data": reports_data, "total": len(reports_data)}
 
 
 @router.get("/file/{academic_load_file_id}", response_model=dict)
@@ -90,10 +92,11 @@ async def list_billing_reports_by_file(
     Returns:
         Lista de reportes
     """
-    reports = await crud_billing_report.billing_report.get_by_file_id(
+    reports = await crud_billing_report.get_by_file_id(
         db, academic_load_file_id=academic_load_file_id, skip=skip, limit=limit
     )
-    return {"data": reports, "total": len(reports)}
+    reports_data = [BillingReportResponse.model_validate(r) for r in reports]
+    return {"data": reports_data, "total": len(reports_data)}
 
 
 @router.get("/{report_id}", response_model=BillingReportResponse)
@@ -115,7 +118,7 @@ async def get_billing_report(
     Raises:
         HTTPException: 404 si el reporte no existe
     """
-    report = await crud_billing_report.billing_report.get(db, id=report_id)
+    report = await crud_billing_report.get(db, id=report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
     return report
@@ -142,11 +145,11 @@ async def update_billing_report(
     Raises:
         HTTPException: 404 si el reporte no existe
     """
-    report = await crud_billing_report.billing_report.get(db, id=report_id)
+    report = await crud_billing_report.get(db, id=report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
 
-    updated_report = await crud_billing_report.billing_report.update(db=db, db_obj=report, obj_in=obj_in)
+    updated_report = await crud_billing_report.update(db=db, db_obj=report, obj_in=obj_in)
     return updated_report
 
 
@@ -166,8 +169,8 @@ async def delete_billing_report(
     Raises:
         HTTPException: 404 si el reporte no existe
     """
-    report = await crud_billing_report.billing_report.get(db, id=report_id)
+    report = await crud_billing_report.get(db, id=report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
 
-    await crud_billing_report.billing_report.delete(db=db, id=report_id)
+    await crud_billing_report.delete(db=db, id=report_id)

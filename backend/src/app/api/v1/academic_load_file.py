@@ -39,6 +39,7 @@ from ...schemas.billing import (
     PaymentSummaryByBlock,
     ScheduleBlockResponse,
 )
+from ...schemas.billing_report import BillingReportResponse
 
 router = APIRouter()
 
@@ -1028,7 +1029,9 @@ async def get_billing_report(
     )
 
 
-@router.post("/{file_id}/billing-report/generate", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{file_id}/billing-report/generate", status_code=status.HTTP_201_CREATED, response_model=BillingReportResponse
+)
 async def generate_and_save_billing_report(
     file_id: int,
     current_user: Annotated[dict, Depends(get_current_user)],
