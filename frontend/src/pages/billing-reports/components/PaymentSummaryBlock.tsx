@@ -94,16 +94,16 @@ export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summar
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
-          <Table>
+          <Table className="">
             <TableHeader>
               <TableRow>
                 <TableHead>Días</TableHead>
-                <TableHead>Horario</TableHead>
-                <TableHead className="text-right">Grado</TableHead>
-                <TableHead className="text-right">1 Maestría</TableHead>
-                <TableHead className="text-right">2 Maestrías</TableHead>
-                <TableHead className="text-right">Doctor</TableHead>
-                <TableHead className="text-right">Bilingüe</TableHead>
+                <TableHead className="text-center">Horario</TableHead>
+                <TableHead className="text-center">Grado</TableHead>
+                <TableHead className="text-center">1 Maestría</TableHead>
+                <TableHead className="text-center">2 Maestrías</TableHead>
+                <TableHead className="text-center">Doctor</TableHead>
+                <TableHead className="text-center">Bilingüe</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -118,18 +118,18 @@ export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summar
                   <TableRow key={index}>
                     {row.rowSpan > 0 ? (
                       <TableCell
-                        className="font-medium align-top"
+                        className="font-medium align-top border-r-2 border-gray-200 max-w-18"
                         rowSpan={row.rowSpan}
                       >
                         {row.class_days}
                       </TableCell>
                     ) : null}
-                    <TableCell>{row.class_schedule}</TableCell>
-                    <TableCell className="text-right">{row.totals.grado.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.totals.maestria1.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.totals.maestria2.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.totals.doctor.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.totals.bilingue.toFixed(2)}</TableCell>
+                    <TableCell className="text-center max-w-8 border-r-2 border-gray-200">{row.class_schedule}</TableCell>
+                    <TableCell className="text-center max-w-8">{row.totals.grado.toFixed(2)}</TableCell>
+                    <TableCell className="text-center max-w-8">{row.totals.maestria1.toFixed(2)}</TableCell>
+                    <TableCell className="text-center max-w-8">{row.totals.maestria2.toFixed(2)}</TableCell>
+                    <TableCell className="text-center max-w-8">{row.totals.doctor.toFixed(2)}</TableCell>
+                    <TableCell className="text-center max-w-8">{row.totals.bilingue.toFixed(2)}</TableCell>
                   </TableRow>
                 ))
               )}
