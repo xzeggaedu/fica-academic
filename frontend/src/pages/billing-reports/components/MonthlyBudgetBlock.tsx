@@ -145,17 +145,12 @@ export const MonthlyBudgetBlock: React.FC<MonthlyBudgetBlockProps> = ({ items })
                       </TableCell>
                     </TableRow>
                   ))}
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-right font-semibold border-r-1 border-gray-200">Total del mes:{" "}</TableCell>
+                    <TableCell className="text-right font-semibold border-r-1 border-gray-200">$ {totalMonth.toFixed(2)}</TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
-            </div>
-            <div className="mt-3 flex justify-end pt-2 border-t">
-              <div className="text-sm font-semibold">
-                Total del mes:{" "}
-                <span className="text-blue-600">
-                  <DollarSign className="w-4 h-4 inline align-middle" />
-                  {totalMonth.toFixed(2)}
-                </span>
-              </div>
             </div>
           </div>
         );
