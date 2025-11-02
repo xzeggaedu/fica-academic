@@ -1,13 +1,15 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/data/table";
-import type { BillingReportPaymentSummary } from "@/types/api";
+import type { BillingReportPaymentSummary, BillingReportRateSnapshot } from "@/types/api";
+import { DollarSign } from "lucide-react";
 
 interface PaymentSummaryBlockProps {
   summaries: BillingReportPaymentSummary[];
+  rateSnapshots: BillingReportRateSnapshot[];
 }
 
-export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summaries }) => {
+export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summaries, rateSnapshots }) => {
   // Mapeo de días a orden
   const dayOrder: Record<string, number> = {
     'Lu': 1, 'Ma': 2, 'Mi': 3, 'Ju': 4, 'Vi': 5, 'Sá': 6, 'Do': 7,
@@ -24,6 +26,14 @@ export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summar
     }
     return 999; // Si no encuentra, al final
   };
+
+  // Crear mapeo de códigos de nivel a tarifas (tomar el primer snapshot por código)
+  const ratesByLevel: Record<string, number> = {};
+  rateSnapshots.forEach((snapshot) => {
+    if (!ratesByLevel[snapshot.academic_level_code]) {
+      ratesByLevel[snapshot.academic_level_code] = Number(snapshot.rate_per_hour);
+    }
+  });
 
   // Agrupar primero por días, luego por horario
   const groupedByDays = summaries.reduce((acc, summary) => {
@@ -50,6 +60,7 @@ export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summar
   const rows: Array<{
     class_days: string;
     class_schedule: string;
+    class_duration: number;
     rowSpan: number;
     totals: {
       grado: number;
@@ -75,7 +86,7 @@ export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summar
     let isFirstRow = true;
 
     sortedScheduleEntries.forEach(([schedule, items]) => {
-      // Calcular sumas para este horario
+      // Calcular sumas para este horario y obtener class_duration del primer item
       const totals = {
         grado: items.reduce((sum, item) => sum + Number(item.payment_rate_grado), 0),
         maestria1: items.reduce((sum, item) => sum + Number(item.payment_rate_maestria_1), 0),
@@ -87,6 +98,7 @@ export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summar
       rows.push({
         class_days: days,
         class_schedule: schedule,
+        class_duration: items[0]?.class_duration || 0,
         rowSpan: isFirstRow ? sortedScheduleEntries.length : 0, // Solo la primera fila tiene rowSpan
         totals,
         isFirstRow,
@@ -102,12 +114,13 @@ export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summar
       <Table className="">
         <TableHeader>
           <TableRow>
-            <TableHead>Días</TableHead>
-            <TableHead className="text-center">Horario</TableHead>
-            <TableHead className="text-center">Grado</TableHead>
-            <TableHead className="text-center">1 Maestría</TableHead>
-            <TableHead className="text-center">2 Maestrías</TableHead>
-            <TableHead className="text-center">Doctor</TableHead>
+            <TableHead></TableHead>
+            <TableHead className="text-center"></TableHead>
+            <TableHead className="text-center"></TableHead>
+            <TableHead className="text-center border-l-1 border-r-1 border-gray-200">Grado</TableHead>
+            <TableHead className="text-center border-r-1 border-gray-200">1 Maestría</TableHead>
+            <TableHead className="text-center border-r-1 border-gray-200">2 Maestrías</TableHead>
+            <TableHead className="text-center border-r-1 border-gray-200">Doctor</TableHead>
             <TableHead className="text-center">Bilingüe</TableHead>
           </TableRow>
         </TableHeader>
@@ -119,24 +132,67 @@ export const PaymentSummaryBlock: React.FC<PaymentSummaryBlockProps> = ({ summar
               </TableCell>
             </TableRow>
           ) : (
-            rows.map((row, index) => (
-              <TableRow key={index}>
-                {row.rowSpan > 0 ? (
-                  <TableCell
-                    className="font-medium align-top border-r-1 border-gray-200 min-w-[175px]"
-                    rowSpan={row.rowSpan}
-                  >
-                    {row.class_days}
-                  </TableCell>
-                ) : null}
-                <TableCell className="text-center min-w-[100px] border-r-1 border-gray-200">{row.class_schedule}</TableCell>
-                <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.grado}</TableCell>
-                <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.maestria1}</TableCell>
-                <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.maestria2}</TableCell>
-                <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.doctor}</TableCell>
-                <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.bilingue}</TableCell>
+            <>
+              {/* Fila de tarifas */}
+              <TableRow>
+                <TableCell className="border-r-1 border-gray-200">
+                  Días</TableCell>
+                <TableCell className="text-center border-r-1 border-gray-200">
+                  Horario
+                </TableCell>
+                <TableCell className="text-center border-r-1 border-gray-200">
+                  Duración
+                </TableCell>
+                <TableCell className="bg-blue-50 text-center max-w-[75px] min-w-[75px]">
+                  <div className="flex items-center justify-center gap-1">
+                    $ {ratesByLevel["GDO"]?.toFixed(2) || "0.00"}
+                  </div>
+                </TableCell>
+                <TableCell className="bg-blue-50  text-center max-w-[75px] min-w-[75px]">
+                  <div className="flex items-center justify-center gap-1">
+                    $ {ratesByLevel["M1"]?.toFixed(2) || "0.00"}
+                  </div>
+                </TableCell>
+                <TableCell className="bg-blue-50 text-center max-w-[75px] min-w-[75px]">
+                  <div className="flex items-center justify-center gap-1">
+                    $ {ratesByLevel["M2"]?.toFixed(2) || "0.00"}
+                  </div>
+                </TableCell>
+                <TableCell className="bg-blue-50  text-center max-w-[75px] min-w-[75px]">
+                  <div className="flex items-center justify-center gap-1">
+                    $ {ratesByLevel["DR"]?.toFixed(2) || "0.00"}
+                  </div>
+                </TableCell>
+                <TableCell className="bg-blue-50  text-center max-w-[75px] min-w-[75px]">
+                  <div className="flex items-center justify-center gap-1">
+                    $ {ratesByLevel["BLG"]?.toFixed(2) || "0.00"}
+                  </div>
+                </TableCell>
               </TableRow>
-            ))
+              {/* Filas de datos */}
+              {rows.map((row, index) => (
+                <TableRow key={index}>
+                  {row.rowSpan > 0 ? (
+                    <TableCell
+                      className="font-medium align-top border-r-1 border-gray-200 min-w-[175px]"
+                      rowSpan={row.rowSpan}
+                    >
+                      {row.class_days}
+                    </TableCell>
+                  ) : null}
+                  <TableCell className="text-center min-w-[100px] border-r-1 border-gray-200">{row.class_schedule}</TableCell>
+
+                  <TableCell className="text-center min-w-[100px] border-r-1 border-gray-200">
+                    {row.class_duration}
+                  </TableCell>
+                  <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.grado}</TableCell>
+                  <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.maestria1}</TableCell>
+                  <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.maestria2}</TableCell>
+                  <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.doctor}</TableCell>
+                  <TableCell className="text-center max-w-[75px] min-w-[75px]">{row.totals.bilingue}</TableCell>
+                </TableRow>
+              ))}
+            </>
           )}
         </TableBody>
       </Table>

@@ -673,6 +673,17 @@ export interface BillingReportMonthlyItem {
   total_dollars: number;
 }
 
+export interface BillingReportRateSnapshot {
+  id: number;
+  billing_report_id: number;
+  academic_level_id: number;
+  academic_level_code: string;
+  academic_level_name: string;
+  rate_per_hour: number;
+  reference_date: string;
+  created_at: string;
+}
+
 export interface BillingReport {
   id: number;
   academic_load_file_id: number;
@@ -684,6 +695,7 @@ export interface BillingReport {
   updated_at?: string | null;
   payment_summaries: BillingReportPaymentSummary[];
   monthly_items: BillingReportMonthlyItem[];
+  rate_snapshots: BillingReportRateSnapshot[];
 }
 
 export interface BillingReportCreate {

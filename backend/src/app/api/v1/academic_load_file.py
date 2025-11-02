@@ -1062,6 +1062,7 @@ async def generate_and_save_billing_report(
         BillingReportCreate,
         MonthlyItemCreate,
         PaymentSummaryCreate,
+        RateSnapshotCreate,
     )
 
     # Verificar que el archivo existe
@@ -1089,6 +1090,7 @@ async def generate_and_save_billing_report(
     # Preparar datos para el reporte
     payment_summaries = []
     monthly_items = []
+    rate_snapshots_dict = {}  # Dictionary para evitar duplicados: (level_id, reference_date) -> snapshot
 
     for (class_days, class_schedule, class_duration), class_list in grouped_classes.items():
         # Calcular resumen de tasas de pago por nivel para este bloque
@@ -1155,6 +1157,18 @@ async def generate_and_save_billing_report(
                             Decimal(payment_rate_sum) * Decimal(hourly_rate.rate_per_hour) * total_class_hours
                         )
 
+                        # Capturar snapshot de tarifa (si no existe ya)
+                        snapshot_key = (level_id, month_date)
+                        if snapshot_key not in rate_snapshots_dict:
+                            # academic_level ya está cargado por lazy="selectin"
+                            rate_snapshots_dict[snapshot_key] = RateSnapshotCreate(
+                                academic_level_id=level_id,
+                                academic_level_code=hourly_rate.academic_level.code,
+                                academic_level_name=hourly_rate.academic_level.name,
+                                rate_per_hour=hourly_rate.rate_per_hour,
+                                reference_date=month_date,
+                            )
+
             monthly_items.append(
                 MonthlyItemCreate(
                     class_days=class_days,
@@ -1175,6 +1189,7 @@ async def generate_and_save_billing_report(
         academic_load_file_id=file_id,
         payment_summaries=payment_summaries,
         monthly_items=monthly_items,
+        rate_snapshots=list(rate_snapshots_dict.values()),
     )
 
     user_id = current_user.get("user_uuid", "")

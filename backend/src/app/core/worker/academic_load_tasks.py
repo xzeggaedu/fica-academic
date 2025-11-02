@@ -1,7 +1,7 @@
 """Background tasks para procesamiento de carga académica."""
 
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +66,36 @@ def extract_duration(duration_str: str | int | float) -> int:
         return int(num)
 
     return 0
+
+
+def calculate_duration_from_schedule(time_range: str) -> int:
+    """Calcula la duración en minutos desde un rango de horario.
+
+    Args:
+        time_range: String con formato "HH:MM-HH:MM" (ej: "08:00-09:30")
+
+    Returns:
+        Duración en minutos como int, o 0 si no se puede calcular
+    """
+    time_range = str(time_range).strip()
+    if "00:00-23:59" in time_range or "-" not in time_range:
+        return 0
+    try:
+        start_str, end_str = time_range.split("-")
+        start_time = datetime.strptime(start_str.strip(), "%H:%M")
+        end_time = datetime.strptime(end_str.strip(), "%H:%M")
+
+        if end_time <= start_time:
+            duration = (
+                (datetime.strptime("23:59", "%H:%M") - start_time)
+                + (end_time - datetime.strptime("00:00", "%H:%M"))
+                + timedelta(minutes=1)
+            )
+        else:
+            duration = end_time - start_time
+        return int(duration.total_seconds() / 60)
+    except Exception:
+        return 0
 
 
 async def validate_row_data(db, row_data: dict, strict_mode: bool = False) -> tuple[bool, list[str]]:
@@ -485,8 +515,22 @@ def map_excel_row_to_class_data(row: dict, file_id: int, validation_status: str,
             # Campos numéricos
             class_data[model_field] = int(excel_value) if pd.notna(excel_value) and excel_value != "" else 0
         elif model_field == "class_duration":
-            # Duración usa extract_duration
-            class_data[model_field] = extract_duration(excel_value)
+            # Duración usa extract_duration, pero si está vacío, calcular desde horario (solo para P o E.L.)
+            duration_value = extract_duration(excel_value)
+            if duration_value == 0:
+                # Intentar calcular desde HORARIO si TIPO es P o E.L.
+                class_type = row.get("TIPO", "")
+                if isinstance(class_type, str) and class_type.strip().upper() in ["P", "EL"]:
+                    schedule = row.get("HORARIO", "")
+                    if schedule and isinstance(schedule, str):
+                        calculated_duration = calculate_duration_from_schedule(schedule)
+                        class_data[model_field] = calculated_duration if calculated_duration else 0
+                    else:
+                        class_data[model_field] = 0
+                else:
+                    class_data[model_field] = 0
+            else:
+                class_data[model_field] = duration_value
         elif model_field == "professor_payment_rate":
             # Campo decimal para tasa de pago (ej: 1.0 = 100%, 0.5 = 50%)
             class_data[model_field] = float(excel_value) if pd.notna(excel_value) and excel_value != "" else 0.0

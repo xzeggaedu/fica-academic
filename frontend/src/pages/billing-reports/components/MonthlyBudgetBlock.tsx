@@ -114,26 +114,33 @@ export const MonthlyBudgetBlock: React.FC<MonthlyBudgetBlockProps> = ({ items })
         return (
           <div key={monthYear} className="flex-shrink-0">
             <div className="rounded-md">
-              <h2>{monthYear}</h2>
               <Table className="max-w-[500px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">Sesiones</TableHead>
-                    <TableHead className="text-right">Tiempo Real (min)</TableHead>
-                    <TableHead className="text-right">Total Horas Clase</TableHead>
-                    <TableHead className="text-right">Total en Dólares</TableHead>
+                    <TableHead colSpan={4} className="
+                      text-center
+                      font-semibold
+                      uppercase
+                      border-t-1
+                      border-r-1
+                      border-gray-200">{monthYear}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  <TableRow>
+                    <TableCell className="text-right border-r-1 border-gray-200">Sesiones</TableCell>
+                    <TableCell className="text-right border-r-1 border-gray-200">Tiempo Real (min)</TableCell>
+                    <TableCell className="text-right border-r-1 border-gray-200">Total Horas Clase</TableCell>
+                    <TableCell className="text-right border-r-1 border-gray-200">Total en Dólares</TableCell>
+                  </TableRow>
                   {rows.map((row, index) => (
                     <TableRow key={index}>
-                      <TableCell className="text-right">{row.sessions}</TableCell>
-                      <TableCell className="text-right">{row.real_time_minutes}</TableCell>
-                      <TableCell className="text-right">{row.total_class_hours.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-semibold">
+                      <TableCell className="text-center">{row.sessions}</TableCell>
+                      <TableCell className="text-center">{row.real_time_minutes}</TableCell>
+                      <TableCell className="text-center">{row.total_class_hours.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-semibold border-r-1 border-gray-200">
                         <div className="flex items-center justify-end gap-1">
-                          <DollarSign className="w-4 h-4" />
-                          {row.total_dollars.toFixed(2)}
+                          $ {row.total_dollars.toFixed(2)}
                         </div>
                       </TableCell>
                     </TableRow>

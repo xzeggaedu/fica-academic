@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import uuid as uuid_pkg
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -72,6 +72,13 @@ class BillingReport(Base):
     )
     monthly_items: Mapped[list[BillingReportMonthlyItem]] = relationship(
         "BillingReportMonthlyItem",
+        back_populates="billing_report",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        init=False,
+    )
+    rate_snapshots: Mapped[list[BillingReportRateSnapshot]] = relationship(
+        "BillingReportRateSnapshot",
         back_populates="billing_report",
         cascade="all, delete-orphan",
         lazy="selectin",
@@ -223,6 +230,72 @@ class BillingReportMonthlyItem(Base):
             "class_duration",
             "year",
             "month",
+            unique=True,
+        ),
+    )
+
+
+class BillingReportRateSnapshot(Base):
+    """Modelo para snapshot inmutable de tarifas usadas en el reporte.
+
+    Este modelo almacena las tarifas por hora clase que fueron vigentes en el momento
+    de generar el reporte, para cada nivel académico y mes. Esto asegura que el
+    reporte sea inmutable y no cambie aunque se actualicen las tarifas posteriormente.
+
+    Attributes
+    ----------
+    id: Identificador único
+    billing_report_id: Referencia al reporte padre
+    academic_level_id: ID del nivel académico
+    academic_level_code: Código del nivel (snapshot para referencia)
+    academic_level_name: Nombre del nivel (snapshot para referencia)
+    rate_per_hour: Tarifa por hora clase usada en el cálculo
+    reference_date: Fecha de referencia para la tarifa (primer día del mes)
+    """
+
+    __tablename__ = "billing_report_rate_snapshots"
+
+    # Referencia al reporte padre
+    billing_report_id: Mapped[int] = mapped_column(
+        ForeignKey("billing_reports.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    # Información del nivel académico (snapshot)
+    academic_level_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    academic_level_code: Mapped[str] = mapped_column(String(10), nullable=False)
+    academic_level_name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    # Tarifa snapshot
+    rate_per_hour: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+
+    # Fecha de referencia (primer día del mes)
+    reference_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, default=func.now()
+    )
+
+    # Clave Primaria (al final para evitar problemas con dataclasses)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, init=False)
+
+    # Relaciones
+    billing_report: Mapped[BillingReport] = relationship(
+        "BillingReport", back_populates="rate_snapshots", lazy="selectin", init=False
+    )
+
+    def __repr__(self):
+        return (
+            f"<BillingReportRateSnapshot(id={self.id}, billing_report_id={self.billing_report_id}, "
+            f"level_code={self.academic_level_code}, rate=${self.rate_per_hour})>"
+        )
+
+    __table_args__ = (
+        Index(
+            "ix_billing_report_rate_snapshot_unique",
+            "billing_report_id",
+            "academic_level_id",
+            "reference_date",
             unique=True,
         ),
     )

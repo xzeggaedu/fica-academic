@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid as uuid_pkg
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
@@ -117,6 +117,7 @@ class BillingReportCreate(BillingReportBase):
         default_factory=list, description="Resúmenes de tasas de pago"
     )
     monthly_items: list[MonthlyItemCreate] = Field(default_factory=list, description="Items mensuales")
+    rate_snapshots: list[RateSnapshotCreate] = Field(default_factory=list, description="Snapshots de tarifas usadas")
 
 
 class BillingReportUpdate(BaseModel):
@@ -143,6 +144,9 @@ class BillingReportResponse(BillingReportBase):
         default_factory=list, description="Resúmenes de tasas de pago"
     )
     monthly_items: list[MonthlyItemResponse] = Field(default_factory=list, description="Items mensuales")
+    rate_snapshots: list[RateSnapshotResponse] = Field(
+        default_factory=list, description="Snapshots de tarifas usadas en el cálculo"
+    )
 
     class Config:
         from_attributes = True
@@ -157,6 +161,38 @@ class BillingReportListItem(BaseModel):
     is_edited: bool = Field(..., description="Si el reporte ha sido editado")
     created_at: datetime = Field(..., description="Fecha de creación")
     updated_at: datetime | None = Field(None, description="Fecha de última actualización")
+
+    class Config:
+        from_attributes = True
+
+
+# --------------------------------------------------------------------------------
+# Schemas para RateSnapshot (snapshot inmutable de tarifas)
+# --------------------------------------------------------------------------------
+
+
+class RateSnapshotBase(BaseModel):
+    """Schema base para snapshot de tarifa."""
+
+    academic_level_id: int = Field(..., description="ID del nivel académico")
+    academic_level_code: str = Field(..., description="Código del nivel académico")
+    academic_level_name: str = Field(..., description="Nombre del nivel académico")
+    rate_per_hour: Decimal = Field(..., description="Tarifa por hora clase usada en el cálculo")
+    reference_date: date = Field(..., description="Fecha de referencia para la tarifa")
+
+
+class RateSnapshotCreate(RateSnapshotBase):
+    """Schema para crear un snapshot de tarifa."""
+
+    pass
+
+
+class RateSnapshotResponse(RateSnapshotBase):
+    """Schema de respuesta para snapshot de tarifa."""
+
+    id: int = Field(..., description="ID único del snapshot")
+    billing_report_id: int = Field(..., description="ID del reporte padre")
+    created_at: datetime = Field(..., description="Fecha de creación del snapshot")
 
     class Config:
         from_attributes = True

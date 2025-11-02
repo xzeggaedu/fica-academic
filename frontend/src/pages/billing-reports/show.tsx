@@ -54,10 +54,10 @@ export const BillingReportShow: React.FC = () => {
           </CardHeader>
           <CardContent>
           <div className="overflow-x-auto">
-          <div className="flex gap-4 min-w-max">
+          <div className="flex min-w-max">
             {/* Resumen de tasas - sticky a la izquierda */}
             <div className="flex-shrink-0">
-              <PaymentSummaryBlock summaries={report.payment_summaries} />
+              <PaymentSummaryBlock summaries={report.payment_summaries} rateSnapshots={report.rate_snapshots} />
             </div>
 
             {/* Meses con scroll horizontal */}

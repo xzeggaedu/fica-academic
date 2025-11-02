@@ -3,7 +3,12 @@
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.billing_report import BillingReport, BillingReportMonthlyItem, BillingReportPaymentSummary
+from ..models.billing_report import (
+    BillingReport,
+    BillingReportMonthlyItem,
+    BillingReportPaymentSummary,
+    BillingReportRateSnapshot,
+)
 from ..schemas.billing_report import BillingReportCreate, BillingReportUpdate
 
 
@@ -57,6 +62,18 @@ class BillingReportCRUD:
                 total_dollars=monthly_item.total_dollars,
             )
             db.add(db_monthly_item)
+
+        # Crear rate snapshots
+        for rate_snapshot in obj_in.rate_snapshots:
+            db_rate_snapshot = BillingReportRateSnapshot(
+                billing_report_id=db_obj.id,
+                academic_level_id=rate_snapshot.academic_level_id,
+                academic_level_code=rate_snapshot.academic_level_code,
+                academic_level_name=rate_snapshot.academic_level_name,
+                rate_per_hour=rate_snapshot.rate_per_hour,
+                reference_date=rate_snapshot.reference_date,
+            )
+            db.add(db_rate_snapshot)
 
         await db.commit()
         await db.refresh(db_obj)
