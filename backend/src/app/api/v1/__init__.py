@@ -8,6 +8,7 @@ from .catalog_coordination import router as catalog_coordination_router
 from .catalog_professor import router as catalog_professor_router
 from .catalog_schedule_time import router as catalog_schedule_time_router
 from .catalog_subject import router as catalog_subject_router
+from .dashboard import router as dashboard_router
 from .faculties import router as faculties_router
 from .fixed_holiday_rule import router as fixed_holiday_rule_router
 from .holiday import router as holiday_router
@@ -46,3 +47,4 @@ router.include_router(catalog_professor_router)
 router.include_router(catalog_coordination_router)
 router.include_router(recycle_bin_router)
 router.include_router(template_generation_router, prefix="/template-generation", tags=["template-generation"])
+router.include_router(dashboard_router, tags=["dashboards"])

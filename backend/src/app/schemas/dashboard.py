@@ -1,0 +1,81 @@
+"""Schemas para el Dashboard del Director."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+
+class DashboardContext(BaseModel):
+    term_id: int
+    term_term: int | None = None
+    term_year: int | None = None
+    school_id: int
+    school_acronym: str | None = None
+    file_id_selected: int | None = None
+    file_versions: list[dict] = Field(default_factory=list)
+
+
+class DashboardKPIs(BaseModel):
+    has_billing_report: bool = False
+    total_hours: float = 0.0
+    total_dollars: float = 0.0
+    paid_groups_full: int = 0
+    paid_groups_partial: int = 0
+    paid_groups_none: int = 0
+    coverage_rate: float = 0.0
+
+
+class HeatmapPoint(BaseModel):
+    day: str
+    schedule: str
+    hours: float
+    dollars: float
+
+
+class StackedByScheduleItem(BaseModel):
+    schedule: str
+    GDO: float = 0.0
+    M1: float = 0.0
+    M2: float = 0.0
+    DR: float = 0.0
+    BLG: float = 0.0
+
+
+class MonthlyTrendItem(BaseModel):
+    month: str
+    sessions: int
+    hours: float
+    dollars: float
+
+
+class TopBlockItem(BaseModel):
+    class_days: str
+    class_schedule: str
+    class_duration: int
+    hours: float
+    dollars: float
+    GDO: float = 0.0
+    M1: float = 0.0
+    M2: float = 0.0
+    DR: float = 0.0
+    BLG: float = 0.0
+
+
+class RecentLoad(BaseModel):
+    file_id: int
+    version: int
+    ingestion_status: str
+    upload_date: datetime
+    has_billing_report: bool
+
+
+class DirectorDashboardResponse(BaseModel):
+    context: DashboardContext
+    kpis: DashboardKPIs
+    charts: dict = Field(default_factory=dict)
+    tables: dict = Field(default_factory=dict)
+
+    class Config:
+        json_encoders = {float: lambda v: float(v)}

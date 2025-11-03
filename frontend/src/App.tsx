@@ -41,6 +41,7 @@ import { FixedHolidayRulesList } from "./pages/fixed-holiday-rules";
 import { AnnualHolidaysList } from "./pages/annual-holidays";
 import { AcademicLoadFilesList, AcademicLoadFileShow } from "./pages/academic-load-files";
 import { BillingReportShow, ConsolidatedBillingReportShow } from "./pages/billing-reports";
+import { DirectorDashboard } from "./pages/director-dashboard";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -64,6 +65,19 @@ function App() {
                   accessControlProvider={accessControlProvider}
                   resources={[
                     // Top-level resources in order: Academic Planning, then Catalogs
+                    {
+                      name: "dashboards",
+                      meta: { label: "Dashboards", group: true },
+                    },
+                    {
+                      name: "dashboards-director",
+                      list: "/director/dashboard",
+                      meta: {
+                        label: "Dashboard Director",
+                        parent: "dashboards",
+                        icon: "Activity",
+                      },
+                    },
                     {
                       name: "academic-planning",
                       meta: {
@@ -290,6 +304,9 @@ function App() {
                         <Route path="holidays" element={<HolidaysList />} />
                         <Route path="fixed-holiday-rules" element={<FixedHolidayRulesList />} />
                         <Route path="annual-holidays/:holidayId" element={<AnnualHolidaysList />} />
+                      </Route>
+                      <Route path="/director">
+                        <Route path="dashboard" element={<DirectorDashboard />} />
                       </Route>
                       <Route path="/billing-reports">
                         <Route path="show/:id" element={<BillingReportShow />} />
