@@ -87,8 +87,29 @@ export const UnifiedReportTable: React.FC<UnifiedReportTableProps> = ({ summarie
         return getScheduleStartTime(a.schedule).localeCompare(getScheduleStartTime(b.schedule));
     });
 
-    // Obtener lista de meses ordenados
-    const sortedMonths = Object.keys(groupedByMonth).sort();
+    // Obtener lista de meses ordenados cronológicamente
+    const sortedMonths = Object.keys(groupedByMonth).sort((a, b) => {
+        // Extraer año y mes de las claves "month_name year"
+        const [monthNameA, yearA] = a.split(' ');
+        const [monthNameB, yearB] = b.split(' ');
+
+        const yearAInt = parseInt(yearA, 10);
+        const yearBInt = parseInt(yearB, 10);
+
+        // Ordenar por año primero
+        if (yearAInt !== yearBInt) {
+            return yearAInt - yearBInt;
+        }
+
+        // Luego ordenar por mes
+        const monthOrder: Record<string, number> = {
+            'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
+            'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
+            'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
+        };
+
+        return monthOrder[monthNameA.toLowerCase()] - monthOrder[monthNameB.toLowerCase()];
+    });
 
     // Agrupar schedules por días para calcular rowSpan
     const schedulesByDays: Record<string, Array<{ days: string; schedule: string; duration: number }>> = {};
