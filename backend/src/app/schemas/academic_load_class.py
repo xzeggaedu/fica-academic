@@ -27,7 +27,14 @@ class AcademicLoadClassBase(BaseModel):
     professor_raw_cont: str | None = Field(None, description="Raw data del profesor")
     professor_phone: str | None = Field(None, description="Teléfono del profesor")
     professor_id: str | None = Field(None, description="ID del profesor")
-    professor_category: str | None = Field(None, description="Categoría del profesor")
+    professor_category: str | None = Field(
+        None,
+        description=(
+            "Categoría del profesor: DEC (Decano), DIR (Director), "
+            "COOR (Coordinador), DTC (Docente Tiempo Completo), "
+            "ADM (Administrativo), DHC (Docente Honorario)"
+        ),
+    )
     professor_payment_rate: Decimal = Field(0.0, description="Tasa de pago del profesor (ej: 1.0 = 100%, 0.5 = 50%)")
     professor_is_doctor: bool = Field(False, description="Si el profesor tiene título de doctor")
     professor_profile: str | None = Field(None, description="Perfil del profesor")

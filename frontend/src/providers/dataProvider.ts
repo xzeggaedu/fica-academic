@@ -654,7 +654,7 @@ export const dataProvider: DataProvider = {
 
         return {
           data: response.data as any[],
-          total: response.total || 0,
+          total: response.total_count || 0,
         };
       }
 

@@ -5,8 +5,11 @@ export interface DirectorDashboardResponse {
     term_id: number;
     term_term?: number | null;
     term_year?: number | null;
-    school_id: number;
+    school_id?: number | null;
     school_acronym?: string | null;
+    faculty_id?: number | null;
+    school_ids?: number[] | null;
+    school_acronyms?: string[] | null;
     file_id_selected?: number | null;
     file_versions: Array<{
       file_id: number;
@@ -42,10 +45,11 @@ export interface DirectorDashboardResponse {
   };
 }
 
-export const useDirectorDashboard = (termId: number | null, fileId?: number | null) => {
+export const useDirectorDashboard = (termId: number | null, fileId?: number | null, compareTermId?: number | null) => {
   const queryString = new URLSearchParams();
   if (termId) queryString.append("term_id", String(termId));
   if (fileId) queryString.append("file_id", String(fileId));
+  if (compareTermId) queryString.append("compare_term_id", String(compareTermId));
 
   const { query, result } = useCustom<DirectorDashboardResponse>({
     url: `/api/v1/dashboards/director?${queryString.toString()}`,

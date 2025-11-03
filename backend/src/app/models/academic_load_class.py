@@ -42,7 +42,7 @@ class AcademicLoadClass(Base):
         professor_raw_cont: Raw data del profesor
         professor_phone: Teléfono del profesor
         professor_id: ID del profesor
-        professor_category: Categoría del profesor
+        professor_category: Categoría del profesor (DEC, DIR, COOR, DTC, ADM, DHC)
         professor_payment_rate: Tasa de pago del profesor (ej: 1.0 = 100%, 0.5 = 50%)
         professor_is_doctor: Si el profesor tiene título de doctor
         professor_profile: Perfil del profesor

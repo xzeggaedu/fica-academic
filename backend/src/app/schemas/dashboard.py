@@ -11,8 +11,11 @@ class DashboardContext(BaseModel):
     term_id: int
     term_term: int | None = None
     term_year: int | None = None
-    school_id: int
+    school_id: int | None = None  # Para director
     school_acronym: str | None = None
+    faculty_id: int | None = None  # Para decano
+    school_ids: list[int] | None = None  # Para decano (consolidado)
+    school_acronyms: list[str] | None = None  # Para decano (consolidado)
     file_id_selected: int | None = None
     file_versions: list[dict] = Field(default_factory=list)
 
@@ -71,11 +74,38 @@ class RecentLoad(BaseModel):
     has_billing_report: bool
 
 
+class SectionsByModalityItem(BaseModel):
+    """Item para comparativo por modalidad."""
+
+    modality: str  # "Presenciales", "En Línea", "Virtuales"
+    cycle_current: int = 0  # Ciclo actual
+    cycle_compare: int = 0  # Ciclo comparado
+
+
+class SectionsBySchoolItem(BaseModel):
+    """Item para secciones por escuela."""
+
+    school_acronym: str
+    modality: str
+    cycle_current: int = 0
+    cycle_compare: int = 0
+
+
+class CategoryPaymentItem(BaseModel):
+    """Item para tabla de categorías por estado de pago."""
+
+    category: str  # DEC, DIR, CAT/COOR, DTC, ADM, DHC
+    pag: int = 0  # PAG (professor_payment_rate = 1.0)
+    no_pag: int = 0  # NO PAG (professor_payment_rate = 0.0)
+    par: int = 0  # PAR (professor_payment_rate > 0.0 and < 1.0)
+
+
 class DirectorDashboardResponse(BaseModel):
     context: DashboardContext
     kpis: DashboardKPIs
     charts: dict = Field(default_factory=dict)
     tables: dict = Field(default_factory=dict)
+    comparison: dict | None = None
 
     class Config:
         json_encoders = {float: lambda v: float(v)}

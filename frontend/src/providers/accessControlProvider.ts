@@ -432,6 +432,18 @@ export const accessControlProvider: AccessControlProvider = {
               return { can: false, reason: "Acción no permitida" };
           }
 
+        case "dashboards-director":
+          if (userRole === UserRoleEnum.DIRECTOR || canAccessAdminFeatures(userRole)) {
+            return { can: true };
+          }
+          return { can: false, reason: "Solo directores pueden ver este dashboard" };
+
+        case "dashboards-decano":
+          if (userRole === UserRoleEnum.DECANO || canAccessAdminFeatures(userRole)) {
+            return { can: true };
+          }
+          return { can: false, reason: "Solo decanos pueden ver este dashboard" };
+
         default:
           // Para otros recursos, permitir acceso básico a usuarios autenticados
           if (action === "list" || action === "show") {

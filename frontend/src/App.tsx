@@ -42,6 +42,7 @@ import { AnnualHolidaysList } from "./pages/annual-holidays";
 import { AcademicLoadFilesList, AcademicLoadFileShow } from "./pages/academic-load-files";
 import { BillingReportShow, ConsolidatedBillingReportShow } from "./pages/billing-reports";
 import { DirectorDashboard } from "./pages/director-dashboard";
+import { DecanoDashboard } from "./pages/decano-dashboard";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -74,6 +75,15 @@ function App() {
                       list: "/director/dashboard",
                       meta: {
                         label: "Dashboard Director",
+                        parent: "dashboards",
+                        icon: "Activity",
+                      },
+                    },
+                    {
+                      name: "dashboards-decano",
+                      list: "/decano/dashboard",
+                      meta: {
+                        label: "Dashboard Decano",
                         parent: "dashboards",
                         icon: "Activity",
                       },
@@ -307,6 +317,9 @@ function App() {
                       </Route>
                       <Route path="/director">
                         <Route path="dashboard" element={<DirectorDashboard />} />
+                      </Route>
+                      <Route path="/decano">
+                        <Route path="dashboard" element={<DecanoDashboard />} />
                       </Route>
                       <Route path="/billing-reports">
                         <Route path="show/:id" element={<BillingReportShow />} />
