@@ -88,6 +88,34 @@ class BillingReport(Base):
     # Clave Primaria (al final para evitar problemas con dataclasses)
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, init=False)
 
+    @property
+    def term_term(self) -> int | None:
+        """Obtener el número del ciclo desde academic_load_file.term."""
+        if hasattr(self, "academic_load_file") and self.academic_load_file and self.academic_load_file.term:
+            return self.academic_load_file.term.term
+        return None
+
+    @property
+    def term_year(self) -> int | None:
+        """Obtener el año del ciclo desde academic_load_file.term."""
+        if hasattr(self, "academic_load_file") and self.academic_load_file and self.academic_load_file.term:
+            return self.academic_load_file.term.year
+        return None
+
+    @property
+    def faculty_name(self) -> str | None:
+        """Obtener el nombre de la facultad desde academic_load_file.faculty."""
+        if hasattr(self, "academic_load_file") and self.academic_load_file and self.academic_load_file.faculty:
+            return self.academic_load_file.faculty.name
+        return None
+
+    @property
+    def school_name(self) -> str | None:
+        """Obtener el nombre de la escuela desde academic_load_file.school."""
+        if hasattr(self, "academic_load_file") and self.academic_load_file and self.academic_load_file.school:
+            return self.academic_load_file.school.name
+        return None
+
     def __repr__(self):
         return (
             f"<BillingReport(id={self.id}, academic_load_file_id={self.academic_load_file_id}, "

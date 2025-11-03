@@ -6,10 +6,9 @@ import { Unauthorized } from "../unauthorized";
 import {
   BillingReportBreadcrumbs,
   BillingReportHeader,
-  PaymentSummaryBlock,
-  MonthlyBudgetBlock,
+  UnifiedReportTable,
 } from "./components";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 export const BillingReportShow: React.FC = () => {
   const params = useParams<{ id: string }>();
@@ -21,6 +20,8 @@ export const BillingReportShow: React.FC = () => {
   });
   const { data, isLoading } = query;
   const report = data?.data;
+
+  console.log(report);
 
   if (isLoading) {
     return (
@@ -45,29 +46,19 @@ export const BillingReportShow: React.FC = () => {
       fallback={<Unauthorized />}
     >
       <div className="container mx-auto py-6 space-y-6 max-w-[98%]">
-        <BillingReportBreadcrumbs />
+        <BillingReportBreadcrumbs academicLoadFileId={report.academic_load_file_id} />
 
         <BillingReportHeader report={report} />
-        <Card>
-          <CardHeader>
-            <CardTitle>Resumen de Tasas</CardTitle>
-          </CardHeader>
-          <CardContent>
-          <div className="overflow-x-auto">
-          <div className="flex min-w-max">
-            {/* Resumen de tasas - sticky a la izquierda */}
-            <div className="flex-shrink-0">
-              <PaymentSummaryBlock summaries={report.payment_summaries} rateSnapshots={report.rate_snapshots} />
-            </div>
 
-            {/* Meses con scroll horizontal */}
-            <MonthlyBudgetBlock items={report.monthly_items} />
-          </div>
-        </div>
+        <Card>
+          <CardContent>
+            <UnifiedReportTable
+              summaries={report.payment_summaries}
+              monthlyItems={report.monthly_items}
+              rateSnapshots={report.rate_snapshots}
+            />
           </CardContent>
         </Card>
-        {/* Layout horizontal con scroll */}
-
       </div>
     </CanAccess>
   );

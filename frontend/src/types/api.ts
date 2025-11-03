@@ -696,6 +696,10 @@ export interface BillingReport {
   payment_summaries: BillingReportPaymentSummary[];
   monthly_items: BillingReportMonthlyItem[];
   rate_snapshots: BillingReportRateSnapshot[];
+  term_term?: number | null;
+  term_year?: number | null;
+  faculty_name?: string | null;
+  school_name?: string | null;
 }
 
 export interface BillingReportCreate {

@@ -21,39 +21,55 @@ export const BillingReportHeader: React.FC<BillingReportHeaderProps> = ({ report
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-blue-100">
-              <Receipt className="w-6 h-6 text-blue-600" />
-            </div>
+        <div className="flex items-start justify-between gap-10">
+          <div className="flex items-start gap-3 border-r-1 border-gray-200 pr-10">
+            <Receipt className="w-16 h-16 text-blue-600" />
             <div>
-              <CardTitle className="text-xl">Planilla de Facturación</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
+              <CardTitle className="text-xl">Planilla</CardTitle>
+              {report.faculty_name && (
+                <div className="text-sm font-bold">
+                  {report.faculty_name}
+                </div>
+              )}
+              {report.school_name && (
+                <div className="text-sm">
+                  {report.school_name}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mt-1 max-w-md">
                 Generada el {format(new Date(report.created_at), "PPP 'a las' HH:mm", { locale: es })}
               </p>
             </div>
           </div>
-          {getStatusBadge()}
+          <div className="flex-1">
+            <div className="text-sm mb-1 flex items-center gap-1">
+              <div className="font-bold w-30">Generado por:</div> {report.user_name}
+            </div>
+            {report.term_term && report.term_year && (
+              <div className="text-sm mb-1 flex items-center gap-1">
+                <div className="font-bold w-30">Ciclo:</div> {String(report.term_term).padStart(2, '0')}/{report.term_year}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end">
+            {getStatusBadge()}
+          </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <p className="text-sm text-muted-foreground">Generado por</p>
-            <p className="text-sm font-medium">{report.user_name}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">ID de Carga</p>
-            <p className="text-sm font-medium">{report.academic_load_file_id}</p>
-          </div>
-          {report.notes && (
+      {report.notes && (
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+
             <div className="col-span-full">
               <p className="text-sm text-muted-foreground">Notas</p>
               <p className="text-sm">{report.notes}</p>
             </div>
-          )}
-        </div>
-      </CardContent>
+
+          </div>
+        </CardContent>
+      )}
     </Card>
   );
 };

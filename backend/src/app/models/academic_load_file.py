@@ -55,9 +55,9 @@ class AcademicLoadFile(Base):
 
     # Relaciones
     user: Mapped[User] = relationship("User", init=False)
-    faculty: Mapped[Faculty] = relationship("Faculty", init=False)
-    school: Mapped[School] = relationship("School", init=False)
-    term: Mapped[Term] = relationship("Term", init=False)
+    faculty: Mapped[Faculty] = relationship("Faculty", lazy="selectin", init=False)
+    school: Mapped[School] = relationship("School", lazy="selectin", init=False)
+    term: Mapped[Term] = relationship("Term", lazy="selectin", init=False)
 
     def __repr__(self):
         return f"<AcademicLoadFile(id={self.id}, faculty_id={self.faculty_id}, school_id={self.school_id})>"

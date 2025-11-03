@@ -5,8 +5,12 @@ from __future__ import annotations
 import uuid as uuid_pkg
 from datetime import date, datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    pass
 
 # --------------------------------------------------------------------------------
 # Schemas para PaymentSummary (resumen de tasas por nivel)
@@ -147,6 +151,10 @@ class BillingReportResponse(BillingReportBase):
     rate_snapshots: list[RateSnapshotResponse] = Field(
         default_factory=list, description="Snapshots de tarifas usadas en el cálculo"
     )
+    term_term: int | None = Field(None, description="Número del ciclo (ej: 1, 2, 3)")
+    term_year: int | None = Field(None, description="Año del ciclo académico (ej: 2025)")
+    faculty_name: str | None = Field(None, description="Nombre de la facultad")
+    school_name: str | None = Field(None, description="Nombre de la escuela")
 
     class Config:
         from_attributes = True
