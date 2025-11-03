@@ -240,7 +240,7 @@ function App() {
                     warnWhenUnsavedChanges: true,
                     projectId: "z38lBH-XJNI10-KyIM9Y",
                     title: {
-                      text: "Fica Academics 1.0",
+                      text: "Academics 1.0 | UTEC",
                     },
                   }}
                 >
