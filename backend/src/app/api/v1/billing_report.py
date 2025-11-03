@@ -1,9 +1,11 @@
 """API endpoints for Billing Report management."""
 
 import uuid as uuid_pkg
+from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,9 +15,19 @@ from ...core.rbac_scope import get_user_scope_filters, user_has_access_to_school
 from ...crud.academic_load_file import academic_load_file
 from ...crud.crud_billing_report import billing_report as crud_billing_report
 from ...models.academic_load_file import AcademicLoadFile
-from ...models.billing_report import BillingReport
+from ...models.billing_report import (
+    BillingReport,
+)
 from ...models.role import UserRoleEnum
-from ...schemas.billing_report import BillingReportCreate, BillingReportResponse, BillingReportUpdate
+from ...schemas.billing_report import (
+    BillingReportCreate,
+    BillingReportResponse,
+    BillingReportUpdate,
+    ConsolidatedBillingReportResponse,
+    MonthlyItemResponse,
+    PaymentSummaryResponse,
+    RateSnapshotResponse,
+)
 
 router = APIRouter()
 
@@ -259,3 +271,216 @@ async def delete_billing_report(
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
 
     await crud_billing_report.delete(db=db, id=report_id)
+
+
+@router.get("/consolidated/term/{term_id}", response_model=ConsolidatedBillingReportResponse)
+async def get_consolidated_billing_reports_by_term(
+    term_id: int,
+    academic_load_file_ids: str = Query(..., description="Comma-separated list of academic_load_file IDs"),
+    current_user: Annotated[dict, Depends(get_current_user)] = None,
+    db: AsyncSession = Depends(async_get_db),
+) -> ConsolidatedBillingReportResponse:
+    """Obtener consolidado de planillas por ciclo académico.
+
+    Consolida los datos de múltiples cargas académicas del mismo ciclo,
+    agrupando payment_summaries y monthly_items.
+
+    Solo accesible para DECANO, que debe tener acceso a todas las escuelas de las cargas.
+
+    Args:
+        term_id: ID del ciclo académico
+        academic_load_file_ids: Comma-separated list of academic_load_file IDs
+        current_user: Usuario autenticado
+        db: Sesión de base de datos
+
+    Returns:
+        Reporte consolidado con datos agregados
+
+    Raises:
+        HTTPException: 403 si no tiene permisos, 404 si no hay planillas
+    """
+    # Parsear IDs
+    try:
+        file_ids = [int(id.strip()) for id in academic_load_file_ids.split(",") if id.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="IDs de carga académica inválidos")
+
+    if not file_ids:
+        raise HTTPException(status_code=400, detail="Debe proporcionar al menos un ID de carga académica")
+
+    # Verificar permisos
+    user_role = current_user.get("role")
+    user_id = current_user.get("user_uuid")
+
+    if isinstance(user_role, str):
+        user_role = UserRoleEnum(user_role)
+
+    # Solo DECANO puede ver consolidados
+    if user_role != UserRoleEnum.DECANO:
+        raise HTTPException(status_code=403, detail="Solo los decanos pueden ver consolidados")
+
+    # Verificar que el decano tiene acceso a todas las escuelas de las cargas
+    user_uuid = uuid_pkg.UUID(user_id) if user_id else None
+    if not user_uuid:
+        raise HTTPException(status_code=401, detail="Usuario no autenticado")
+
+    # Obtener scope del decano (faculty_id)
+    scope = await get_user_scope_filters(db=db, user_uuid=user_uuid, user_role=user_role)
+    if not scope.get("faculty_id"):
+        raise HTTPException(status_code=403, detail="Decano sin facultad asignada")
+
+    faculty_id = scope["faculty_id"]
+
+    # Obtener todas las cargas académicas y verificar que pertenecen a la facultad del decano
+    stmt = select(AcademicLoadFile).filter(AcademicLoadFile.id.in_(file_ids))
+    result = await db.execute(stmt)
+    files = result.scalars().all()
+
+    if len(files) != len(file_ids):
+        raise HTTPException(status_code=404, detail="Algunas cargas académicas no fueron encontradas")
+
+    # Verificar que todas pertenecen a la facultad del decano
+    school_ids = set()
+    valid_file_ids = []
+    school_acronyms = []
+    faculty_name = None
+    term_info = None
+
+    for file in files:
+        # Verificar que la escuela pertenece a la facultad del decano
+        if file.faculty_id != faculty_id:
+            raise HTTPException(status_code=403, detail=f"La carga académica {file.id} no pertenece a tu facultad")
+
+        # Verificar que el término coincide
+        if file.term_id != term_id:
+            raise HTTPException(status_code=400, detail=f"La carga académica {file.id} no pertenece al ciclo {term_id}")
+
+        valid_file_ids.append(file.id)
+        school_ids.add(file.school_id)
+
+        if not faculty_name and file.faculty:
+            faculty_name = file.faculty.name
+
+        if not term_info and file.term:
+            term_info = file.term
+
+        # Obtener acrónimo de la escuela
+        if file.school and file.school.acronym not in school_acronyms:
+            school_acronyms.append(file.school.acronym)
+
+    # Obtener todas las planillas de los archivos válidos
+    stmt = select(BillingReport).filter(BillingReport.academic_load_file_id.in_(valid_file_ids))
+    result = await db.execute(stmt)
+    reports = result.scalars().all()
+
+    if not reports:
+        raise HTTPException(status_code=404, detail="No se encontraron planillas para las cargas especificadas")
+
+    # Consolidar payment_summaries
+    # Agrupar por (class_days, class_schedule, class_duration) y sumar valores
+    consolidated_summaries_dict: dict[tuple[str, str, int], dict] = {}
+
+    for report in reports:
+        for summary in report.payment_summaries:
+            key = (summary.class_days, summary.class_schedule, summary.class_duration)
+            if key not in consolidated_summaries_dict:
+                consolidated_summaries_dict[key] = {
+                    "class_days": summary.class_days,
+                    "class_schedule": summary.class_schedule,
+                    "class_duration": summary.class_duration,
+                    "payment_rate_grado": Decimal("0.0"),
+                    "payment_rate_maestria_1": Decimal("0.0"),
+                    "payment_rate_maestria_2": Decimal("0.0"),
+                    "payment_rate_doctor": Decimal("0.0"),
+                    "payment_rate_bilingue": Decimal("0.0"),
+                }
+
+            consolidated_summaries_dict[key]["payment_rate_grado"] += summary.payment_rate_grado
+            consolidated_summaries_dict[key]["payment_rate_maestria_1"] += summary.payment_rate_maestria_1
+            consolidated_summaries_dict[key]["payment_rate_maestria_2"] += summary.payment_rate_maestria_2
+            consolidated_summaries_dict[key]["payment_rate_doctor"] += summary.payment_rate_doctor
+            consolidated_summaries_dict[key]["payment_rate_bilingue"] += summary.payment_rate_bilingue
+
+    consolidated_summaries = [
+        PaymentSummaryResponse(
+            id=0,  # No es un item guardado
+            billing_report_id=0,
+            **data,
+        )
+        for data in consolidated_summaries_dict.values()
+    ]
+
+    # Consolidar monthly_items
+    # Agrupar por (class_days, class_schedule, class_duration, year, month) y sumar valores
+    consolidated_monthly_dict: dict[tuple[str, str, int, int, int], dict] = {}
+
+    for report in reports:
+        for item in report.monthly_items:
+            key = (item.class_days, item.class_schedule, item.class_duration, item.year, item.month)
+            if key not in consolidated_monthly_dict:
+                consolidated_monthly_dict[key] = {
+                    "class_days": item.class_days,
+                    "class_schedule": item.class_schedule,
+                    "class_duration": item.class_duration,
+                    "year": item.year,
+                    "month": item.month,
+                    "month_name": item.month_name,
+                    "sessions": 0,
+                    "real_time_minutes": 0,
+                    "total_class_hours": Decimal("0.0"),
+                    "total_dollars": Decimal("0.0"),
+                }
+
+            consolidated_monthly_dict[key]["sessions"] += item.sessions
+            consolidated_monthly_dict[key]["real_time_minutes"] += item.real_time_minutes
+            consolidated_monthly_dict[key]["total_class_hours"] += item.total_class_hours
+            consolidated_monthly_dict[key]["total_dollars"] += item.total_dollars
+
+    consolidated_monthly = [
+        MonthlyItemResponse(
+            id=0,  # No es un item guardado
+            billing_report_id=0,
+            **data,
+        )
+        for data in consolidated_monthly_dict.values()
+    ]
+
+    # Consolidar rate_snapshots (sin duplicados, tomar el primero de cada academic_level_code)
+    consolidated_snapshots_dict: dict[str, RateSnapshotResponse] = {}
+
+    for report in reports:
+        for snapshot in report.rate_snapshots:
+            if snapshot.academic_level_code not in consolidated_snapshots_dict:
+                consolidated_snapshots_dict[snapshot.academic_level_code] = RateSnapshotResponse(
+                    id=0,  # No es un item guardado
+                    billing_report_id=0,
+                    academic_level_id=snapshot.academic_level_id,
+                    academic_level_code=snapshot.academic_level_code,
+                    academic_level_name=snapshot.academic_level_name,
+                    rate_per_hour=snapshot.rate_per_hour,
+                    reference_date=snapshot.reference_date,
+                    created_at=snapshot.created_at,
+                )
+
+    consolidated_snapshots = list(consolidated_snapshots_dict.values())
+
+    # Crear respuesta consolidada
+    return ConsolidatedBillingReportResponse(
+        id=0,  # No es un reporte guardado
+        academic_load_file_id=valid_file_ids[0] if valid_file_ids else None,
+        consolidated_from_file_ids=valid_file_ids,
+        school_acronyms=school_acronyms,
+        user_id=user_uuid,
+        user_name=current_user.get("name", ""),
+        is_edited=False,
+        notes=f"Consolidado de {len(valid_file_ids)} cargas académicas",
+        created_at=datetime.now(UTC),
+        updated_at=None,
+        payment_summaries=consolidated_summaries,
+        monthly_items=consolidated_monthly,
+        rate_snapshots=consolidated_snapshots,
+        term_term=term_info.term if term_info else None,
+        term_year=term_info.year if term_info else None,
+        faculty_name=faculty_name,
+        school_name=None,  # Se usa school_acronyms en su lugar
+    )

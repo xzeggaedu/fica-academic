@@ -174,6 +174,18 @@ class BillingReportListItem(BaseModel):
         from_attributes = True
 
 
+class ConsolidatedBillingReportResponse(BillingReportResponse):
+    """Schema para reporte consolidado.
+
+    Usa el mismo formato que BillingReportResponse pero representa datos consolidados de múltiples cargas académicas.
+    """
+
+    consolidated_from_file_ids: list[int] = Field(
+        default_factory=list, description="IDs de las cargas académicas consolidadas"
+    )
+    school_acronyms: list[str] = Field(default_factory=list, description="Acrónimos de las escuelas consolidadas")
+
+
 # --------------------------------------------------------------------------------
 # Schemas para RateSnapshot (snapshot inmutable de tarifas)
 # --------------------------------------------------------------------------------

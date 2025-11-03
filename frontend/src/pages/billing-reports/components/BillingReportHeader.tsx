@@ -8,9 +8,13 @@ import { es } from "date-fns/locale";
 
 interface BillingReportHeaderProps {
   report: BillingReport;
+  isConsolidated?: boolean;
 }
 
-export const BillingReportHeader: React.FC<BillingReportHeaderProps> = ({ report }) => {
+export const BillingReportHeader: React.FC<BillingReportHeaderProps> = ({
+  report,
+  isConsolidated = false
+}) => {
   const getStatusBadge = () => {
     if (report.is_edited) {
       return <Badge variant="secondary">Editada</Badge>;
@@ -21,27 +25,37 @@ export const BillingReportHeader: React.FC<BillingReportHeaderProps> = ({ report
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between gap-10">
+        <div className="flex items-stretch justify-between gap-10">
           <div className="flex items-start gap-3 border-r-1 border-gray-200 pr-10">
             <Receipt className="w-16 h-16 text-blue-600" />
             <div>
-              <CardTitle className="text-xl">Planilla</CardTitle>
+              <CardTitle className="text-xl">
+                {isConsolidated ? "Consolidado de Planillas" : "Planilla"}
+              </CardTitle>
               {report.faculty_name && (
                 <div className="text-sm font-bold">
                   {report.faculty_name}
                 </div>
               )}
-              {report.school_name && (
+              {isConsolidated && report.school_acronyms && report.school_acronyms.length > 0 ? (
+                <div className="text-sm mt-1 flex flex-wrap gap-1">
+                  {report.school_acronyms.map((acronym, index) => (
+                    <Badge key={index} variant="secondary" className="font-mono">
+                      {acronym}
+                    </Badge>
+                  ))}
+                </div>
+              ) : report.school_name && (
                 <div className="text-sm">
                   {report.school_name}
                 </div>
               )}
               <p className="text-xs text-muted-foreground mt-1 max-w-md">
-                Generada el {format(new Date(report.created_at), "PPP 'a las' HH:mm", { locale: es })}
+                {isConsolidated ? "Consolidado" : "Generada"} el {format(new Date(report.created_at), "PPP 'a las' HH:mm", { locale: es })}
               </p>
             </div>
           </div>
-          <div className="flex-1">
+          <div className="border-r-1 border-gray-200 pr-10">
             <div className="text-sm mb-1 flex items-center gap-1">
               <div className="font-bold w-30">Generado por:</div> {report.user_name}
             </div>
@@ -51,25 +65,20 @@ export const BillingReportHeader: React.FC<BillingReportHeaderProps> = ({ report
               </div>
             )}
           </div>
-
+          {report.notes && (
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 self-start">
+              <div className="col-span-full">
+                <p className="text-sm text-muted-foreground">Notas</p>
+                <p className="text-sm">{report.notes}</p>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-end">
             {getStatusBadge()}
           </div>
         </div>
       </CardHeader>
-      {report.notes && (
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-
-            <div className="col-span-full">
-              <p className="text-sm text-muted-foreground">Notas</p>
-              <p className="text-sm">{report.notes}</p>
-            </div>
-
-          </div>
-        </CardContent>
-      )}
     </Card>
   );
 };

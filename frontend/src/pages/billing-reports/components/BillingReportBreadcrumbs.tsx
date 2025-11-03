@@ -4,11 +4,47 @@ import { Home } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 interface BillingReportBreadcrumbsProps {
-  academicLoadFileId?: number;
+  academicLoadFileId?: number | null;
+  isConsolidated?: boolean;
 }
 
-export const BillingReportBreadcrumbs: React.FC<BillingReportBreadcrumbsProps> = ({ academicLoadFileId }) => {
+export const BillingReportBreadcrumbs: React.FC<BillingReportBreadcrumbsProps> = ({
+  academicLoadFileId,
+  isConsolidated = false
+}) => {
   const navigate = useNavigate();
+
+  // Si es consolidado, solo mostrar hasta "Carga Académica"
+  if (isConsolidated) {
+    return (
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink>
+              <Link to="/academic-planning/academic-load-files"
+                className="cursor-pointer text-xs">
+                Planificación Académica
+              </Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink
+              onClick={() => navigate("/academic-planning/academic-load-files")}
+              className="cursor-pointer text-xs"
+            >
+              Carga Académica
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="text-xs">Consolidado de Planillas</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    );
+  }
+
   return (
     <Breadcrumb>
       <BreadcrumbList>

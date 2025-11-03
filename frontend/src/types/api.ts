@@ -700,6 +700,9 @@ export interface BillingReport {
   term_year?: number | null;
   faculty_name?: string | null;
   school_name?: string | null;
+  // Campos adicionales para consolidado
+  consolidated_from_file_ids?: number[];
+  school_acronyms?: string[];
 }
 
 export interface BillingReportCreate {
