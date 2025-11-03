@@ -573,27 +573,29 @@ export const DecanoDashboard: React.FC = () => {
                 <section className="grid md:grid-cols-3 gap-4">
                     {/* Gráfico Comparativo por Modalidad */}
                     {charts.comparative_sections && charts.comparative_sections.length > 0 && (
-                    <Card>
+                    <Card className="flex flex-col h-full">
                         <CardHeader>
                             <CardTitle>Comparativo</CardTitle>
                             <p className="text-xs text-muted-foreground">
                                 Comparación del número de secciones por modalidad entre dos ciclos académicos.
                             </p>
                         </CardHeader>
-                        <CardContent>
-                            <ComparativeSectionsChart
-                                data={charts.comparative_sections}
-                                cycleLabel1={
-                                    data.comparison?.compare?.term_label
-                                        ? data.comparison.compare.term_label
-                                        : "Ciclo anterior"
-                                }
-                                cycleLabel2={
-                                    data.comparison?.base?.term_label
-                                        ? data.comparison.base.term_label
-                                        : "Ciclo actual"
-                                }
-                            />
+                        <CardContent className="flex flex-col flex-1">
+                            <div className="flex-1">
+                                <ComparativeSectionsChart
+                                    data={charts.comparative_sections}
+                                    cycleLabel1={
+                                        data.comparison?.compare?.term_label
+                                            ? data.comparison.compare.term_label
+                                            : "Ciclo anterior"
+                                    }
+                                    cycleLabel2={
+                                        data.comparison?.base?.term_label
+                                            ? data.comparison.base.term_label
+                                            : "Ciclo actual"
+                                    }
+                                />
+                            </div>
                             <p className="text-[11px] text-muted-foreground mt-2">
                                 <span className="font-bold">Nota:</span> Muestra el número de secciones por modalidad
                                 (Presenciales, En Línea, Virtuales) comparando dos ciclos académicos para identificar
@@ -605,27 +607,29 @@ export const DecanoDashboard: React.FC = () => {
 
                 {/* Gráfico Secciones por Escuela */}
                 {charts.sections_by_school && charts.sections_by_school.length > 0 && (
-                    <Card>
+                    <Card className="flex flex-col h-full">
                         <CardHeader>
                             <CardTitle>Secciones por Escuela</CardTitle>
                             <p className="text-xs text-muted-foreground">
                                 Número de secciones por modalidad desglosadas por escuela.
                             </p>
                         </CardHeader>
-                        <CardContent>
-                            <SectionsBySchoolChart
-                                data={charts.sections_by_school}
-                                cycleLabel1={
-                                    data.comparison?.compare?.term_label
-                                        ? data.comparison.compare.term_label
-                                        : "Ciclo anterior"
-                                }
-                                cycleLabel2={
-                                    data.comparison?.base?.term_label
-                                        ? data.comparison.base.term_label
-                                        : "Ciclo actual"
-                                }
-                            />
+                        <CardContent className="flex flex-col flex-1">
+                            <div className="flex-1">
+                                <SectionsBySchoolChart
+                                    data={charts.sections_by_school}
+                                    cycleLabel1={
+                                        data.comparison?.compare?.term_label
+                                            ? data.comparison.compare.term_label
+                                            : "Ciclo anterior"
+                                    }
+                                    cycleLabel2={
+                                        data.comparison?.base?.term_label
+                                            ? data.comparison.base.term_label
+                                            : "Ciclo actual"
+                                    }
+                                />
+                            </div>
                             <p className="text-[11px] text-muted-foreground mt-2">
                                 <span className="font-bold">Nota:</span> Visualiza la distribución de secciones por
                                 modalidad en cada escuela de la facultad, permitiendo comparar cómo se distribuyen las

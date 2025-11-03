@@ -85,81 +85,83 @@ export const CategoryPaymentTable: React.FC<CategoryPaymentTableProps> = ({ data
     );
 
     return (
-        <Card>
+        <Card className="flex flex-col h-full">
             <CardHeader>
                 <CardTitle>Categorías por Estado de Pago</CardTitle>
                 <p className="text-xs text-muted-foreground">
                     Resumen de categorías de profesores por estado de pago.
                 </p>
             </CardHeader>
-            <CardContent>
-                {/* Selector de escuela */}
-                <div className="flex justify-end">
-                    {schools.length > 0 && (
-                        <Select value={selectedSchool} onValueChange={setSelectedSchool}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Seleccionar escuela" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="CONSOLIDADO">Consolidado</SelectItem>
-                                {schools.map((school) => (
-                                    <SelectItem key={school} value={school}>
-                                        {school}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-                </div>
-                {/* Gráfico Doughnut con los totales */}
-                {totals.pag + totals.no_pag + totals.par > 0 && (
-                    <div className="mb-0 flex justify-center w-full">
-                        <div className="flex-1" style={{ minWidth: "300px", maxWidth: "400px" }}>
-                            <SimpleDoughnutChart
-                                data={[
-                                    { name: "PAG", value: totals.pag },
-                                    { name: "NO PAG", value: totals.no_pag },
-                                    { name: "PAR", value: totals.par },
-                                ]}
-                                colors={["#22c55e", "#ef4444", "#f59e0b"]} // Verde para PAG, Rojo para NO PAG, Naranja para PAR
-                                showTooltip={true}
-                                showLabels={true}
-                                width="100%"
-                                height={300}
-                            />
-                        </div>
+            <CardContent className="flex flex-col flex-1">
+                <div className="flex-1">
+                    {/* Selector de escuela */}
+                    <div className="flex justify-end">
+                        {schools.length > 0 && (
+                            <Select value={selectedSchool} onValueChange={setSelectedSchool}>
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Seleccionar escuela" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="CONSOLIDADO">Consolidado</SelectItem>
+                                    {schools.map((school) => (
+                                        <SelectItem key={school} value={school}>
+                                            {school}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </div>
-                )}
+                    {/* Gráfico Doughnut con los totales */}
+                    {totals.pag + totals.no_pag + totals.par > 0 && (
+                        <div className="mb-0 flex justify-center w-full">
+                            <div className="flex-1" style={{ minWidth: "300px", maxWidth: "400px" }}>
+                                <SimpleDoughnutChart
+                                    data={[
+                                        { name: "PAG", value: totals.pag },
+                                        { name: "NO PAG", value: totals.no_pag },
+                                        { name: "PAR", value: totals.par },
+                                    ]}
+                                    colors={["#22c55e", "#ef4444", "#f59e0b"]} // Verde para PAG, Rojo para NO PAG, Naranja para PAR
+                                    showTooltip={true}
+                                    showLabels={true}
+                                    width="100%"
+                                    height={300}
+                                />
+                            </div>
+                        </div>
+                    )}
 
-                {/* Tabla */}
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="font-semibold">CATEGORIA</TableHead>
-                                <TableHead className="text-center">PAG</TableHead>
-                                <TableHead className="text-center">NO PAG</TableHead>
-                                <TableHead className="text-center">PAR</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {selectedData.map((item) => (
-                                <TableRow key={item.category}>
-                                    <TableCell className="font-medium">{item.category}</TableCell>
-                                    <TableCell className="text-center">{item.pag}</TableCell>
-                                    <TableCell className="text-center">{item.no_pag}</TableCell>
-                                    <TableCell className="text-center">{item.par}</TableCell>
+                    {/* Tabla */}
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="font-semibold">CATEGORIA</TableHead>
+                                    <TableHead className="text-center">PAG</TableHead>
+                                    <TableHead className="text-center">NO PAG</TableHead>
+                                    <TableHead className="text-center">PAR</TableHead>
                                 </TableRow>
-                            ))}
-                            {/* Fila de totales */}
-                            <TableRow className="font-bold">
-                                <TableCell>Total</TableCell>
-                                <TableCell className="text-center">{totals.pag}</TableCell>
-                                <TableCell className="text-center">{totals.no_pag}</TableCell>
-                                <TableCell className="text-center">{totals.par}</TableCell>
-                            </TableRow>
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {selectedData.map((item) => (
+                                    <TableRow key={item.category}>
+                                        <TableCell className="font-medium">{item.category}</TableCell>
+                                        <TableCell className="text-center">{item.pag}</TableCell>
+                                        <TableCell className="text-center">{item.no_pag}</TableCell>
+                                        <TableCell className="text-center">{item.par}</TableCell>
+                                    </TableRow>
+                                ))}
+                                {/* Fila de totales */}
+                                <TableRow className="font-bold">
+                                    <TableCell>Total</TableCell>
+                                    <TableCell className="text-center">{totals.pag}</TableCell>
+                                    <TableCell className="text-center">{totals.no_pag}</TableCell>
+                                    <TableCell className="text-center">{totals.par}</TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
+                    </div>
                 </div>
 
                 {/* Nota */}

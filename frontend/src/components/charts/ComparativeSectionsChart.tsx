@@ -44,7 +44,7 @@ export const ComparativeSectionsChart: React.FC<ComparativeSectionsChartProps> =
   });
 
   const option = {
-    grid: { top: 30, left: 40, right: 30, bottom: 50, containLabel: true },
+    grid: { top: 40, left: 40, right: 30, bottom: 80, containLabel: true },
     legend: {
       data: modalities,
       bottom: 10,
