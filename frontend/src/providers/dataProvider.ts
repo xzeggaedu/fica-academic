@@ -637,9 +637,20 @@ export const dataProvider: DataProvider = {
       case "billing-reports": {
         const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
         const pageSize = pagination?.pageSize || 10;
-        const response = await apiRequest<PaginatedResponse<any>>(
-          `${ENDPOINTS.BILLING_REPORTS}/?skip=${(current - 1) * pageSize}&limit=${pageSize}`
-        );
+
+        // Verificar si hay filtro por academic_load_file_id
+        const fileIdFilter = filters?.find((f: any) => f.field === "academic_load_file_id" && f.operator === "eq");
+
+        let url: string;
+        if (fileIdFilter?.value) {
+          // Usar endpoint específico para obtener reportes por archivo
+          url = `${ENDPOINTS.BILLING_REPORTS}/file/${fileIdFilter.value}?skip=${(current - 1) * pageSize}&limit=${pageSize}`;
+        } else {
+          // Usar endpoint general
+          url = `${ENDPOINTS.BILLING_REPORTS}/?skip=${(current - 1) * pageSize}&limit=${pageSize}`;
+        }
+
+        const response = await apiRequest<PaginatedResponse<any>>(url);
 
         return {
           data: response.data as any[],

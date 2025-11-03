@@ -1,13 +1,20 @@
 """API endpoints for Billing Report management."""
 
+import uuid as uuid_pkg
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_current_user
 from ...core.db.database import async_get_db
+from ...core.rbac_scope import get_user_scope_filters, user_has_access_to_school
+from ...crud.academic_load_file import academic_load_file
 from ...crud.crud_billing_report import billing_report as crud_billing_report
+from ...models.academic_load_file import AcademicLoadFile
+from ...models.billing_report import BillingReport
+from ...models.role import UserRoleEnum
 from ...schemas.billing_report import BillingReportCreate, BillingReportResponse, BillingReportUpdate
 
 router = APIRouter()
@@ -64,9 +71,43 @@ async def list_billing_reports(
         limit: Límite de registros a retornar
 
     Returns:
-        Lista de reportes
+        Lista de reportes filtrados por alcance del usuario
     """
-    reports = await crud_billing_report.get_multi(db, skip=skip, limit=limit)
+    user_role = current_user.get("role")
+    user_id = current_user.get("user_uuid")
+
+    if isinstance(user_role, str):
+        user_role = UserRoleEnum(user_role)
+
+    # ADMIN y VICERRECTOR ven todos
+    if user_role in [UserRoleEnum.ADMIN, UserRoleEnum.VICERRECTOR]:
+        reports = await crud_billing_report.get_multi(db, skip=skip, limit=limit)
+    else:
+        # Obtener alcance del usuario
+        user_uuid = uuid_pkg.UUID(user_id) if user_id else None
+        scope = (
+            await get_user_scope_filters(db=db, user_uuid=user_uuid, user_role=user_role)
+            if user_uuid
+            else {"faculty_id": None, "school_ids": None}
+        )
+
+        # Construir query con join a AcademicLoadFile para filtrar por scope
+        stmt = (
+            select(BillingReport)
+            .join(AcademicLoadFile, BillingReport.academic_load_file_id == AcademicLoadFile.id)
+            .offset(skip)
+            .limit(limit)
+        )
+
+        # Aplicar filtros por alcance
+        if user_role == UserRoleEnum.DECANO and scope.get("faculty_id"):
+            stmt = stmt.filter(AcademicLoadFile.faculty_id == scope["faculty_id"])
+        elif user_role == UserRoleEnum.DIRECTOR and scope.get("school_ids"):
+            stmt = stmt.filter(AcademicLoadFile.school_id.in_(scope["school_ids"]))
+
+        result = await db.execute(stmt)
+        reports = result.scalars().all()
+
     # Convertir a schemas Pydantic
     reports_data = [BillingReportResponse.model_validate(r) for r in reports]
     return {"data": reports_data, "total": len(reports_data)}
@@ -91,7 +132,30 @@ async def list_billing_reports_by_file(
 
     Returns:
         Lista de reportes
+
+    Raises:
+        HTTPException: 404 si el archivo no existe, 403 si no tiene acceso
     """
+    # Verificar que el archivo existe
+    file = await academic_load_file.get(db, id=academic_load_file_id)
+    if not file:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+
+    # Verificar permisos: director debe tener acceso a la escuela del archivo
+    user_role = current_user.get("role")
+    user_id = current_user.get("user_uuid")
+
+    if isinstance(user_role, str):
+        user_role = UserRoleEnum(user_role)
+
+    if user_role == UserRoleEnum.DIRECTOR:
+        user_uuid = uuid_pkg.UUID(user_id) if user_id else None
+        has_access = await user_has_access_to_school(
+            db=db, user_uuid=user_uuid, user_role=user_role, school_id=file.school_id
+        )
+        if not has_access:
+            raise HTTPException(status_code=403, detail="No tienes acceso a esta escuela")
+
     reports = await crud_billing_report.get_by_file_id(
         db, academic_load_file_id=academic_load_file_id, skip=skip, limit=limit
     )
@@ -116,11 +180,32 @@ async def get_billing_report(
         Reporte con todos sus items
 
     Raises:
-        HTTPException: 404 si el reporte no existe
+        HTTPException: 404 si el reporte no existe, 403 si no tiene acceso
     """
     report = await crud_billing_report.get(db, id=report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
+
+    # Verificar permisos: director debe tener acceso a la escuela del archivo asociado
+    user_role = current_user.get("role")
+    user_id = current_user.get("user_uuid")
+
+    if isinstance(user_role, str):
+        user_role = UserRoleEnum(user_role)
+
+    if user_role == UserRoleEnum.DIRECTOR:
+        # Obtener el archivo asociado al reporte
+        file = await academic_load_file.get(db, id=report.academic_load_file_id)
+        if not file:
+            raise HTTPException(status_code=404, detail="Archivo asociado no encontrado")
+
+        user_uuid = uuid_pkg.UUID(user_id) if user_id else None
+        has_access = await user_has_access_to_school(
+            db=db, user_uuid=user_uuid, user_role=user_role, school_id=file.school_id
+        )
+        if not has_access:
+            raise HTTPException(status_code=403, detail="No tienes acceso a este reporte")
+
     return report
 
 

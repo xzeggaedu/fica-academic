@@ -71,17 +71,7 @@ export const useBillingReports = (fileId?: number) => {
   });
 
   // Hook de eliminación
-  const deleteHook = useDelete({
-    mutationOptions: {
-      onSuccess: () => {
-        toast.success("Reporte eliminado exitosamente");
-        invalidate({ invalidates: ["list"], resource: "billing-reports" });
-      },
-      onError: (error: any) => {
-        toast.error(error?.response?.data?.detail || "Error al eliminar reporte");
-      },
-    },
-  });
+  const deleteHook = useDelete();
 
   const createMutation = createHook.mutate;
   const updateMutation = updateHook.mutate;
@@ -125,7 +115,14 @@ export const useBillingReports = (fileId?: number) => {
       });
 
       toast.success("Reporte generado exitosamente");
+
+      // Invalidar y refrescar la lista
       invalidate({ invalidates: ["list"], resource: "billing-reports" });
+      // Refrescar específicamente la lista filtrada por fileId si coincide
+      if (fileId === academicLoadFileId && query.refetch) {
+        await query.refetch();
+      }
+
       return response.data;
     } catch (error: any) {
       console.error("Error generating report:", error);

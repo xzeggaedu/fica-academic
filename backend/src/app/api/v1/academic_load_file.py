@@ -1070,6 +1070,21 @@ async def generate_and_save_billing_report(
     if not file:
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
 
+    # Verificar permisos: director debe tener acceso a la escuela del archivo
+    user_role = current_user.get("role")
+    user_id = current_user.get("user_uuid")
+
+    if isinstance(user_role, str):
+        user_role = UserRoleEnum(user_role)
+
+    if user_role == UserRoleEnum.DIRECTOR:
+        user_uuid = uuid_pkg.UUID(user_id) if user_id else None
+        has_access = await user_has_access_to_school(
+            db=db, user_uuid=user_uuid, user_role=user_role, school_id=file.school_id
+        )
+        if not has_access:
+            raise HTTPException(status_code=403, detail="No tienes acceso a esta escuela")
+
     # Obtener el término asociado
     term = await get_term(db, term_id=file.term_id)
     if not term:
