@@ -19,7 +19,7 @@ export const SimpleDoughnutChart: React.FC<SimpleDoughnutChartProps> = ({
   showLabels = false,
   width = 45,
   height = 45,
-  radius = ["55%", "100%"],
+  radius = ["55%", "95%"],
 }) => {
   const option: EChartsOption = {
     tooltip: showTooltip ? {
