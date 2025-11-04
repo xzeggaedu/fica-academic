@@ -100,6 +100,30 @@ class CategoryPaymentItem(BaseModel):
     par: int = 0  # PAR (professor_payment_rate > 0.0 and < 1.0)
 
 
+class MonthlyReportSchoolItem(BaseModel):
+    """Item para reporte mensual por escuela."""
+
+    school_acronym: str
+    july: float = 0.0
+    august: float = 0.0
+    september: float = 0.0
+    october: float = 0.0
+    november: float = 0.0
+    december: float = 0.0
+    total: float = 0.0
+
+
+class MonthlyReportByFaculty(BaseModel):
+    """Reporte mensual agrupado por facultad."""
+
+    faculty_id: int
+    faculty_name: str
+    faculty_acronym: str
+    schools: list[MonthlyReportSchoolItem] = Field(default_factory=list)
+    monthly_totals: dict[str, float] = Field(default_factory=dict)  # {"july": 0.0, ...}
+    monthly_differences: dict[str, float] = Field(default_factory=dict)  # Diferencia vs total esperado
+
+
 class DirectorDashboardResponse(BaseModel):
     context: DashboardContext
     kpis: DashboardKPIs

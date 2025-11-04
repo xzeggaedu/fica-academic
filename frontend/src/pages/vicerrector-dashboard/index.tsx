@@ -9,6 +9,7 @@ import { SimpleDoughnutChart } from "@/components/charts/SimpleDoughnutChart";
 import { ComparativeSectionsChart } from "@/components/charts/ComparativeSectionsChart";
 import { SectionsBySchoolChart } from "@/components/charts/SectionsBySchoolChart";
 import { CategoryPaymentTable } from "@/components/charts/CategoryPaymentTable";
+import { MonthlyReportByFacultyComponent } from "@/components/charts/MonthlyReportByFaculty";
 import { useVicerrectorDashboard } from "@/hooks/useVicerrectorDashboard";
 import { useSchoolsCrud } from "@/hooks/useSchoolsCrud";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
@@ -794,6 +795,20 @@ export const VicerrectorDashboard: React.FC = () => {
                     </Card>
                 )}
             </section>
+
+            {/* Reporte Mensual por Facultad */}
+            {showComparativeCharts && tables.monthly_report_by_faculty && tables.monthly_report_by_faculty.length > 0 && (
+                <section className="space-y-6">
+                    {(() => {
+                        // Filtrar por facultad si está seleccionada
+                        const filteredReports = facultyId
+                            ? tables.monthly_report_by_faculty.filter((report: any) => report.faculty_id === facultyId)
+                            : tables.monthly_report_by_faculty;
+
+                        return <MonthlyReportByFacultyComponent data={filteredReports} />;
+                    })()}
+                </section>
+            )}
         </div>
     );
 };

@@ -20,6 +20,8 @@ from ...schemas.dashboard import (
     DashboardKPIs,
     DirectorDashboardResponse,
     HeatmapPoint,
+    MonthlyReportByFaculty,
+    MonthlyReportSchoolItem,
     MonthlyTrendItem,
     RecentLoad,
     SectionsByModalityItem,
@@ -1086,6 +1088,139 @@ async def get_decano_dashboard(
 
     tables["category_payment"] = category_payment_by_school
 
+    # Reporte mensual por facultad (solo para vicerrector)
+    # Obtener todos los monthly_items de los reportes de facturación para las escuelas seleccionadas
+    from ...models.faculty import Faculty
+
+    monthly_report_data: dict[int, dict[str, dict[str, float]]] = {}  # {faculty_id: {school_acronym: {month: dollars}}}
+    faculty_info: dict[int, dict[str, str]] = {}  # {faculty_id: {"name": ..., "acronym": ...}}
+
+    # Obtener reportes de facturación para las escuelas seleccionadas
+    reports_stmt = (
+        select(BillingReport)
+        .join(AcademicLoadFile, BillingReport.academic_load_file_id == AcademicLoadFile.id)
+        .filter(
+            AcademicLoadFile.school_id.in_(target_school_ids),
+            AcademicLoadFile.term_id == term_id,
+            AcademicLoadFile.is_active.is_(True),
+        )
+        .order_by(desc(BillingReport.created_at))
+    )
+    reports_result = await db.execute(reports_stmt)
+    all_reports = reports_result.scalars().all()
+
+    # Obtener el reporte más reciente por archivo
+    reports_by_file: dict[int, BillingReport] = {}
+    for r in all_reports:
+        if r.academic_load_file_id not in reports_by_file:
+            reports_by_file[r.academic_load_file_id] = r
+
+    # Obtener archivos para mapear escuela -> facultad
+    files_stmt = (
+        select(AcademicLoadFile, School, Faculty)
+        .join(School, AcademicLoadFile.school_id == School.id)
+        .join(Faculty, School.fk_faculty == Faculty.id)
+        .filter(
+            AcademicLoadFile.school_id.in_(target_school_ids),
+            AcademicLoadFile.term_id == term_id,
+            AcademicLoadFile.is_active.is_(True),
+        )
+    )
+    files_result = await db.execute(files_stmt)
+    files_data = files_result.all()
+
+    # Mapeo de file_id -> (school_acronym, faculty_id, faculty_name, faculty_acronym)
+    file_to_info: dict[int, tuple[str, int, str, str]] = {}
+    for file_row, school_obj, faculty_obj in files_data:
+        file_to_info[file_row.id] = (
+            school_obj.acronym,
+            faculty_obj.id,
+            faculty_obj.name,
+            faculty_obj.acronym,
+        )
+
+    # Procesar monthly_items
+    month_map = {7: "july", 8: "august", 9: "september", 10: "october", 11: "november", 12: "december"}
+
+    for file_id, report in reports_by_file.items():
+        if file_id not in file_to_info:
+            continue
+
+        school_acronym, faculty_id, faculty_name, faculty_acronym = file_to_info[file_id]
+
+        # Inicializar estructuras si no existen
+        if faculty_id not in monthly_report_data:
+            monthly_report_data[faculty_id] = {}
+            faculty_info[faculty_id] = {"name": faculty_name, "acronym": faculty_acronym}
+
+        if school_acronym not in monthly_report_data[faculty_id]:
+            monthly_report_data[faculty_id][school_acronym] = {
+                "july": 0.0,
+                "august": 0.0,
+                "september": 0.0,
+                "october": 0.0,
+                "november": 0.0,
+                "december": 0.0,
+            }
+
+        # Sumar monthly_items
+        for mi in report.monthly_items:
+            if mi.month in month_map:
+                month_key = month_map[mi.month]
+                monthly_report_data[faculty_id][school_acronym][month_key] += float(mi.total_dollars)
+
+    # Construir MonthlyReportByFaculty
+    monthly_reports_by_faculty: list[MonthlyReportByFaculty] = []
+    for faculty_id, schools_data in monthly_report_data.items():
+        faculty_name = faculty_info[faculty_id]["name"]
+        faculty_acronym = faculty_info[faculty_id]["acronym"]
+
+        # Construir lista de escuelas
+        school_items: list[MonthlyReportSchoolItem] = []
+        for school_acronym, months_data in schools_data.items():
+            total = sum(months_data.values())
+            school_items.append(
+                MonthlyReportSchoolItem(
+                    school_acronym=school_acronym,
+                    july=months_data["july"],
+                    august=months_data["august"],
+                    september=months_data["september"],
+                    october=months_data["october"],
+                    november=months_data["november"],
+                    december=months_data["december"],
+                    total=total,
+                )
+            )
+
+        # Calcular totales mensuales para la facultad
+        monthly_totals = {
+            "july": sum(s.july for s in school_items),
+            "august": sum(s.august for s in school_items),
+            "september": sum(s.september for s in school_items),
+            "october": sum(s.october for s in school_items),
+            "november": sum(s.november for s in school_items),
+            "december": sum(s.december for s in school_items),
+        }
+
+        # Calcular diferencias (por ahora vacío, se puede usar para comparar con otro período)
+        monthly_differences = {}
+
+        monthly_reports_by_faculty.append(
+            MonthlyReportByFaculty(
+                faculty_id=faculty_id,
+                faculty_name=faculty_name,
+                faculty_acronym=faculty_acronym,
+                schools=school_items,
+                monthly_totals=monthly_totals,
+                monthly_differences=monthly_differences,
+            )
+        )
+
+    # Ordenar por faculty_id
+    monthly_reports_by_faculty.sort(key=lambda x: x.faculty_id)
+
+    tables["monthly_report_by_faculty"] = [mr.model_dump() for mr in monthly_reports_by_faculty]
+
     return DirectorDashboardResponse(context=context, kpis=kpis, charts=charts, tables=tables, comparison=comparison)
 
 
@@ -1731,5 +1866,138 @@ async def get_vicerrector_dashboard(
         )
 
     tables["category_payment"] = category_payment_by_school
+
+    # Reporte mensual por facultad (solo para vicerrector)
+    # Obtener todos los monthly_items de los reportes de facturación para las escuelas seleccionadas
+    from ...models.faculty import Faculty
+
+    monthly_report_data: dict[int, dict[str, dict[str, float]]] = {}  # {faculty_id: {school_acronym: {month: dollars}}}
+    faculty_info: dict[int, dict[str, str]] = {}  # {faculty_id: {"name": ..., "acronym": ...}}
+
+    # Obtener reportes de facturación para las escuelas seleccionadas
+    reports_stmt = (
+        select(BillingReport)
+        .join(AcademicLoadFile, BillingReport.academic_load_file_id == AcademicLoadFile.id)
+        .filter(
+            AcademicLoadFile.school_id.in_(target_school_ids),
+            AcademicLoadFile.term_id == term_id,
+            AcademicLoadFile.is_active.is_(True),
+        )
+        .order_by(desc(BillingReport.created_at))
+    )
+    reports_result = await db.execute(reports_stmt)
+    all_reports = reports_result.scalars().all()
+
+    # Obtener el reporte más reciente por archivo
+    reports_by_file: dict[int, BillingReport] = {}
+    for r in all_reports:
+        if r.academic_load_file_id not in reports_by_file:
+            reports_by_file[r.academic_load_file_id] = r
+
+    # Obtener archivos para mapear escuela -> facultad
+    files_stmt = (
+        select(AcademicLoadFile, School, Faculty)
+        .join(School, AcademicLoadFile.school_id == School.id)
+        .join(Faculty, School.fk_faculty == Faculty.id)
+        .filter(
+            AcademicLoadFile.school_id.in_(target_school_ids),
+            AcademicLoadFile.term_id == term_id,
+            AcademicLoadFile.is_active.is_(True),
+        )
+    )
+    files_result = await db.execute(files_stmt)
+    files_data = files_result.all()
+
+    # Mapeo de file_id -> (school_acronym, faculty_id, faculty_name, faculty_acronym)
+    file_to_info: dict[int, tuple[str, int, str, str]] = {}
+    for file_row, school_obj, faculty_obj in files_data:
+        file_to_info[file_row.id] = (
+            school_obj.acronym,
+            faculty_obj.id,
+            faculty_obj.name,
+            faculty_obj.acronym,
+        )
+
+    # Procesar monthly_items
+    month_map = {7: "july", 8: "august", 9: "september", 10: "october", 11: "november", 12: "december"}
+
+    for file_id, report in reports_by_file.items():
+        if file_id not in file_to_info:
+            continue
+
+        school_acronym, faculty_id, faculty_name, faculty_acronym = file_to_info[file_id]
+
+        # Inicializar estructuras si no existen
+        if faculty_id not in monthly_report_data:
+            monthly_report_data[faculty_id] = {}
+            faculty_info[faculty_id] = {"name": faculty_name, "acronym": faculty_acronym}
+
+        if school_acronym not in monthly_report_data[faculty_id]:
+            monthly_report_data[faculty_id][school_acronym] = {
+                "july": 0.0,
+                "august": 0.0,
+                "september": 0.0,
+                "october": 0.0,
+                "november": 0.0,
+                "december": 0.0,
+            }
+
+        # Sumar monthly_items
+        for mi in report.monthly_items:
+            if mi.month in month_map:
+                month_key = month_map[mi.month]
+                monthly_report_data[faculty_id][school_acronym][month_key] += float(mi.total_dollars)
+
+    # Construir MonthlyReportByFaculty
+    monthly_reports_by_faculty: list[MonthlyReportByFaculty] = []
+    for faculty_id, schools_data in monthly_report_data.items():
+        faculty_name = faculty_info[faculty_id]["name"]
+        faculty_acronym = faculty_info[faculty_id]["acronym"]
+
+        # Construir lista de escuelas
+        school_items: list[MonthlyReportSchoolItem] = []
+        for school_acronym, months_data in schools_data.items():
+            total = sum(months_data.values())
+            school_items.append(
+                MonthlyReportSchoolItem(
+                    school_acronym=school_acronym,
+                    july=months_data["july"],
+                    august=months_data["august"],
+                    september=months_data["september"],
+                    october=months_data["october"],
+                    november=months_data["november"],
+                    december=months_data["december"],
+                    total=total,
+                )
+            )
+
+        # Calcular totales mensuales para la facultad
+        monthly_totals = {
+            "july": sum(s.july for s in school_items),
+            "august": sum(s.august for s in school_items),
+            "september": sum(s.september for s in school_items),
+            "october": sum(s.october for s in school_items),
+            "november": sum(s.november for s in school_items),
+            "december": sum(s.december for s in school_items),
+        }
+
+        # Calcular diferencias (por ahora vacío, se puede usar para comparar con otro período)
+        monthly_differences = {}
+
+        monthly_reports_by_faculty.append(
+            MonthlyReportByFaculty(
+                faculty_id=faculty_id,
+                faculty_name=faculty_name,
+                faculty_acronym=faculty_acronym,
+                schools=school_items,
+                monthly_totals=monthly_totals,
+                monthly_differences=monthly_differences,
+            )
+        )
+
+    # Ordenar por faculty_id
+    monthly_reports_by_faculty.sort(key=lambda x: x.faculty_id)
+
+    tables["monthly_report_by_faculty"] = [mr.model_dump() for mr in monthly_reports_by_faculty]
 
     return DirectorDashboardResponse(context=context, kpis=kpis, charts=charts, tables=tables, comparison=comparison)
