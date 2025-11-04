@@ -374,37 +374,45 @@ export const DirectorDashboard: React.FC = () => {
                 </Card>
             </div>
 
-            <section className="grid md:grid-cols-3 gap-4">
-                <Card>
+            {/* Grid unificado para todos los cards */}
+            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <Card className="flex flex-col h-full">
                     <CardHeader>
                         <CardTitle>Mapa de calor (días × horarios)</CardTitle>
                         <p className="text-xs text-muted-foreground">Intensidad de horas-clase y costo por bloque de días/horario del ciclo seleccionado.</p>
                     </CardHeader>
-                    <CardContent>
-                        <HeatmapSchedule data={charts.heatmap} metric="hours" />
+                    <CardContent className="flex flex-col flex-1">
+                        <div className="flex-1">
+                            <HeatmapSchedule data={charts.heatmap} metric="hours" />
+                        </div>
                         <p className="text-[11px] text-muted-foreground mt-2">
                             <span className="font-bold">Nota:</span> Cada cuadro representa un bloque de clases (día y horario). Mientras más oscuro, más horas y mayor costo concentrado en ese bloque. Útil para detectar huecos u horarios con alta carga.</p>
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="flex flex-col h-full">
                     <CardHeader>
                         <CardTitle>Distribución por nivel y franja</CardTitle>
                         <p className="text-xs text-muted-foreground">Suma de tasas por nivel académico (GDO/M1/M2/DR/BLG) en cada franja horaria.</p>
                     </CardHeader>
-                    <CardContent>
-                        <StackedByScheduleChart data={charts.stacked_by_schedule} />
+                    <CardContent className="flex flex-col flex-1">
+                        <div className="flex-1">
+                            <StackedByScheduleChart data={charts.stacked_by_schedule} />
+                        </div>
                         <p className="text-[11px] text-muted-foreground mt-2">
                             <span className="font-bold">Nota:</span> Muestra qué niveles académicos (Grado, Maestrías, Doctorado, Bilingüe) predominan en cada horario. Sirve para entender dónde se concentran los perfiles más costosos o especializados.</p>
                     </CardContent>
                 </Card>
-                <Card>
+
+                <Card className="flex flex-col h-full">
                     <CardHeader>
                         <CardTitle>Tendencia mensual</CardTitle>
                         <p className="text-xs text-muted-foreground">Sesiones, horas-clase y monto mensual calculado a partir de la planilla.</p>
                     </CardHeader>
-                    <CardContent>
-                        <MonthlyTrendChart data={charts.monthly_trend} show={["hours", "dollars"]} />
+                    <CardContent className="flex flex-col flex-1">
+                        <div className="flex-1">
+                            <MonthlyTrendChart data={charts.monthly_trend} show={["hours", "dollars"]} />
+                        </div>
                         <p className="text-[11px] text-muted-foreground mt-2">
                             <span className="font-bold">Nota:</span> Evolución del esfuerzo y presupuesto a lo largo del ciclo. Compara cómo cambian las horas-clase y el monto en dólares de un mes a otro para identificar picos y estacionalidad.</p>
                     </CardContent>

@@ -909,7 +909,6 @@ export const VicerrectorDashboard: React.FC = () => {
                     <CategoryPaymentTable
                         data={tables.category_payment}
                         isMaximized={maximizedCard === "category-payment"}
-                        onToggleMaximize={() => handleToggleMaximize("category-payment")}
                     />
                 )}
 
