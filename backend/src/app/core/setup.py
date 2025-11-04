@@ -219,8 +219,11 @@ def lifespan_factory(
             # Ensure upload directories exist
             from ..core.upload_config import ensure_upload_dirs
 
-            ensure_upload_dirs()
-            logger.info("✓ Upload directories initialized")
+            try:
+                ensure_upload_dirs()
+                logger.info("✓ Upload directories initialized")
+            except Exception as e:
+                logger.warning(f"Warning: Could not initialize upload directories: {e}")
 
             initialization_complete.set()
             yield

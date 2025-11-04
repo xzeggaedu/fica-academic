@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: fica_api
     restart: always
-    command: uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude "*/__pycache__/*" --reload-exclude "*/.git/*" --reload-exclude "*/.*" --reload-dir /code/src/app --reload-exclude "*/uploads/*" --reload-exclude "*/logs/*"
     env_file:
       - ./backend/src/.env
     environment:
