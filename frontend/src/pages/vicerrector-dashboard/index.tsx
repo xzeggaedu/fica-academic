@@ -54,7 +54,7 @@ interface MaximizableCardProps {
     description?: string;
     children: React.ReactNode;
     isMaximized: boolean;
-    onToggleMaximize: (cardId: string) => void;
+    onToggleMaximize: (cardId: string, gridRowStart?: number) => void;
     defaultClassName?: string;
     enableMaximize?: boolean; // Flag para habilitar/deshabilitar el botón de maximizar
 }
@@ -69,9 +69,51 @@ const MaximizableCard: React.FC<MaximizableCardProps> = ({
     defaultClassName = "flex flex-col h-full",
     enableMaximize = false, // Por defecto deshabilitado
 }) => {
+    const cardRef = React.useRef<HTMLDivElement>(null);
+    const [gridRowStart, setGridRowStart] = React.useState<number | undefined>(undefined);
+
+    const handleClick = () => {
+        if (!isMaximized && cardRef.current) {
+            // Calcular la fila ANTES de maximizar
+            const element = cardRef.current;
+            const parent = element.parentElement;
+            if (parent) {
+                const gridItems = Array.from(parent.children) as HTMLElement[];
+                const currentIndex = gridItems.indexOf(element);
+
+                // Calcular columnas por fila según el tamaño de ventana
+                const windowWidth = window.innerWidth;
+
+                let colsPerRow = 1;
+                if (windowWidth >= 1280) {
+                    colsPerRow = 3; // xl:grid-cols-3
+                } else if (windowWidth >= 768) {
+                    colsPerRow = 2; // md:grid-cols-2
+                }
+
+                // Calcular la fila basándose en el índice
+                const rowByIndex = Math.floor(currentIndex / colsPerRow) + 1;
+                console.log({ windowWidth, currentIndex, colsPerRow, rowByIndex });
+                setGridRowStart(rowByIndex);
+                onToggleMaximize(cardId, rowByIndex);
+            } else {
+                onToggleMaximize(cardId);
+            }
+        } else {
+            setGridRowStart(undefined);
+            onToggleMaximize(cardId);
+        }
+    };
+
     return (
         <Card
+            ref={cardRef}
             className={`${defaultClassName} ${isMaximized ? "md:col-span-2 xl:col-span-3" : ""}`}
+            style={
+                isMaximized && gridRowStart
+                    ? { gridColumnStart: 1, gridRowStart: gridRowStart }
+                    : {}
+            }
         >
             <CardHeader className="relative">
                 <div className="flex items-start justify-between gap-4">
@@ -81,7 +123,7 @@ const MaximizableCard: React.FC<MaximizableCardProps> = ({
                     </div>
                     {enableMaximize && (
                         <button
-                            onClick={() => onToggleMaximize(cardId)}
+                            onClick={handleClick}
                             className="flex-shrink-0 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                             aria-label={isMaximized ? "Minimizar" : "Maximizar"}
                         >
@@ -212,7 +254,7 @@ export const VicerrectorDashboard: React.FC = () => {
     const [maximizedCard, setMaximizedCard] = React.useState<string | null>(null);
 
     // Función para toggle del estado de maximización
-    const handleToggleMaximize = (cardId: string) => {
+    const handleToggleMaximize = (cardId: string, _gridRowStart?: number) => {
         setMaximizedCard((prev) => (prev === cardId ? null : cardId));
     };
 
@@ -871,109 +913,6 @@ export const VicerrectorDashboard: React.FC = () => {
                     />
                 )}
 
-                {/* Tabla Comparativa */}
-                {data.comparison && (
-                    <Card
-                       className="md:col-span-2 xl:col-span-3"
-                    >
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="text-left">Métrica</TableHead>
-                                        <TableHead className="text-left">
-                                            {data.comparison.base.term_label ?? "Actual"}
-                                        </TableHead>
-                                        <TableHead className="text-left">
-                                            {data.comparison.compare.term_label ?? "Comparado"}
-                                        </TableHead>
-                                        <TableHead className="text-left">Diferencia</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {(() => {
-                                        const rows = [
-                                            {
-                                                name: "Horas totales",
-                                                base: (data.comparison.base.total_hours as number).toFixed(2),
-                                                cmp: (data.comparison.compare.total_hours as number).toFixed(2),
-                                                pct: data.comparison.delta.total_hours.pct,
-                                            },
-                                            {
-                                                name: "Dólares totales",
-                                                base: `$ ${(data.comparison.base.total_dollars as number).toFixed(2)}`,
-                                                cmp: `$ ${(data.comparison.compare.total_dollars as number).toFixed(2)}`,
-                                                pct: data.comparison.delta.total_dollars.pct,
-                                            },
-                                            {
-                                                name: "Número de grupos",
-                                                base: String(data.comparison.base.groups_count),
-                                                cmp: String(data.comparison.compare.groups_count),
-                                                pct: data.comparison.delta.groups_count.pct,
-                                            },
-                                            {
-                                                name: "Grupos con pago completo (100% o más)",
-                                                base: String(data.comparison.base.coverage.full),
-                                                cmp: String(data.comparison.compare.coverage.full),
-                                                pct: data.comparison.delta.coverage.full.pct,
-                                            },
-                                            {
-                                                name: "Grupos con pago parcial (menor a 100%)",
-                                                base: String(data.comparison.base.coverage.partial),
-                                                cmp: String(data.comparison.compare.coverage.partial),
-                                                pct: data.comparison.delta.coverage.partial.pct,
-                                            },
-                                            {
-                                                name: "Grupos sin pago (0%)",
-                                                base: String(data.comparison.base.coverage.none),
-                                                cmp: String(data.comparison.compare.coverage.none),
-                                                pct: data.comparison.delta.coverage.none.pct,
-                                            },
-                                        ];
-                                        return rows.map((r, idx) => (
-                                            <TableRow key={idx}>
-                                                <TableCell>{r.name}</TableCell>
-                                                <TableCell>{r.base}</TableCell>
-                                                <TableCell>{r.cmp}</TableCell>
-                                                <TableCell>
-                                                    {r.pct == null ? (
-                                                        "—"
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1">
-                                                            {(() => {
-                                                                const isZero = r.pct === 0;
-                                                                const signUp = r.pct > 0;
-                                                                const color = isZero
-                                                                    ? "text-gray-500"
-                                                                    : signUp
-                                                                        ? "text-green-600"
-                                                                        : "text-red-600";
-                                                                return (
-                                                                    <>
-                                                                        {isZero ? (
-                                                                            <Minus className={`w-3 h-3 ${color}`} />
-                                                                        ) : signUp ? (
-                                                                            <TrendingUp className={`w-3 h-3 ${color}`} />
-                                                                        ) : (
-                                                                            <TrendingDown className={`w-3 h-3 ${color}`} />
-                                                                        )}
-                                                                        <span className={color}>
-                                                                            {(r.pct * 100).toFixed(1)}%
-                                                                        </span>
-                                                                    </>
-                                                                );
-                                                            })()}
-                                                        </span>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        ));
-                                    })()}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                )}
 
                 {/* Comparación de Grupos Pagados/No Pagados por Escuela */}
                 {data.comparison && tables.groups_comparison_by_school && tables.groups_comparison_by_school.length > 0 && (
@@ -1257,6 +1196,110 @@ export const VicerrectorDashboard: React.FC = () => {
                             ));
                         })()}
                     </>
+                )}
+
+                {/* Tabla Comparativa */}
+                {data.comparison && (
+                    <Card
+                        className="md:col-span-2 xl:col-span-3"
+                    >
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="text-left">Métrica</TableHead>
+                                        <TableHead className="text-left">
+                                            {data.comparison.base.term_label ?? "Actual"}
+                                        </TableHead>
+                                        <TableHead className="text-left">
+                                            {data.comparison.compare.term_label ?? "Comparado"}
+                                        </TableHead>
+                                        <TableHead className="text-left">Diferencia</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {(() => {
+                                        const rows = [
+                                            {
+                                                name: "Horas totales",
+                                                base: (data.comparison.base.total_hours as number).toFixed(2),
+                                                cmp: (data.comparison.compare.total_hours as number).toFixed(2),
+                                                pct: data.comparison.delta.total_hours.pct,
+                                            },
+                                            {
+                                                name: "Dólares totales",
+                                                base: `$ ${(data.comparison.base.total_dollars as number).toFixed(2)}`,
+                                                cmp: `$ ${(data.comparison.compare.total_dollars as number).toFixed(2)}`,
+                                                pct: data.comparison.delta.total_dollars.pct,
+                                            },
+                                            {
+                                                name: "Número de grupos",
+                                                base: String(data.comparison.base.groups_count),
+                                                cmp: String(data.comparison.compare.groups_count),
+                                                pct: data.comparison.delta.groups_count.pct,
+                                            },
+                                            {
+                                                name: "Grupos con pago completo (100% o más)",
+                                                base: String(data.comparison.base.coverage.full),
+                                                cmp: String(data.comparison.compare.coverage.full),
+                                                pct: data.comparison.delta.coverage.full.pct,
+                                            },
+                                            {
+                                                name: "Grupos con pago parcial (menor a 100%)",
+                                                base: String(data.comparison.base.coverage.partial),
+                                                cmp: String(data.comparison.compare.coverage.partial),
+                                                pct: data.comparison.delta.coverage.partial.pct,
+                                            },
+                                            {
+                                                name: "Grupos sin pago (0%)",
+                                                base: String(data.comparison.base.coverage.none),
+                                                cmp: String(data.comparison.compare.coverage.none),
+                                                pct: data.comparison.delta.coverage.none.pct,
+                                            },
+                                        ];
+                                        return rows.map((r, idx) => (
+                                            <TableRow key={idx}>
+                                                <TableCell>{r.name}</TableCell>
+                                                <TableCell>{r.base}</TableCell>
+                                                <TableCell>{r.cmp}</TableCell>
+                                                <TableCell>
+                                                    {r.pct == null ? (
+                                                        "—"
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1">
+                                                            {(() => {
+                                                                const isZero = r.pct === 0;
+                                                                const signUp = r.pct > 0;
+                                                                const color = isZero
+                                                                    ? "text-gray-500"
+                                                                    : signUp
+                                                                        ? "text-green-600"
+                                                                        : "text-red-600";
+                                                                return (
+                                                                    <>
+                                                                        {isZero ? (
+                                                                            <Minus className={`w-3 h-3 ${color}`} />
+                                                                        ) : signUp ? (
+                                                                            <TrendingUp className={`w-3 h-3 ${color}`} />
+                                                                        ) : (
+                                                                            <TrendingDown className={`w-3 h-3 ${color}`} />
+                                                                        )}
+                                                                        <span className={color}>
+                                                                            {(r.pct * 100).toFixed(1)}%
+                                                                        </span>
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        </span>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ));
+                                    })()}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
                 )}
 
 
