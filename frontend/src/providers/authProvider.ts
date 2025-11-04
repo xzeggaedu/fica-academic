@@ -17,20 +17,12 @@ const ENDPOINTS = {
   REFRESH: import.meta.env.VITE_AUTH_REFRESH_ENDPOINT || `${API_BASE_PATH}/refresh`,
   ME: import.meta.env.VITE_AUTH_ME_ENDPOINT || `${API_BASE_PATH}/me`,
   ME_PROFILE: `${API_BASE_PATH}/me/profile`,  // ✅ Endpoint para obtener perfil fresco de BD
-  REGISTER: `${API_BASE_PATH}/user`,  // ✅ Endpoint de registro (sin validación de admin)
 };
 
 interface LoginParams {
   username: string;
   password: string;
   remember_me?: boolean;
-}
-
-interface RegisterParams {
-  username: string;
-  name: string;
-  email: string;
-  password: string;
 }
 
 interface UserIdentity {
@@ -97,45 +89,6 @@ export const authProvider: AuthProvider = {
     }
   },
 
-  register: async ({ username, name, email, password }: RegisterParams) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}${ENDPOINTS.REGISTER}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username,
-          name,
-          email,
-          password,
-        }),
-        signal: AbortSignal.timeout(API_TIMEOUT),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Error en el registro");
-      }
-
-      const data = await response.json();
-
-      return {
-        success: true,
-        redirectTo: "/login",
-      };
-    } catch (error) {
-      if (DEBUG_MODE) console.error("Register error:", error);
-      return {
-        success: false,
-        error: {
-          name: "RegisterError",
-          message: error instanceof Error ? error.message : "Error en el registro",
-        },
-      };
-    }
-  },
-
   logout: async () => {
     try {
       const token = localStorage.getItem(TOKEN_KEY);
@@ -168,7 +121,7 @@ export const authProvider: AuthProvider = {
     if (!token) {
       // Solo disparar evento si no estamos en páginas de autenticación
       const currentPath = window.location.pathname;
-      const isAuthPage = ['/login', '/register', '/forgot-password'].includes(currentPath);
+      const isAuthPage = ['/login'].includes(currentPath);
 
       if (!isAuthPage) {
         window.dispatchEvent(new CustomEvent('session-expired'));

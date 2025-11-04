@@ -34,6 +34,9 @@ import type {
   TemplateGeneration,
   TemplateGenerationCreate,
   TemplateGenerationUpdate,
+  BillingReport,
+  BillingReportCreate,
+  BillingReportUpdate,
   PaginatedResponse
 } from "../types/api";
 
@@ -83,6 +86,7 @@ const ENDPOINTS = {
   ANNUAL_HOLIDAYS: `${API_BASE_PATH}/annual-holidays`,
   TEMPLATE_GENERATION: `${API_BASE_PATH}/template-generation`,
   ACADEMIC_LOAD_FILES: `${API_BASE_PATH}/academic-load-files`,
+  BILLING_REPORTS: `${API_BASE_PATH}/billing-reports`,
 };
 
 // Helper function to get auth headers
@@ -610,11 +614,15 @@ export const dataProvider: DataProvider = {
         };
       }
 
-      case "academic-load-files": {
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
         const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
         const pageSize = pagination?.pageSize || 10;
+        // Convertir página a skip
+        const skip = (current - 1) * pageSize;
+        const limit = pageSize;
         const response = await apiRequest<PaginatedResponse<any>>(
-          `${ENDPOINTS.ACADEMIC_LOAD_FILES}/?page=${current}&items_per_page=${pageSize}`
+          `${ENDPOINTS.ACADEMIC_LOAD_FILES}/?skip=${skip}&limit=${limit}`
         );
 
         // Mapear la respuesta del backend al formato esperado por el frontend
@@ -626,6 +634,30 @@ export const dataProvider: DataProvider = {
 
         return {
           data: mappedData as any[],
+          total: response.total_count || 0,
+        };
+      }
+
+      case "billing-reports": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        // Verificar si hay filtro por academic_load_file_id
+        const fileIdFilter = filters?.find((f: any) => f.field === "academic_load_file_id" && f.operator === "eq");
+
+        let url: string;
+        if (fileIdFilter?.value) {
+          // Usar endpoint específico para obtener reportes por archivo
+          url = `${ENDPOINTS.BILLING_REPORTS}/file/${fileIdFilter.value}?skip=${(current - 1) * pageSize}&limit=${pageSize}`;
+        } else {
+          // Usar endpoint general
+          url = `${ENDPOINTS.BILLING_REPORTS}/?skip=${(current - 1) * pageSize}&limit=${pageSize}`;
+        }
+
+        const response = await apiRequest<PaginatedResponse<any>>(url);
+
+        return {
+          data: response.data as any[],
           total: response.total_count || 0,
         };
       }
@@ -702,8 +734,14 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
-      case "academic-load-files": {
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
         const response = await apiRequest<any>(`${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`);
+        return { data: response as any };
+      }
+
+      case "billing-reports": {
+        const response = await apiRequest<any>(`${ENDPOINTS.BILLING_REPORTS}/${id}`);
         return { data: response as any };
       }
 
@@ -881,13 +919,25 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
-      case "academic-load-files": {
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
         // Para academic-load-files, usar FormData directamente
         const response = await apiRequest<any>(
           `${ENDPOINTS.ACADEMIC_LOAD_FILES}/upload`,
           {
             method: "POST",
             body: variables as FormData,
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "billing-reports": {
+        const response = await apiRequest<BillingReport>(
+          `${ENDPOINTS.BILLING_REPORTS}/`,
+          {
+            method: "POST",
+            body: JSON.stringify(variables),
           }
         );
         return { data: response as any };
@@ -1142,9 +1192,21 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
-      case "academic-load-files": {
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
         const response = await apiRequest<any>(
           `${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "billing-reports": {
+        const response = await apiRequest<BillingReport>(
+          `${ENDPOINTS.BILLING_REPORTS}/${id}`,
           {
             method: "PUT",
             body: JSON.stringify(variables),
@@ -1311,9 +1373,20 @@ export const dataProvider: DataProvider = {
         return { data: {} as any };
       }
 
-      case "academic-load-files": {
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
         await apiRequest(
           `${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
+      }
+
+      case "billing-reports": {
+        await apiRequest(
+          `${ENDPOINTS.BILLING_REPORTS}/${id}`,
           {
             method: "DELETE",
           }

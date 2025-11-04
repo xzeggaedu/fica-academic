@@ -8,6 +8,7 @@ REQUIRED_COLUMNS = [
     "COD_CATEDRA",  # Código de coordinación
     "COD_ASIG",  # Código de asignatura
     "ASIGNATURA",  # Nombre de asignatura
+    "BLG",  # Bilingüe (asignatura y maestro)
     "UNICO",  # Sección única
     "SECCION",  # Número de sección
     "ASIGNAR_SERVICIOS",  # Servicios asignados
@@ -52,12 +53,13 @@ EXCEL_TO_MODEL_MAPPING = {
     "TELEFONO": "professor_phone",
     "CODIGO": "professor_id",
     "CAT_DOCENTE": "professor_category",
-    "PAG": "professor_is_billing",
+    "PAG": "professor_payment_rate",
     "PERF": "professor_profile",
     "NOTA_FINAL": "professor_final_note",
     "MAESTRIAS": "professor_masters",
     "CORREO INSTITUCIONAL": "professor_institutional_email",
     "CORREO PERSONAL": "professor_personal_email",
+    "BLG": "is_bilingual",
     "OBSERVACIONES": "observations",
     "RESP. CANAL TEAMS  (nivel propietario)": "team_channel_responsible",
 }

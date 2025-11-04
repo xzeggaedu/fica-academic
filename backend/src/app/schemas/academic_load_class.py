@@ -1,6 +1,7 @@
 """Schemas para AcademicLoadClass."""
 
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
@@ -26,13 +27,22 @@ class AcademicLoadClassBase(BaseModel):
     professor_raw_cont: str | None = Field(None, description="Raw data del profesor")
     professor_phone: str | None = Field(None, description="Teléfono del profesor")
     professor_id: str | None = Field(None, description="ID del profesor")
-    professor_category: str | None = Field(None, description="Categoría del profesor")
-    professor_is_billing: bool = Field(False, description="Si el profesor está activo en facturación")
+    professor_category: str | None = Field(
+        None,
+        description=(
+            "Categoría del profesor: DEC (Decano), DIR (Director), "
+            "COOR (Coordinador), DTC (Docente Tiempo Completo), "
+            "ADM (Administrativo), DHC (Docente Honorario)"
+        ),
+    )
+    professor_payment_rate: Decimal = Field(0.0, description="Tasa de pago del profesor (ej: 1.0 = 100%, 0.5 = 50%)")
+    professor_is_doctor: bool = Field(False, description="Si el profesor tiene título de doctor")
     professor_profile: str | None = Field(None, description="Perfil del profesor")
     professor_final_note: str | None = Field(None, description="Nota final del profesor")
     professor_masters: int = Field(0, description="Número de maestrías del profesor")
     professor_institutional_email: str | None = Field(None, description="Email institucional del profesor")
     professor_personal_email: str | None = Field(None, description="Email personal del profesor")
+    is_bilingual: bool = Field(False, description="Si la asignatura y maestro son bilingües")
     observations: str | None = Field(None, description="Observaciones")
     team_channel_responsible: str | None = Field(None, description="Responsable del canal de Teams")
     validation_status: str = Field("valid", description="Estado de validación: valid, warning, error")
@@ -66,12 +76,14 @@ class AcademicLoadClassUpdate(BaseModel):
     professor_phone: str | None = None
     professor_id: str | None = None
     professor_category: str | None = None
-    professor_is_billing: bool | None = None
+    professor_payment_rate: Decimal | None = None
+    professor_is_doctor: bool | None = None
     professor_profile: str | None = None
     professor_final_note: str | None = None
     professor_masters: int | None = None
     professor_institutional_email: str | None = None
     professor_personal_email: str | None = None
+    is_bilingual: bool | None = None
     observations: str | None = None
     team_channel_responsible: str | None = None
     validation_status: str | None = None

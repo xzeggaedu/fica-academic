@@ -620,12 +620,13 @@ export interface AcademicLoadClass {
   professor_phone?: string | null;
   professor_id?: string | null;
   professor_category?: string | null;
-  professor_is_billing: boolean;
+  professor_payment_rate: number;
   professor_profile?: string | null;
   professor_final_note?: string | null;
   professor_masters: number;
   professor_institutional_email?: string | null;
   professor_personal_email?: string | null;
+  is_bilingual: boolean;
   observations?: string | null;
   team_channel_responsible?: string | null;
   validation_status: string;
@@ -641,4 +642,74 @@ export interface AcademicLoadStatistics {
   error_classes: number;
   unique_professors: number;
   unique_subjects: number;
+}
+
+// Billing Report Types
+export interface BillingReportPaymentSummary {
+  id: number;
+  billing_report_id: number;
+  class_days: string;
+  class_schedule: string;
+  class_duration: number;
+  payment_rate_grado: number;
+  payment_rate_maestria_1: number;
+  payment_rate_maestria_2: number;
+  payment_rate_doctor: number;
+  payment_rate_bilingue: number;
+}
+
+export interface BillingReportMonthlyItem {
+  id: number;
+  billing_report_id: number;
+  class_days: string;
+  class_schedule: string;
+  class_duration: number;
+  year: number;
+  month: number;
+  month_name: string;
+  sessions: number;
+  real_time_minutes: number;
+  total_class_hours: number;
+  total_dollars: number;
+}
+
+export interface BillingReportRateSnapshot {
+  id: number;
+  billing_report_id: number;
+  academic_level_id: number;
+  academic_level_code: string;
+  academic_level_name: string;
+  rate_per_hour: number;
+  reference_date: string;
+  created_at: string;
+}
+
+export interface BillingReport {
+  id: number;
+  academic_load_file_id: number;
+  user_id: string;
+  user_name: string;
+  is_edited: boolean;
+  notes?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+  payment_summaries: BillingReportPaymentSummary[];
+  monthly_items: BillingReportMonthlyItem[];
+  rate_snapshots: BillingReportRateSnapshot[];
+  term_term?: number | null;
+  term_year?: number | null;
+  faculty_name?: string | null;
+  school_name?: string | null;
+  // Campos adicionales para consolidado
+  consolidated_from_file_ids?: number[];
+  school_acronyms?: string[];
+}
+
+export interface BillingReportCreate {
+  academic_load_file_id: number;
+  notes?: string | null;
+}
+
+export interface BillingReportUpdate {
+  notes?: string | null;
 }

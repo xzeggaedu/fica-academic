@@ -35,7 +35,7 @@ class TestAcademicLoadClassCRUD:
             professor_id="1",
             professor_category="DHC",
             professor_academic_title="Dr.",
-            professor_is_billing=False,
+            professor_payment_rate=0.0,
             professor_masters=0,
         )
 

@@ -1,5 +1,6 @@
 """Modelo de Facultad para la organización jerárquica."""
 
+
 from __future__ import annotations
 
 from datetime import UTC, datetime

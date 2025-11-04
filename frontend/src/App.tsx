@@ -39,10 +39,12 @@ import { TermsList } from "./pages/terms/list";
 import { HolidaysList } from "./pages/holidays";
 import { FixedHolidayRulesList } from "./pages/fixed-holiday-rules";
 import { AnnualHolidaysList } from "./pages/annual-holidays";
-import { AcademicLoadFilesList, AcademicLoadFileShow } from "./pages/academic-load-files";
-import { ForgotPassword } from "./pages/forgot-password";
+import { AcademicLoadFilesListWrapper, AcademicLoadFileShow } from "./pages/academic-load-files";
+import { BillingReportShow, ConsolidatedBillingReportShow } from "./pages/billing-reports";
+import { DirectorDashboard } from "./pages/director-dashboard";
+import { DecanoDashboard } from "./pages/decano-dashboard";
+import { VicerrectorDashboard } from "./pages/vicerrector-dashboard";
 import { Login } from "./pages/login";
-import { Register } from "./pages/register";
 
 function App() {
   // Inicializar renovación automática de tokens
@@ -64,6 +66,37 @@ function App() {
                   resources={[
                     // Top-level resources in order: Academic Planning, then Catalogs
                     {
+                      name: "dashboards",
+                      meta: { label: "Dashboards", group: true },
+                    },
+                    {
+                      name: "dashboards-director",
+                      list: "/director/dashboard",
+                      meta: {
+                        label: "Dashboard Director",
+                        parent: "dashboards",
+                        icon: "Activity",
+                      },
+                    },
+                    {
+                      name: "dashboards-decano",
+                      list: "/decano/dashboard",
+                      meta: {
+                        label: "Dashboard Decano",
+                        parent: "dashboards",
+                        icon: "Activity",
+                      },
+                    },
+                    {
+                      name: "dashboards-vicerrector",
+                      list: "/vicerrector/dashboard",
+                      meta: {
+                        label: "Dashboard Vicerrector",
+                        parent: "dashboards",
+                        icon: "Activity",
+                      },
+                    },
+                    {
                       name: "academic-planning",
                       meta: {
                         label: "Planificación Académica",
@@ -72,6 +105,15 @@ function App() {
                     },
                     {
                       name: "academic-load-files",
+                      list: "/academic-planning/academic-load-files",
+                      meta: {
+                        label: "Carga Académica",
+                        parent: "academic-planning",
+                        icon: "Upload",
+                      },
+                    },
+                    {
+                      name: "academic-load-files-vicerrector",
                       list: "/academic-planning/academic-load-files",
                       meta: {
                         label: "Carga Académica",
@@ -239,7 +281,7 @@ function App() {
                     warnWhenUnsavedChanges: true,
                     projectId: "z38lBH-XJNI10-KyIM9Y",
                     title: {
-                      text: "Fica Academics 1.0",
+                      text: "Academics 1.0 | UTEC",
                     },
                   }}
                 >
@@ -282,11 +324,25 @@ function App() {
                       </Route>
                       <Route path="/academic-planning">
                         <Route path="terms" element={<TermsList />} />
-                        <Route path="academic-load-files" element={<AcademicLoadFilesList />} />
+                        <Route path="academic-load-files" element={<AcademicLoadFilesListWrapper />} />
                         <Route path="academic-load-files/show/:id" element={<AcademicLoadFileShow />} />
+                        <Route path="billing-reports/show/:id" element={<BillingReportShow />} />
+                        <Route path="billing-reports/consolidated/:termId" element={<ConsolidatedBillingReportShow />} />
                         <Route path="holidays" element={<HolidaysList />} />
                         <Route path="fixed-holiday-rules" element={<FixedHolidayRulesList />} />
                         <Route path="annual-holidays/:holidayId" element={<AnnualHolidaysList />} />
+                      </Route>
+                      <Route path="/director">
+                        <Route path="dashboard" element={<DirectorDashboard />} />
+                      </Route>
+                      <Route path="/decano">
+                        <Route path="dashboard" element={<DecanoDashboard />} />
+                      </Route>
+                      <Route path="/vicerrector">
+                        <Route path="dashboard" element={<VicerrectorDashboard />} />
+                      </Route>
+                      <Route path="/billing-reports">
+                        <Route path="show/:id" element={<BillingReportShow />} />
                       </Route>
                       <Route path="*" element={<ErrorComponent />} />
                     </Route>
@@ -301,8 +357,6 @@ function App() {
                       }
                     >
                       <Route path="/login" element={<Login />} />
-                      <Route path="/register" element={<Register />} />
-                      <Route path="/forgot-password" element={<ForgotPassword />} />
                     </Route>
                   </Routes>
 

@@ -39,6 +39,7 @@ class GlobalSettings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=True,
         env_prefix="",
+        extra="ignore",  # Ignorar variables extra que no estén definidas
     )
 
 

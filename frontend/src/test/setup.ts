@@ -97,7 +97,7 @@ vi.mock('@refinedev/core', async () => {
     })),
     useLink: vi.fn(() => ({ to }: { to: string }) => to),
     useRefineOptions: vi.fn(() => ({
-      title: 'FICA Academics Test',
+      title: 'Academics 1.0 | UTEC',
     })),
   };
 });

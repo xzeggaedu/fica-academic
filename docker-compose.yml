@@ -97,6 +97,9 @@ services:
     command: watchmedo auto-restart --recursive --patterns="*.py" --ignore-patterns="__pycache__/*;*.pyc" --directory=/code/src -- arq src.app.core.worker.settings.WorkerSettings
     env_file:
       - ./backend/src/.env
+    environment:
+      - PYTHONPATH=/code/src:/app/.venv/lib/python3.11/site-packages
+      - RELOAD_MODE=
     depends_on:
       - db
       - redis
@@ -135,21 +138,21 @@ services:
     networks:
       - dev-network
 
-  pgadmin:
-    container_name: pgadmin4
-    image: dpage/pgadmin4:latest
-    restart: always
-    ports:
-      - "5050:80"
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    env_file:
-      - ./backend/src/.env
-    depends_on:
-      - db
-      - api
-    networks:
-      - dev-network
+  # pgadmin: DISABLED IN DEV
+  #   container_name: pgadmin4
+  #   image: dpage/pgadmin4:latest
+  #   restart: always
+  #   ports:
+  #     - "5050:80"
+  #   volumes:
+  #     - pgadmin-data:/var/lib/pgadmin
+  #   env_file:
+  #     - ./backend/src/.env
+  #   depends_on:
+  #     - db
+  #     - api
+  #   networks:
+  #     - dev-network
 
   # init_db:
   #   build:

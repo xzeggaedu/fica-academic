@@ -59,6 +59,10 @@ async def upload_template(
     generated_path = GENERATED_DIR / generated_filename
 
     try:
+        # Asegurar que los directorios existen antes de escribir
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+
         # Guardar archivo original
         with open(original_path, "wb") as buffer:
             content = await file.read()

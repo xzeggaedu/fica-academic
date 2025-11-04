@@ -1,17 +1,27 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Receipt } from "lucide-react";
 import type { AcademicLoadFile } from "@/types/api";
 
 interface AcademicLoadFileInfoCardProps {
     file: AcademicLoadFile;
     onDownload: () => void;
+    onGenerateReport?: () => void;
+    onViewBillingReport?: () => void;
+    isGeneratingReport?: boolean;
+    billingReportExists?: boolean;
+    isLoadingBillingReports?: boolean;
 }
 
 export const AcademicLoadFileInfoCard: React.FC<AcademicLoadFileInfoCardProps> = ({
     file,
     onDownload,
+    onGenerateReport,
+    onViewBillingReport,
+    isGeneratingReport = false,
+    billingReportExists = false,
+    isLoadingBillingReports = false,
 }) => {
     return (
         <Card>
@@ -20,6 +30,35 @@ export const AcademicLoadFileInfoCard: React.FC<AcademicLoadFileInfoCardProps> =
                     <div className="flex gap-2 justify-between items-center">
                         <div className="text-lg">Información del Archivo</div>
                         <div className="flex gap-2">
+                            {billingReportExists && onViewBillingReport ? (
+                                <Button
+                                    variant="default"
+                                    onClick={onViewBillingReport}
+                                    disabled={isLoadingBillingReports}
+                                    title={
+                                        isLoadingBillingReports
+                                            ? "Cargando información de la planilla..."
+                                            : undefined
+                                    }
+                                >
+                                    <Receipt className="w-4 h-4 mr-2" />
+                                    Ver Planilla
+                                </Button>
+                            ) : onGenerateReport && (
+                                <Button
+                                    variant="default"
+                                    onClick={onGenerateReport}
+                                    disabled={isGeneratingReport || isLoadingBillingReports}
+                                    title={
+                                        isLoadingBillingReports
+                                            ? "Cargando información de la planilla..."
+                                            : undefined
+                                    }
+                                >
+                                    <Receipt className="w-4 h-4 mr-2" />
+                                    {isGeneratingReport ? "Generando..." : "Generar Planilla"}
+                                </Button>
+                            )}
                             <Button variant="outline" onClick={onDownload}>
                                 <Download className="w-4 h-4 mr-2" />
                                 Descargar Excel

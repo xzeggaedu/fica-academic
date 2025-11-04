@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/forms/label";
 import { toast } from "sonner";
-import { Plus, Trash2, Eye, X, Upload, FileSpreadsheet, Save, RefreshCw, XCircle, CheckCircle, Star } from "lucide-react";
+import { Plus, Trash2, Eye, X, Upload, FileSpreadsheet, Save, RefreshCw, XCircle, CheckCircle, Star, Receipt } from "lucide-react";
 import { TableFilters } from "@/components/ui/data/table-filters";
 import { TablePagination } from "@/components/ui/data/table-pagination";
 import type { AcademicLoadFile, Faculty, School, Term } from "@/types/api";
@@ -35,6 +35,7 @@ import {
 import { useTablePagination } from "@/hooks/useTablePagination";
 import { useAcademicLoadFilesCrud } from "@/hooks/useAcademicLoadFilesCrud";
 import { useList, useGetIdentity } from "@refinedev/core";
+import { UserRoleEnum } from "@/types/api";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -114,6 +115,7 @@ export const AcademicLoadFilesList: React.FC = () => {
     const currentUserRole: string | null = (
         identity?.role ?? identity?.user_role ?? null
     )?.toString?.().toLowerCase?.() ?? null;
+    const isDecano = currentUserRole === UserRoleEnum.DECANO.toLowerCase();
 
     const canDeleteRow = (item: AcademicLoadFile) => {
         // ADMIN puede eliminar cualquier archivo
@@ -191,23 +193,245 @@ export const AcademicLoadFilesList: React.FC = () => {
 
             return matchesSearch;
         })
-        // Ordenar por contexto (faculty, school, term) y luego por versión descendente
+        // Ordenar: Si es DECANO, primero por término, luego por escuela, luego versión
+        // Si no es DECANO, por contexto (faculty, school, term) y luego por versión descendente
         .sort((a, b) => {
-            // Primero por facultad
-            if (a.faculty_id !== b.faculty_id) {
-                return a.faculty_id - b.faculty_id;
+            if (isDecano) {
+                // Primero por término
+                if (a.term_id !== b.term_id) {
+                    return a.term_id - b.term_id;
+                }
+                // Luego por escuela
+                if (a.school_id !== b.school_id) {
+                    return a.school_id - b.school_id;
+                }
+                // Finalmente por versión descendente
+                return (b.version || 1) - (a.version || 1);
+            } else {
+                // Primero por facultad
+                if (a.faculty_id !== b.faculty_id) {
+                    return a.faculty_id - b.faculty_id;
+                }
+                // Luego por escuela
+                if (a.school_id !== b.school_id) {
+                    return a.school_id - b.school_id;
+                }
+                // Luego por término
+                if (a.term_id !== b.term_id) {
+                    return a.term_id - b.term_id;
+                }
+                // Finalmente por versión descendente
+                return (b.version || 1) - (a.version || 1);
             }
-            // Luego por escuela
-            if (a.school_id !== b.school_id) {
-                return a.school_id - b.school_id;
-            }
-            // Luego por término
-            if (a.term_id !== b.term_id) {
-                return a.term_id - b.term_id;
-            }
-            // Finalmente por versión descendente
-            return (b.version || 1) - (a.version || 1);
         });
+
+    // Agrupar por ciclo si es DECANO
+    const groupedByTerm = React.useMemo(() => {
+        if (!isDecano) {
+            return null;
+        }
+
+        const grouped: Record<string, { term_id: number; term_term: number; term_year: number; items: AcademicLoadFile[] }> = {};
+        const seenItemIds = new Set<number>();
+
+        // Filtrar duplicados y agrupar
+        filteredItems.forEach((item) => {
+            // Evitar agregar el mismo item dos veces
+            if (seenItemIds.has(item.id)) {
+                return;
+            }
+            seenItemIds.add(item.id);
+
+            // Usar term_term y term_year directamente del item (vienen del backend)
+            // El backend envía estos campos directamente en AcademicLoadFileListResponse
+            const termTerm = item.term_term !== null && item.term_term !== undefined
+                ? item.term_term
+                : (item.term?.term ?? null);
+            const termYear = item.term_year !== null && item.term_year !== undefined
+                ? item.term_year
+                : (item.term?.year ?? null);
+
+            // Solo agrupar si tenemos datos válidos del término
+            if (termTerm !== null && termTerm !== undefined && termYear !== null && termYear !== undefined) {
+                const termKey = `${item.term_id}_${termTerm}_${termYear}`;
+                if (!grouped[termKey]) {
+                    grouped[termKey] = {
+                        term_id: item.term_id,
+                        term_term: termTerm,
+                        term_year: termYear,
+                        items: []
+                    };
+                }
+                grouped[termKey].items.push(item);
+            }
+        });
+
+        return grouped;
+    }, [filteredItems, isDecano]);
+
+    // Obtener todas las planillas para verificar cuáles cargas tienen planillas
+    const allBillingReports = useList<{ academic_load_file_id: number }>({
+        resource: "billing-reports",
+        pagination: {
+            currentPage: 1,
+            pageSize: 10000,
+            mode: "server",
+        },
+    });
+
+    const fileIdsWithReports = React.useMemo(() => {
+        const reports = allBillingReports?.result?.data || [];
+        return new Set(reports.map((r: any) => r.academic_load_file_id));
+    }, [allBillingReports?.result?.data]);
+
+    // Función para verificar si un grupo tiene al menos una planilla
+    const groupHasReports = (items: AcademicLoadFile[]): boolean => {
+        return items.some(item => fileIdsWithReports.has(item.id));
+    };
+
+    // Handler para abrir consolidado
+    const handleViewConsolidated = (termId: number, items: AcademicLoadFile[]) => {
+        const fileIds = items.map(f => f.id).join(',');
+        navigate(`/academic-planning/billing-reports/consolidated/${termId}?fileIds=${fileIds}`);
+    };
+
+    // Función helper para renderizar celdas de una fila
+    const renderTableRowCells = (item: AcademicLoadFile, isActive: boolean) => {
+        return (
+            <>
+                {showIdColumn && (
+                    <TableCell className={getTableColumnClass("id")}>
+                        #{item.id}
+                    </TableCell>
+                )}
+                <TableCell className={getTableColumnClass("name")}>
+                    <div className="font-medium">{item.original_filename}</div>
+                </TableCell>
+                <TableCell className={getTableColumnClass("name")}>
+                    {isActive ? (
+                        <div className="flex items-center gap-1">
+                            Versión {item.version || 1}
+                            <Star className="h-3 w-3 ml-1 fill-yellow-200" />
+                        </div>
+                    ) : (
+                        <span className="text-gray-600">
+                            versión {item.version || 1}
+                        </span>
+                    )}
+                </TableCell>
+                <TableCell className={getTableColumnClass("name")}>
+                    {item.faculty?.acronym ? (
+                        <Badge variant="outline" className="font-mono">
+                            {item.faculty.acronym}
+                        </Badge>
+                    ) : (
+                        "N/A"
+                    )}
+                </TableCell>
+                <TableCell className={getTableColumnClass("name")}>
+                    {item.school?.acronym ? (
+                        <Badge variant="secondary" className="font-mono">
+                            {item.school.acronym}
+                        </Badge>
+                    ) : (
+                        "N/A"
+                    )}
+                </TableCell>
+                <TableCell className={getTableColumnClass("name")}>
+                    Ciclo 0{item.term_name || "N/A"}
+                </TableCell>
+                <TableCell className={getTableColumnClass("name")}>
+                    {item.user_name || "N/A"}
+                </TableCell>
+                <TableCell className={getTableColumnClass("date")}>
+                    {format(new Date(item.upload_date), "dd/MM/yyyy HH:mm", { locale: es })}
+                </TableCell>
+                <TableCell className={getTableColumnClass("status")}>
+                    <div className="flex items-center gap-2">
+                        {item.ingestion_status === "failed" && item.notes ? (
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => openErrorModal(item)}
+                                className="text-xs"
+                            >
+                                <XCircle className="w-3 h-3 mr-1" />
+                                Ver Errores ({parseErrorDetails(item.notes)?.summary?.failed || 0})
+                            </Button>
+                        ) : (
+                            getStatusDisplay(item.ingestion_status, item.notes)
+                        )}
+
+                        {/* Botón de Cambios si hay cambios en notes */}
+                        {parseChangesDetails(item.notes) && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openChangesModal(item)}
+                                className="text-xs"
+                            >
+                                Ver Cambios
+                            </Button>
+                        )}
+                    </div>
+                </TableCell>
+                <TableCell className={getTableColumnClass("actions")}>
+                    <div className="flex items-center gap-2">
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleView(item)}
+                                        disabled={item.ingestion_status !== "completed"}
+                                    >
+                                        <Eye className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>
+                                        {item.ingestion_status === "completed"
+                                            ? "Ver detalles"
+                                            : "Solo disponible para archivos completados"}
+                                    </p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+
+                        {canDeleteRow(item) && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => openDeleteModal(item)}
+                                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                                            disabled={item.ingestion_status === "pending" || item.ingestion_status === "processing" || !item.is_active}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>
+                                            {!item.is_active
+                                                ? "Solo se puede eliminar la versión activa"
+                                                : item.ingestion_status === "pending" || item.ingestion_status === "processing"
+                                                    ? "No se puede eliminar durante el procesamiento"
+                                                    : item.ingestion_status === "failed"
+                                                        ? "Eliminar archivo fallido"
+                                                        : "Eliminar archivo"}
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                    </div>
+                </TableCell>
+            </>
+        );
+    };
 
     // Funciones del formulario de creación
     const handleFileSelect = (file: File) => {
@@ -408,7 +632,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                     );
                 default:
                     return (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
                             {status}
                         </span>
                     );
@@ -417,6 +641,14 @@ export const AcademicLoadFilesList: React.FC = () => {
 
         return statusBadge;
     };
+
+    // Preparar datos para paginación
+    // Si es DECANO, usar grupos directamente sin aplanar (paginación se hará sobre grupos)
+    const itemsForPagination = React.useMemo(() => {
+        // Para DECANO, manejamos la paginación manualmente sobre grupos
+        // Para otros roles, usar filteredItems normal
+        return filteredItems;
+    }, [filteredItems]);
 
     // Paginación
     const {
@@ -431,7 +663,7 @@ export const AcademicLoadFilesList: React.FC = () => {
         goToPage,
         setPageSize,
     } = useTablePagination({
-        data: filteredItems,
+        data: itemsForPagination,
         initialPageSize: 10,
     });
 
@@ -829,164 +1061,130 @@ export const AcademicLoadFilesList: React.FC = () => {
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        paginatedItems.map((item, index) => {
-                                            const isActive = item.is_active;
-                                            const prevItem = index > 0 ? paginatedItems[index - 1] : null;
-                                            const nextItem = index < paginatedItems.length - 1 ? paginatedItems[index + 1] : null;
-                                            const isNewGroup = !prevItem ||
-                                                prevItem.faculty_id !== item.faculty_id ||
-                                                prevItem.school_id !== item.school_id ||
-                                                prevItem.term_id !== item.term_id;
+                                        (() => {
+                                            // Si es DECANO, renderizar con grupos
+                                            if (isDecano && groupedByTerm) {
+                                                const result: React.ReactNode[] = [];
+                                                const renderedGroupKeys = new Set<string>();
+                                                const renderedItemIds = new Set<number>();
+                                                let lastGroupKey: string | null = null;
 
-                                            // Verificar si la versión activa tiene versiones anteriores (inactivas)
-                                            const hasInactiveVersions = isActive && nextItem &&
-                                                nextItem.faculty_id === item.faculty_id &&
-                                                nextItem.school_id === item.school_id &&
-                                                nextItem.term_id === item.term_id &&
-                                                !nextItem.is_active;
+                                                // Para cada item paginado, verificar a qué grupo pertenece
+                                                paginatedItems.forEach((item, itemIndex) => {
+                                                    // Evitar renderizar el mismo item dos veces
+                                                    if (renderedItemIds.has(item.id)) {
+                                                        return;
+                                                    }
 
-                                            return (
-                                                <TableRow
-                                                    key={item.id}
-                                                    className={`
-                                                        ${!isActive ? 'pl-8 opacity-50 bg-gray-100' : ''}
-                                                        ${isNewGroup && !isActive ? 'border-t-1 border-gray-300' : ''}
-                                                        ${hasInactiveVersions ? 'border-b-1 border-green-600' : ''}
-                                                    `}
-                                                >
-                                                    {showIdColumn && (
-                                                        <TableCell className={getTableColumnClass("id")}>
-                                                            #{item.id}
-                                                        </TableCell>
-                                                    )}
-                                                    <TableCell className={getTableColumnClass("name")}>
-                                                        <div className="font-medium">{item.original_filename}</div>
-                                                    </TableCell>
-                                                    <TableCell className={getTableColumnClass("name")}>
-                                                        {isActive ? (
-                                                            <div className="flex items-center gap-1">
-                                                                Versión {item.version || 1}
-                                                                <Star className="h-3 w-3 ml-1 fill-yellow-200" />
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-gray-600">
-                                                                versión {item.version || 1}
-                                                            </span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className={getTableColumnClass("name")}>
-                                                        {item.faculty?.acronym ? (
-                                                            <Badge variant="outline" className="font-mono">
-                                                                {item.faculty.acronym}
-                                                            </Badge>
-                                                        ) : (
-                                                            "N/A"
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className={getTableColumnClass("name")}>
-                                                        {item.school?.acronym ? (
-                                                            <Badge variant="secondary" className="font-mono">
-                                                                {item.school.acronym}
-                                                            </Badge>
-                                                        ) : (
-                                                            "N/A"
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className={getTableColumnClass("name")}>
-                                                        Ciclo 0{item.term_name || "N/A"}
-                                                    </TableCell>
-                                                    <TableCell className={getTableColumnClass("name")}>
-                                                        {item.user_name || "N/A"}
-                                                    </TableCell>
-                                                    <TableCell className={getTableColumnClass("date")}>
-                                                        {format(new Date(item.upload_date), "dd/MM/yyyy HH:mm", { locale: es })}
-                                                    </TableCell>
-                                                    <TableCell className={getTableColumnClass("status")}>
-                                                        <div className="flex items-center gap-2">
-                                                            {item.ingestion_status === "failed" && item.notes ? (
-                                                                <Button
-                                                                    variant="destructive"
-                                                                    size="sm"
-                                                                    onClick={() => openErrorModal(item)}
-                                                                    className="text-xs"
-                                                                >
-                                                                    <XCircle className="w-3 h-3 mr-1" />
-                                                                    Ver Errores ({parseErrorDetails(item.notes)?.summary?.failed || 0})
-                                                                </Button>
-                                                            ) : (
-                                                                getStatusDisplay(item.ingestion_status, item.notes)
-                                                            )}
+                                                    // Encontrar el grupo al que pertenece este item
+                                                    let itemGroup: { termKey: string; group: typeof groupedByTerm[string] } | null = null;
 
-                                                            {/* Botón de Cambios si hay cambios en notes */}
-                                                            {parseChangesDetails(item.notes) && (
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => openChangesModal(item)}
-                                                                    className="text-xs"
-                                                                >
-                                                                    Ver Cambios
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className={getTableColumnClass("actions")}>
-                                                        <div className="flex items-center gap-2">
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="sm"
-                                                                            onClick={() => handleView(item)}
-                                                                            disabled={item.ingestion_status !== "completed"}
+                                                    for (const [termKey, group] of Object.entries(groupedByTerm)) {
+                                                        if (group.items.some(gItem => gItem.id === item.id)) {
+                                                            itemGroup = { termKey, group };
+                                                            break;
+                                                        }
+                                                    }
+
+                                                    if (itemGroup) {
+                                                        // Renderizar header del grupo solo una vez, antes del primer item del grupo
+                                                        // Verificar si es el primer item de un nuevo grupo (comparar con el grupo anterior)
+                                                        if (lastGroupKey !== itemGroup.termKey) {
+                                                            // Solo renderizar si no se ha renderizado antes
+                                                            if (!renderedGroupKeys.has(itemGroup.termKey)) {
+                                                                renderedGroupKeys.add(itemGroup.termKey);
+                                                                const hasReports = groupHasReports(itemGroup.group.items);
+
+                                                                result.push(
+                                                                    <TableRow key={`group-${itemGroup.termKey}`} className="bg-gray-50 dark:bg-gray-800 border-t-1 border-gray-200 dark:border-gray-700">
+                                                                        <TableCell
+                                                                            colSpan={showIdColumn ? 10 : 9}
+                                                                            className="font-bold text-lg py-1"
                                                                         >
-                                                                            <Eye className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>
-                                                                            {item.ingestion_status === "completed"
-                                                                                ? "Ver detalles"
-                                                                                : "Solo disponible para archivos completados"}
-                                                                        </p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
+                                                                            <div className="flex items-center justify-between">
+                                                                                <span>
+                                                                                    Ciclo {itemGroup.group.term_term && itemGroup.group.term_term > 0
+                                                                                        ? String(itemGroup.group.term_term).padStart(2, '0')
+                                                                                        : 'N/A'} - {itemGroup.group.term_year && itemGroup.group.term_year > 0
+                                                                                        ? itemGroup.group.term_year
+                                                                                        : 'N/A'}
+                                                                                </span>
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    size="sm"
+                                                                                    onClick={() => handleViewConsolidated(itemGroup.group.term_id, itemGroup.group.items)}
+                                                                                    disabled={!hasReports}
+                                                                                    className="ml-auto"
+                                                                                >
+                                                                                    <Receipt className="h-4 w-4 mr-2" />
+                                                                                    Ver Consolidado de Planillas
+                                                                                </Button>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                );
+                                                            }
+                                                            lastGroupKey = itemGroup.termKey;
+                                                        }
 
-                                                            {canDeleteRow(item) && (
-                                                                <TooltipProvider>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <Button
-                                                                                variant="outline"
-                                                                                size="sm"
-                                                                                onClick={() => openDeleteModal(item)}
-                                                                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                                                                                disabled={item.ingestion_status === "pending" || item.ingestion_status === "processing" || !item.is_active}
-                                                                            >
-                                                                                <Trash2 className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent>
-                                                                            <p>
-                                                                                {!item.is_active
-                                                                                    ? "Solo se puede eliminar la versión activa"
-                                                                                    : item.ingestion_status === "pending" || item.ingestion_status === "processing"
-                                                                                        ? "No se puede eliminar durante el procesamiento"
-                                                                                        : item.ingestion_status === "failed"
-                                                                                            ? "Eliminar archivo fallido"
-                                                                                            : "Eliminar archivo"}
-                                                                            </p>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                </TooltipProvider>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
+                                                        // Marcar item como renderizado
+                                                        renderedItemIds.add(item.id);
+
+                                                        // Renderizar el item solo una vez
+                                                        const isActive = item.is_active;
+                                                        const allGroupItems = itemGroup.group.items;
+                                                        const itemIndexInGroup = allGroupItems.findIndex(i => i.id === item.id);
+                                                        const nextGroupItem = itemIndexInGroup < allGroupItems.length - 1 ? allGroupItems[itemIndexInGroup + 1] : null;
+                                                        const hasInactiveVersions = isActive && nextGroupItem && !nextGroupItem.is_active;
+
+                                                        result.push(
+                                                            <TableRow
+                                                                key={item.id}
+                                                                className={`
+                                                                    ${!isActive ? 'pl-8 opacity-70 bg-gray-100 dark:bg-gray-800 dark:text-gray-300' : ''}
+                                                                    ${hasInactiveVersions ? 'border-b-1 border-green-600' : ''}
+                                                                `}
+                                                            >
+                                                                {renderTableRowCells(item, isActive)}
+                                                            </TableRow>
+                                                        );
+                                                    }
+                                                });
+
+                                                return result;
+                                            } else {
+                                                // Renderizado normal (no DECANO)
+                                                return paginatedItems.map((item, index) => {
+                                                    const isActive = item.is_active;
+                                                    const prevItem = index > 0 ? paginatedItems[index - 1] : null;
+                                                    const nextItem = index < paginatedItems.length - 1 ? paginatedItems[index + 1] : null;
+                                                    const isNewGroup = !prevItem ||
+                                                        prevItem.faculty_id !== item.faculty_id ||
+                                                        prevItem.school_id !== item.school_id ||
+                                                        prevItem.term_id !== item.term_id;
+
+                                                    // Verificar si la versión activa tiene versiones anteriores (inactivas)
+                                                    const hasInactiveVersions = isActive && nextItem &&
+                                                        nextItem.faculty_id === item.faculty_id &&
+                                                        nextItem.school_id === item.school_id &&
+                                                        nextItem.term_id === item.term_id &&
+                                                        !nextItem.is_active;
+
+                                                    return (
+                                                        <TableRow
+                                                            key={item.id}
+                                                            className={`
+                                                                ${!isActive ? 'pl-8 opacity-70 bg-gray-100 dark:bg-gray-800 dark:text-gray-300' : ''}
+                                                                ${isNewGroup && !isActive ? 'border-t-1 border-gray-300' : ''}
+                                                                ${hasInactiveVersions ? 'border-b-1 border-green-600' : ''}
+                                                            `}
+                                                        >
+                                                            {renderTableRowCells(item, isActive)}
+                                                        </TableRow>
+                                                    );
+                                                });
+                                            }
+                                        })()
                                     )}
                                 </TableBody>
                             </Table>
