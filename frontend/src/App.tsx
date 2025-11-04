@@ -39,7 +39,7 @@ import { TermsList } from "./pages/terms/list";
 import { HolidaysList } from "./pages/holidays";
 import { FixedHolidayRulesList } from "./pages/fixed-holiday-rules";
 import { AnnualHolidaysList } from "./pages/annual-holidays";
-import { AcademicLoadFilesList, AcademicLoadFileShow } from "./pages/academic-load-files";
+import { AcademicLoadFilesListWrapper, AcademicLoadFileShow } from "./pages/academic-load-files";
 import { BillingReportShow, ConsolidatedBillingReportShow } from "./pages/billing-reports";
 import { DirectorDashboard } from "./pages/director-dashboard";
 import { DecanoDashboard } from "./pages/decano-dashboard";
@@ -105,6 +105,15 @@ function App() {
                     },
                     {
                       name: "academic-load-files",
+                      list: "/academic-planning/academic-load-files",
+                      meta: {
+                        label: "Carga Académica",
+                        parent: "academic-planning",
+                        icon: "Upload",
+                      },
+                    },
+                    {
+                      name: "academic-load-files-vicerrector",
                       list: "/academic-planning/academic-load-files",
                       meta: {
                         label: "Carga Académica",
@@ -315,7 +324,7 @@ function App() {
                       </Route>
                       <Route path="/academic-planning">
                         <Route path="terms" element={<TermsList />} />
-                        <Route path="academic-load-files" element={<AcademicLoadFilesList />} />
+                        <Route path="academic-load-files" element={<AcademicLoadFilesListWrapper />} />
                         <Route path="academic-load-files/show/:id" element={<AcademicLoadFileShow />} />
                         <Route path="billing-reports/show/:id" element={<BillingReportShow />} />
                         <Route path="billing-reports/consolidated/:termId" element={<ConsolidatedBillingReportShow />} />

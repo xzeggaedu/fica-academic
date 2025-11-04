@@ -614,11 +614,15 @@ export const dataProvider: DataProvider = {
         };
       }
 
-      case "academic-load-files": {
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
         const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
         const pageSize = pagination?.pageSize || 10;
+        // Convertir página a skip
+        const skip = (current - 1) * pageSize;
+        const limit = pageSize;
         const response = await apiRequest<PaginatedResponse<any>>(
-          `${ENDPOINTS.ACADEMIC_LOAD_FILES}/?page=${current}&items_per_page=${pageSize}`
+          `${ENDPOINTS.ACADEMIC_LOAD_FILES}/?skip=${skip}&limit=${limit}`
         );
 
         // Mapear la respuesta del backend al formato esperado por el frontend
@@ -730,7 +734,8 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
-      case "academic-load-files": {
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
         const response = await apiRequest<any>(`${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`);
         return { data: response as any };
       }
@@ -914,7 +919,8 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
-      case "academic-load-files": {
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
         // Para academic-load-files, usar FormData directamente
         const response = await apiRequest<any>(
           `${ENDPOINTS.ACADEMIC_LOAD_FILES}/upload`,
@@ -1186,7 +1192,8 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
-      case "academic-load-files": {
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
         const response = await apiRequest<any>(
           `${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`,
           {
@@ -1366,7 +1373,8 @@ export const dataProvider: DataProvider = {
         return { data: {} as any };
       }
 
-      case "academic-load-files": {
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
         await apiRequest(
           `${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`,
           {

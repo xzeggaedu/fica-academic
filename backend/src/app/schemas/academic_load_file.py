@@ -44,6 +44,8 @@ class AcademicLoadFileResponse(AcademicLoadFileBase):
 class AcademicLoadFileListResponse(BaseModel):
     id: int
     user_id: UUID
+    faculty_id: int = Field(..., description="ID de la facultad")
+    school_id: int = Field(..., description="ID de la escuela")
     faculty_name: str
     faculty_acronym: str
     school_name: str

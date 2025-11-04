@@ -276,8 +276,8 @@ async def delete_billing_report(
 @router.get("/consolidated/term/{term_id}", response_model=ConsolidatedBillingReportResponse)
 async def get_consolidated_billing_reports_by_term(
     term_id: int,
+    current_user: Annotated[dict, Depends(get_current_user)],
     academic_load_file_ids: str = Query(..., description="Comma-separated list of academic_load_file IDs"),
-    current_user: Annotated[dict, Depends(get_current_user)] = None,
     db: AsyncSession = Depends(async_get_db),
 ) -> ConsolidatedBillingReportResponse:
     """Obtener consolidado de planillas por ciclo académico.
@@ -313,23 +313,34 @@ async def get_consolidated_billing_reports_by_term(
     user_id = current_user.get("user_uuid")
 
     if isinstance(user_role, str):
-        user_role = UserRoleEnum(user_role)
+        # Normalizar el rol (minúsculas para coincidir con UserRoleEnum)
+        user_role = user_role.lower()
+        try:
+            user_role = UserRoleEnum(user_role)
+        except ValueError:
+            raise HTTPException(status_code=403, detail=f"Rol inválido: {user_role}")
 
-    # Solo DECANO puede ver consolidados
-    if user_role != UserRoleEnum.DECANO:
-        raise HTTPException(status_code=403, detail="Solo los decanos pueden ver consolidados")
+    # Permitir DECANO, VICERRECTOR y ADMIN ver consolidados
+    allowed_roles = [UserRoleEnum.DECANO, UserRoleEnum.VICERRECTOR, UserRoleEnum.ADMIN]
+    if user_role not in allowed_roles:
+        raise HTTPException(
+            status_code=403, detail="Solo los decanos, vicerrectores y administradores pueden ver consolidados"
+        )
 
     # Verificar que el decano tiene acceso a todas las escuelas de las cargas
     user_uuid = uuid_pkg.UUID(user_id) if user_id else None
     if not user_uuid:
         raise HTTPException(status_code=401, detail="Usuario no autenticado")
 
-    # Obtener scope del decano (faculty_id)
-    scope = await get_user_scope_filters(db=db, user_uuid=user_uuid, user_role=user_role)
-    if not scope.get("faculty_id"):
-        raise HTTPException(status_code=403, detail="Decano sin facultad asignada")
-
-    faculty_id = scope["faculty_id"]
+    # Para DECANO, verificar scope y facultad
+    faculty_id = None
+    if user_role == UserRoleEnum.DECANO:
+        # Obtener scope del decano (faculty_id)
+        scope = await get_user_scope_filters(db=db, user_uuid=user_uuid, user_role=user_role)
+        if not scope.get("faculty_id"):
+            raise HTTPException(status_code=403, detail="Decano sin facultad asignada")
+        faculty_id = scope["faculty_id"]
+    # Para VICERRECTOR y ADMIN, pueden ver todas las facultades (faculty_id = None)
 
     # Obtener todas las cargas académicas y verificar que pertenecen a la facultad del decano
     stmt = select(AcademicLoadFile).filter(AcademicLoadFile.id.in_(file_ids))
@@ -339,7 +350,7 @@ async def get_consolidated_billing_reports_by_term(
     if len(files) != len(file_ids):
         raise HTTPException(status_code=404, detail="Algunas cargas académicas no fueron encontradas")
 
-    # Verificar que todas pertenecen a la facultad del decano
+    # Verificar que todas pertenecen a la facultad del decano (solo para DECANO)
     school_ids = set()
     valid_file_ids = []
     school_acronyms = []
@@ -347,9 +358,10 @@ async def get_consolidated_billing_reports_by_term(
     term_info = None
 
     for file in files:
-        # Verificar que la escuela pertenece a la facultad del decano
-        if file.faculty_id != faculty_id:
-            raise HTTPException(status_code=403, detail=f"La carga académica {file.id} no pertenece a tu facultad")
+        # Para DECANO, verificar que la carga pertenece a su facultad
+        if user_role == UserRoleEnum.DECANO:
+            if file.faculty_id != faculty_id:
+                raise HTTPException(status_code=403, detail=f"La carga académica {file.id} no pertenece a tu facultad")
 
         # Verificar que el término coincide
         if file.term_id != term_id:

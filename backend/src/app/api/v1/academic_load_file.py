@@ -285,6 +285,8 @@ async def get_academic_load_files(
         AcademicLoadFileListResponse(
             id=file.id,
             user_id=str(file.user_id) if file.user_id else None,
+            faculty_id=file.faculty_id,
+            school_id=file.school_id,
             faculty_name=file.faculty.name,
             faculty_acronym=file.faculty.acronym,
             school_name=file.school.name,

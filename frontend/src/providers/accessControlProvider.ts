@@ -425,7 +425,11 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
-              // Todos los roles autenticados pueden ver según su alcance
+              // Todos los roles autenticados pueden ver según su alcance, EXCEPTO VICERRECTOR
+              // El vicerrector debe usar academic-load-files-vicerrector
+              if (userRole === UserRoleEnum.VICERRECTOR) {
+                return { can: false, reason: "El vicerrector debe usar el recurso específico" };
+              }
               return { can: true };
             case "create":
               // Admin y Directores pueden subir
@@ -444,6 +448,29 @@ export const accessControlProvider: AccessControlProvider = {
               }
               // Permitir que todos vean el botón, los componentes validarán ownership
               return { can: true };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
+        case "academic-load-files-vicerrector":
+          switch (action) {
+            case "list":
+            case "show":
+              // Solo vicerrectores pueden ver este recurso
+              if (userRole === UserRoleEnum.VICERRECTOR) {
+                return { can: true };
+              }
+              return { can: false, reason: "Solo vicerrectores pueden ver esta sección" };
+            case "create":
+              // Los vicerrectores no pueden crear archivos
+              return { can: false, reason: "Los vicerrectores no pueden subir archivos" };
+            case "edit":
+              // La edición no está implementada actualmente
+              return { can: false, reason: "La edición de archivos no está implementada" };
+            case "delete":
+              // Los vicerrectores no pueden eliminar archivos
+              return { can: false, reason: "Los vicerrectores no pueden eliminar archivos" };
 
             default:
               return { can: false, reason: "Acción no permitida" };

@@ -39,19 +39,27 @@ Por defecto, el servidor API se ejecuta **sin modo reload** para evitar problema
 
 Si necesitas habilitar el modo reload para desarrollo (hot-reload de código), puedes:
 
-1. **Opción 1: Usar variable de entorno** (recomendado):
+1. **Opción 1: Agregar al archivo `.env`** (recomendado):
+
+   En `backend/src/.env`, agrega:
+
+   ```bash
+   RELOAD_MODE=true
+   ```
+
+   Luego reinicia los servicios:
+
+   ```bash
+   docker-compose restart api
+   ```
+
+1. **Opción 2: Usar variable de entorno al iniciar**:
 
    ```bash
    RELOAD_MODE=true docker-compose up -d
    ```
 
-1. **Opción 2: Modificar docker-compose.yml temporalmente**:
-
-   ```yaml
-   command: uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload
-   ```
-
-**Nota**: El modo reload puede causar problemas de memoria (`OSError: [Errno 12] Cannot allocate memory`) en sistemas con poca RAM o muchos archivos. Si experimentas este error, deshabilita el reload.
+**Nota**: El modo reload puede causar problemas de memoria (`OSError: [Errno 12] Cannot allocate memory`) en sistemas con poca RAM o muchos archivos. Si experimentas este error, deshabilita el reload estableciendo `RELOAD_MODE=false` o eliminando la variable del `.env`.
 
 ## 🌐 Acceso a la Aplicación
 

@@ -30,6 +30,10 @@ class GlobalSettings(BaseSettings):
 
     ENVIRONMENT: EnvironmentOption = EnvironmentOption.LOCAL
 
+    # Variable para controlar el modo reload de uvicorn (solo para Docker)
+    # Acepta string "true"/"false" y lo convierte a bool
+    RELOAD_MODE: str = "false"
+
     # Usamos os.getenv para obtener el valor de ENVIRONMENT antes de la inicialización de Pydantic.
     _current_env = os.getenv("ENVIRONMENT", EnvironmentOption.LOCAL.value)
 
@@ -39,6 +43,7 @@ class GlobalSettings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=True,
         env_prefix="",
+        extra="ignore",  # Ignorar variables extra que no estén definidas
     )
 
 
