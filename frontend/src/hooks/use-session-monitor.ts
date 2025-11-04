@@ -12,8 +12,8 @@ export const useSessionMonitor = () => {
   const lastCheckRef = useRef<number>(0);
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Solo monitorear en páginas autenticadas (no en login, register, forgot-password)
-  const isAuthPage = ['/login', '/register', '/forgot-password'].includes(location.pathname);
+  // Solo monitorear en páginas autenticadas (no en login)
+  const isAuthPage = ['/login'].includes(location.pathname);
 
   const checkSession = async () => {
     const token = localStorage.getItem(TOKEN_KEY);

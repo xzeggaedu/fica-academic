@@ -43,9 +43,7 @@ import { AcademicLoadFilesList, AcademicLoadFileShow } from "./pages/academic-lo
 import { BillingReportShow, ConsolidatedBillingReportShow } from "./pages/billing-reports";
 import { DirectorDashboard } from "./pages/director-dashboard";
 import { DecanoDashboard } from "./pages/decano-dashboard";
-import { ForgotPassword } from "./pages/forgot-password";
 import { Login } from "./pages/login";
-import { Register } from "./pages/register";
 
 function App() {
   // Inicializar renovación automática de tokens
@@ -337,8 +335,6 @@ function App() {
                       }
                     >
                       <Route path="/login" element={<Login />} />
-                      <Route path="/register" element={<Register />} />
-                      <Route path="/forgot-password" element={<ForgotPassword />} />
                     </Route>
                   </Routes>
 
