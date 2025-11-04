@@ -124,6 +124,19 @@ class MonthlyReportByFaculty(BaseModel):
     monthly_differences: dict[str, float] = Field(default_factory=dict)  # Diferencia vs total esperado
 
 
+class GroupsComparisonBySchoolItem(BaseModel):
+    """Item para comparación de grupos pagados/no pagados por escuela entre dos ciclos."""
+
+    school_acronym: str
+    school_name: str | None = None
+    base_paid: float = 0.0
+    base_unpaid: float = 0.0
+    base_total: float = 0.0
+    compare_paid: float = 0.0
+    compare_unpaid: float = 0.0
+    compare_total: float = 0.0
+
+
 class DirectorDashboardResponse(BaseModel):
     context: DashboardContext
     kpis: DashboardKPIs

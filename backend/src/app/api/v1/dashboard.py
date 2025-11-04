@@ -19,6 +19,7 @@ from ...schemas.dashboard import (
     DashboardContext,
     DashboardKPIs,
     DirectorDashboardResponse,
+    GroupsComparisonBySchoolItem,
     HeatmapPoint,
     MonthlyReportByFaculty,
     MonthlyReportSchoolItem,
@@ -1221,6 +1222,152 @@ async def get_decano_dashboard(
 
     tables["monthly_report_by_faculty"] = [mr.model_dump() for mr in monthly_reports_by_faculty]
 
+    # Comparación de grupos pagados/no pagados por escuela entre dos ciclos
+    groups_comparison_by_school: list[GroupsComparisonBySchoolItem] = []
+    if compare_term_id:
+        # Obtener archivos del ciclo comparado
+        cmp_files_stmt = (
+            select(AcademicLoadFile)
+            .filter(
+                AcademicLoadFile.school_id.in_(target_school_ids),
+                AcademicLoadFile.term_id == compare_term_id,
+                AcademicLoadFile.is_active.is_(True),
+            )
+            .order_by(desc(AcademicLoadFile.upload_date))
+        )
+        cmp_files_result = await db.execute(cmp_files_stmt)
+        cmp_files = cmp_files_result.scalars().all()
+
+        if cmp_files:
+            cmp_file_ids = [f.id for f in cmp_files]
+            cmp_reports_stmt = (
+                select(BillingReport)
+                .filter(BillingReport.academic_load_file_id.in_(cmp_file_ids))
+                .order_by(desc(BillingReport.created_at))
+            )
+            cmp_reports_result = await db.execute(cmp_reports_stmt)
+            cmp_all_reports = cmp_reports_result.scalars().all()
+
+            cmp_reports_by_file: dict[int, BillingReport] = {}
+            for r in cmp_all_reports:
+                if r.academic_load_file_id not in cmp_reports_by_file:
+                    cmp_reports_by_file[r.academic_load_file_id] = r
+
+            # Obtener mapeo de file_id -> school_acronym y school_name para ambos ciclos
+            base_files_stmt = (
+                select(AcademicLoadFile, School)
+                .join(School, AcademicLoadFile.school_id == School.id)
+                .filter(
+                    AcademicLoadFile.school_id.in_(target_school_ids),
+                    AcademicLoadFile.term_id == term_id,
+                    AcademicLoadFile.is_active.is_(True),
+                )
+            )
+            base_files_result = await db.execute(base_files_stmt)
+            base_files_data = base_files_result.all()
+
+            cmp_files_stmt_with_school = (
+                select(AcademicLoadFile, School)
+                .join(School, AcademicLoadFile.school_id == School.id)
+                .filter(
+                    AcademicLoadFile.school_id.in_(target_school_ids),
+                    AcademicLoadFile.term_id == compare_term_id,
+                    AcademicLoadFile.is_active.is_(True),
+                )
+            )
+            cmp_files_result_with_school = await db.execute(cmp_files_stmt_with_school)
+            cmp_files_data = cmp_files_result_with_school.all()
+
+            # Mapeo file_id -> (school_acronym, school_name)
+            base_file_to_school: dict[int, tuple[str, str]] = {}
+            for file_row, school_obj in base_files_data:
+                base_file_to_school[file_row.id] = (school_obj.acronym, school_obj.name)
+
+            cmp_file_to_school: dict[int, tuple[str, str]] = {}
+            for file_row, school_obj in cmp_files_data:
+                cmp_file_to_school[file_row.id] = (school_obj.acronym, school_obj.name)
+
+            # Calcular grupos por escuela para ciclo base
+            base_school_groups: dict[
+                str, dict[str, float]
+            ] = {}  # {school_acronym: {"paid": 0.0, "unpaid": 0.0, "total": 0.0}}
+            for file_id, report in reports_by_file.items():
+                if file_id not in base_file_to_school:
+                    continue
+                school_acronym, school_name = base_file_to_school[file_id]
+
+                if school_acronym not in base_school_groups:
+                    base_school_groups[school_acronym] = {"paid": 0.0, "unpaid": 0.0, "total": 0.0}
+
+                for ps in report.payment_summaries:
+                    rates = [
+                        float(ps.payment_rate_grado),
+                        float(ps.payment_rate_maestria_1),
+                        float(ps.payment_rate_maestria_2),
+                        float(ps.payment_rate_doctor),
+                        float(ps.payment_rate_bilingue),
+                    ]
+                    s = sum(rates)
+                    base_school_groups[school_acronym]["total"] += 1.0
+                    if s >= 1.0:
+                        base_school_groups[school_acronym]["paid"] += 1.0
+                    elif s == 0.0:
+                        base_school_groups[school_acronym]["unpaid"] += 1.0
+
+            # Calcular grupos por escuela para ciclo comparado
+            cmp_school_groups: dict[str, dict[str, float]] = {}
+            for file_id, report in cmp_reports_by_file.items():
+                if file_id not in cmp_file_to_school:
+                    continue
+                school_acronym, school_name = cmp_file_to_school[file_id]
+
+                if school_acronym not in cmp_school_groups:
+                    cmp_school_groups[school_acronym] = {"paid": 0.0, "unpaid": 0.0, "total": 0.0}
+
+                for ps in report.payment_summaries:
+                    rates = [
+                        float(ps.payment_rate_grado),
+                        float(ps.payment_rate_maestria_1),
+                        float(ps.payment_rate_maestria_2),
+                        float(ps.payment_rate_doctor),
+                        float(ps.payment_rate_bilingue),
+                    ]
+                    s = sum(rates)
+                    cmp_school_groups[school_acronym]["total"] += 1.0
+                    if s >= 1.0:
+                        cmp_school_groups[school_acronym]["paid"] += 1.0
+                    elif s == 0.0:
+                        cmp_school_groups[school_acronym]["unpaid"] += 1.0
+
+            # Construir lista de comparación (incluir todas las escuelas que aparecen en cualquier ciclo)
+            all_schools = set(base_school_groups.keys()) | set(cmp_school_groups.keys())
+            school_info_map: dict[str, str] = {}  # {school_acronym: school_name}
+            for file_id, (acronym, name) in base_file_to_school.items():
+                if acronym not in school_info_map:
+                    school_info_map[acronym] = name
+            for file_id, (acronym, name) in cmp_file_to_school.items():
+                if acronym not in school_info_map:
+                    school_info_map[acronym] = name
+
+            for school_acronym in sorted(all_schools):
+                base_data = base_school_groups.get(school_acronym, {"paid": 0.0, "unpaid": 0.0, "total": 0.0})
+                cmp_data = cmp_school_groups.get(school_acronym, {"paid": 0.0, "unpaid": 0.0, "total": 0.0})
+
+                groups_comparison_by_school.append(
+                    GroupsComparisonBySchoolItem(
+                        school_acronym=school_acronym,
+                        school_name=school_info_map.get(school_acronym),
+                        base_paid=base_data["paid"],
+                        base_unpaid=base_data["unpaid"],
+                        base_total=base_data["total"],
+                        compare_paid=cmp_data["paid"],
+                        compare_unpaid=cmp_data["unpaid"],
+                        compare_total=cmp_data["total"],
+                    )
+                )
+
+    tables["groups_comparison_by_school"] = [g.model_dump() for g in groups_comparison_by_school]
+
     return DirectorDashboardResponse(context=context, kpis=kpis, charts=charts, tables=tables, comparison=comparison)
 
 
@@ -1999,5 +2146,151 @@ async def get_vicerrector_dashboard(
     monthly_reports_by_faculty.sort(key=lambda x: x.faculty_id)
 
     tables["monthly_report_by_faculty"] = [mr.model_dump() for mr in monthly_reports_by_faculty]
+
+    # Comparación de grupos pagados/no pagados por escuela entre dos ciclos
+    groups_comparison_by_school: list[GroupsComparisonBySchoolItem] = []
+    if compare_term_id:
+        # Obtener archivos del ciclo comparado
+        cmp_files_stmt = (
+            select(AcademicLoadFile)
+            .filter(
+                AcademicLoadFile.school_id.in_(target_school_ids),
+                AcademicLoadFile.term_id == compare_term_id,
+                AcademicLoadFile.is_active.is_(True),
+            )
+            .order_by(desc(AcademicLoadFile.upload_date))
+        )
+        cmp_files_result = await db.execute(cmp_files_stmt)
+        cmp_files = cmp_files_result.scalars().all()
+
+        if cmp_files:
+            cmp_file_ids = [f.id for f in cmp_files]
+            cmp_reports_stmt = (
+                select(BillingReport)
+                .filter(BillingReport.academic_load_file_id.in_(cmp_file_ids))
+                .order_by(desc(BillingReport.created_at))
+            )
+            cmp_reports_result = await db.execute(cmp_reports_stmt)
+            cmp_all_reports = cmp_reports_result.scalars().all()
+
+            cmp_reports_by_file: dict[int, BillingReport] = {}
+            for r in cmp_all_reports:
+                if r.academic_load_file_id not in cmp_reports_by_file:
+                    cmp_reports_by_file[r.academic_load_file_id] = r
+
+            # Obtener mapeo de file_id -> school_acronym y school_name para ambos ciclos
+            base_files_stmt = (
+                select(AcademicLoadFile, School)
+                .join(School, AcademicLoadFile.school_id == School.id)
+                .filter(
+                    AcademicLoadFile.school_id.in_(target_school_ids),
+                    AcademicLoadFile.term_id == term_id,
+                    AcademicLoadFile.is_active.is_(True),
+                )
+            )
+            base_files_result = await db.execute(base_files_stmt)
+            base_files_data = base_files_result.all()
+
+            cmp_files_stmt_with_school = (
+                select(AcademicLoadFile, School)
+                .join(School, AcademicLoadFile.school_id == School.id)
+                .filter(
+                    AcademicLoadFile.school_id.in_(target_school_ids),
+                    AcademicLoadFile.term_id == compare_term_id,
+                    AcademicLoadFile.is_active.is_(True),
+                )
+            )
+            cmp_files_result_with_school = await db.execute(cmp_files_stmt_with_school)
+            cmp_files_data = cmp_files_result_with_school.all()
+
+            # Mapeo file_id -> (school_acronym, school_name)
+            base_file_to_school: dict[int, tuple[str, str]] = {}
+            for file_row, school_obj in base_files_data:
+                base_file_to_school[file_row.id] = (school_obj.acronym, school_obj.name)
+
+            cmp_file_to_school: dict[int, tuple[str, str]] = {}
+            for file_row, school_obj in cmp_files_data:
+                cmp_file_to_school[file_row.id] = (school_obj.acronym, school_obj.name)
+
+            # Calcular grupos por escuela para ciclo base
+            base_school_groups: dict[
+                str, dict[str, float]
+            ] = {}  # {school_acronym: {"paid": 0.0, "unpaid": 0.0, "total": 0.0}}
+            for file_id, report in reports_by_file.items():
+                if file_id not in base_file_to_school:
+                    continue
+                school_acronym, school_name = base_file_to_school[file_id]
+
+                if school_acronym not in base_school_groups:
+                    base_school_groups[school_acronym] = {"paid": 0.0, "unpaid": 0.0, "total": 0.0}
+
+                for ps in report.payment_summaries:
+                    rates = [
+                        float(ps.payment_rate_grado),
+                        float(ps.payment_rate_maestria_1),
+                        float(ps.payment_rate_maestria_2),
+                        float(ps.payment_rate_doctor),
+                        float(ps.payment_rate_bilingue),
+                    ]
+                    s = sum(rates)
+                    base_school_groups[school_acronym]["total"] += 1.0
+                    if s >= 1.0:
+                        base_school_groups[school_acronym]["paid"] += 1.0
+                    elif s == 0.0:
+                        base_school_groups[school_acronym]["unpaid"] += 1.0
+
+            # Calcular grupos por escuela para ciclo comparado
+            cmp_school_groups: dict[str, dict[str, float]] = {}
+            for file_id, report in cmp_reports_by_file.items():
+                if file_id not in cmp_file_to_school:
+                    continue
+                school_acronym, school_name = cmp_file_to_school[file_id]
+
+                if school_acronym not in cmp_school_groups:
+                    cmp_school_groups[school_acronym] = {"paid": 0.0, "unpaid": 0.0, "total": 0.0}
+
+                for ps in report.payment_summaries:
+                    rates = [
+                        float(ps.payment_rate_grado),
+                        float(ps.payment_rate_maestria_1),
+                        float(ps.payment_rate_maestria_2),
+                        float(ps.payment_rate_doctor),
+                        float(ps.payment_rate_bilingue),
+                    ]
+                    s = sum(rates)
+                    cmp_school_groups[school_acronym]["total"] += 1.0
+                    if s >= 1.0:
+                        cmp_school_groups[school_acronym]["paid"] += 1.0
+                    elif s == 0.0:
+                        cmp_school_groups[school_acronym]["unpaid"] += 1.0
+
+            # Construir lista de comparación (incluir todas las escuelas que aparecen en cualquier ciclo)
+            all_schools = set(base_school_groups.keys()) | set(cmp_school_groups.keys())
+            school_info_map: dict[str, str] = {}  # {school_acronym: school_name}
+            for file_id, (acronym, name) in base_file_to_school.items():
+                if acronym not in school_info_map:
+                    school_info_map[acronym] = name
+            for file_id, (acronym, name) in cmp_file_to_school.items():
+                if acronym not in school_info_map:
+                    school_info_map[acronym] = name
+
+            for school_acronym in sorted(all_schools):
+                base_data = base_school_groups.get(school_acronym, {"paid": 0.0, "unpaid": 0.0, "total": 0.0})
+                cmp_data = cmp_school_groups.get(school_acronym, {"paid": 0.0, "unpaid": 0.0, "total": 0.0})
+
+                groups_comparison_by_school.append(
+                    GroupsComparisonBySchoolItem(
+                        school_acronym=school_acronym,
+                        school_name=school_info_map.get(school_acronym),
+                        base_paid=base_data["paid"],
+                        base_unpaid=base_data["unpaid"],
+                        base_total=base_data["total"],
+                        compare_paid=cmp_data["paid"],
+                        compare_unpaid=cmp_data["unpaid"],
+                        compare_total=cmp_data["total"],
+                    )
+                )
+
+    tables["groups_comparison_by_school"] = [g.model_dump() for g in groups_comparison_by_school]
 
     return DirectorDashboardResponse(context=context, kpis=kpis, charts=charts, tables=tables, comparison=comparison)

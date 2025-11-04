@@ -95,7 +95,7 @@ const MonthlyReportChart: React.FC<MonthlyReportChartProps> = ({ data }) => {
             bottom: 0,
         },
         grid: {
-            left: "3%",
+            left: "20",
             right: "4%",
             bottom: "15%",
             containLabel: true,
@@ -105,6 +105,7 @@ const MonthlyReportChart: React.FC<MonthlyReportChartProps> = ({ data }) => {
             data: months,
             axisLabel: {
                 rotate: 45,
+                margin: 10,
             },
         },
         yAxis: {
@@ -909,6 +910,164 @@ export const VicerrectorDashboard: React.FC = () => {
                                     })()}
                                 </TableBody>
                             </Table>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Comparación de Grupos Pagados/No Pagados por Escuela */}
+                {data.comparison && tables.groups_comparison_by_school && tables.groups_comparison_by_school.length > 0 && (
+                    <Card className="flex flex-col">
+                        <CardHeader>
+                            <CardTitle>Comparación de Grupos por Escuela</CardTitle>
+                            <p className="text-xs text-muted-foreground">
+                                Comparación de grupos pagados y no pagados por escuela entre dos ciclos académicos.
+                            </p>
+                        </CardHeader>
+                        <CardContent className="flex flex-col flex-1">
+                            {/* Gráfico comparativo */}
+                            <div className="w-full mb-6" style={{ height: "400px" }}>
+                                <ReactECharts
+                                    option={{
+                                        tooltip: {
+                                            trigger: "axis",
+                                            axisPointer: { type: "shadow" },
+                                        },
+                                        legend: {
+                                            data: [
+                                                `Pagadas (${data.comparison.base.term_label ?? "Actual"})`,
+                                                `No Pagadas (${data.comparison.base.term_label ?? "Actual"})`,
+                                                `Pagadas (${data.comparison.compare.term_label ?? "Comparado"})`,
+                                                `No Pagadas (${data.comparison.compare.term_label ?? "Comparado"})`,
+                                            ],
+                                            bottom: 0,
+                                        },
+                                        grid: {
+                                            left: "3%",
+                                            right: "4%",
+                                            bottom: "15%",
+                                            containLabel: true,
+                                        },
+                                        xAxis: {
+                                            type: "category",
+                                            data: tables.groups_comparison_by_school.map((item: any) => item.school_acronym),
+                                        },
+                                        yAxis: {
+                                            type: "value",
+                                            name: "Número de Grupos",
+                                            nameLocation: "middle",
+                                            nameGap: 50,
+                                        },
+                                        series: [
+                                            {
+                                                name: `Pagadas (${data.comparison.base.term_label ?? "Actual"})`,
+                                                type: "bar",
+                                                stack: "base",
+                                                data: tables.groups_comparison_by_school.map((item: any) => item.base_paid),
+                                                itemStyle: { color: "#22c55e" },
+                                            },
+                                            {
+                                                name: `No Pagadas (${data.comparison.base.term_label ?? "Actual"})`,
+                                                type: "bar",
+                                                stack: "base",
+                                                data: tables.groups_comparison_by_school.map((item: any) => item.base_unpaid),
+                                                itemStyle: { color: "#ef4444" },
+                                            },
+                                            {
+                                                name: `Pagadas (${data.comparison.compare.term_label ?? "Comparado"})`,
+                                                type: "bar",
+                                                stack: "compare",
+                                                data: tables.groups_comparison_by_school.map((item: any) => item.compare_paid),
+                                                itemStyle: { color: "#86efac" },
+                                            },
+                                            {
+                                                name: `No Pagadas (${data.comparison.compare.term_label ?? "Comparado"})`,
+                                                type: "bar",
+                                                stack: "compare",
+                                                data: tables.groups_comparison_by_school.map((item: any) => item.compare_unpaid),
+                                                itemStyle: { color: "#fca5a5" },
+                                            },
+                                        ],
+                                    }}
+                                    style={{ height: "100%", width: "100%" }}
+                                />
+                            </div>
+
+                            {/* Tabla */}
+                            <div className="w-full overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="text-left">Escuela</TableHead>
+                                            <TableHead colSpan={3} className="text-center">
+                                                {data.comparison.base.term_label ?? "Actual"}
+                                            </TableHead>
+                                            <TableHead colSpan={3} className="text-center">
+                                                {data.comparison.compare.term_label ?? "Comparado"}
+                                            </TableHead>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableHead className="text-left"></TableHead>
+                                            <TableHead className="text-center">Pagadas</TableHead>
+                                            <TableHead className="text-center">No Pagadas</TableHead>
+                                            <TableHead className="text-center">Total</TableHead>
+                                            <TableHead className="text-center">Pagadas</TableHead>
+                                            <TableHead className="text-center">No Pagadas</TableHead>
+                                            <TableHead className="text-center">Total</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {tables.groups_comparison_by_school.map((item: any) => (
+                                            <TableRow key={item.school_acronym}>
+                                                <TableCell className="font-medium">{item.school_name || item.school_acronym}</TableCell>
+                                                <TableCell className="text-center">{item.base_paid.toFixed(1)}</TableCell>
+                                                <TableCell className="text-center">{item.base_unpaid.toFixed(1)}</TableCell>
+                                                <TableCell className="text-center font-semibold">{item.base_total.toFixed(1)}</TableCell>
+                                                <TableCell className="text-center">{item.compare_paid.toFixed(1)}</TableCell>
+                                                <TableCell className="text-center">{item.compare_unpaid.toFixed(1)}</TableCell>
+                                                <TableCell className="text-center font-semibold">{item.compare_total.toFixed(1)}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {/* Fila de totales */}
+                                        <TableRow className="bg-green-50 dark:bg-green-900/20">
+                                            <TableCell className="font-semibold">Total</TableCell>
+                                            <TableCell className="text-center font-semibold">
+                                                {tables.groups_comparison_by_school
+                                                    .reduce((sum: number, item: any) => sum + item.base_paid, 0)
+                                                    .toFixed(1)}
+                                            </TableCell>
+                                            <TableCell className="text-center font-semibold">
+                                                {tables.groups_comparison_by_school
+                                                    .reduce((sum: number, item: any) => sum + item.base_unpaid, 0)
+                                                    .toFixed(1)}
+                                            </TableCell>
+                                            <TableCell className="text-center font-semibold">
+                                                {tables.groups_comparison_by_school
+                                                    .reduce((sum: number, item: any) => sum + item.base_total, 0)
+                                                    .toFixed(1)}
+                                            </TableCell>
+                                            <TableCell className="text-center font-semibold">
+                                                {tables.groups_comparison_by_school
+                                                    .reduce((sum: number, item: any) => sum + item.compare_paid, 0)
+                                                    .toFixed(1)}
+                                            </TableCell>
+                                            <TableCell className="text-center font-semibold">
+                                                {tables.groups_comparison_by_school
+                                                    .reduce((sum: number, item: any) => sum + item.compare_unpaid, 0)
+                                                    .toFixed(1)}
+                                            </TableCell>
+                                            <TableCell className="text-center font-semibold">
+                                                {tables.groups_comparison_by_school
+                                                    .reduce((sum: number, item: any) => sum + item.compare_total, 0)
+                                                    .toFixed(1)}
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-4">
+                                <span className="font-bold">Nota:</span> Muestra la comparación de grupos pagados y no pagados por escuela entre dos ciclos académicos.
+                                Los grupos pagados representan aquellos con tasa de pago completa (100% o más), mientras que los no pagados representan aquellos con tasa de pago del 0%.
+                            </p>
                         </CardContent>
                     </Card>
                 )}
