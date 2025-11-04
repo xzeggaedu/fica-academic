@@ -98,6 +98,43 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Administradores y vicerrectores pueden ver facultades (para dashboards)
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.VICERRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver facultades",
+              };
+            case "create":
+            case "edit":
+            case "delete":
+              // Solo administradores pueden gestionar facultades
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "Solo los administradores pueden gestionar facultades",
+              };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
+        case "faculties":
+          // Recurso plural - mismo comportamiento que "faculty"
+          switch (action) {
+            case "list":
+            case "show":
+              // Administradores y vicerrectores pueden ver facultades (para dashboards)
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.VICERRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver facultades",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -445,6 +482,13 @@ export const accessControlProvider: AccessControlProvider = {
             return { can: true };
           }
           return { can: false, reason: "Solo decanos pueden ver este dashboard" };
+
+        case "dashboards-vicerrector":
+          // Solo vicerrectores pueden ver este dashboard (no administradores)
+          if (userRole === UserRoleEnum.VICERRECTOR) {
+            return { can: true };
+          }
+          return { can: false, reason: "Solo vicerrectores pueden ver este dashboard" };
 
         default:
           // Para otros recursos, permitir acceso básico a usuarios autenticados

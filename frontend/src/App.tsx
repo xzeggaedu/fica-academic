@@ -43,6 +43,7 @@ import { AcademicLoadFilesList, AcademicLoadFileShow } from "./pages/academic-lo
 import { BillingReportShow, ConsolidatedBillingReportShow } from "./pages/billing-reports";
 import { DirectorDashboard } from "./pages/director-dashboard";
 import { DecanoDashboard } from "./pages/decano-dashboard";
+import { VicerrectorDashboard } from "./pages/vicerrector-dashboard";
 import { Login } from "./pages/login";
 
 function App() {
@@ -82,6 +83,15 @@ function App() {
                       list: "/decano/dashboard",
                       meta: {
                         label: "Dashboard Decano",
+                        parent: "dashboards",
+                        icon: "Activity",
+                      },
+                    },
+                    {
+                      name: "dashboards-vicerrector",
+                      list: "/vicerrector/dashboard",
+                      meta: {
+                        label: "Dashboard Vicerrector",
                         parent: "dashboards",
                         icon: "Activity",
                       },
@@ -318,6 +328,9 @@ function App() {
                       </Route>
                       <Route path="/decano">
                         <Route path="dashboard" element={<DecanoDashboard />} />
+                      </Route>
+                      <Route path="/vicerrector">
+                        <Route path="dashboard" element={<VicerrectorDashboard />} />
                       </Route>
                       <Route path="/billing-reports">
                         <Route path="show/:id" element={<BillingReportShow />} />
