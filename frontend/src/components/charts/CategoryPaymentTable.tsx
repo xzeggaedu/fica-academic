@@ -3,6 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/data/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SimpleDoughnutChart } from "@/components/charts/SimpleDoughnutChart";
+import { Maximize2, Minimize2 } from "lucide-react";
 
 interface CategoryPaymentItem {
     category: string;
@@ -13,9 +14,11 @@ interface CategoryPaymentItem {
 
 interface CategoryPaymentTableProps {
     data: Record<string, CategoryPaymentItem[]>; // school_acronym -> array of CategoryPaymentItem
+    isMaximized?: boolean;
+    onToggleMaximize?: () => void;
 }
 
-export const CategoryPaymentTable: React.FC<CategoryPaymentTableProps> = ({ data }) => {
+export const CategoryPaymentTable: React.FC<CategoryPaymentTableProps> = ({ data, isMaximized = false, onToggleMaximize }) => {
     // Obtener todas las escuelas disponibles
     const schools = Object.keys(data).sort();
     const [selectedSchool, setSelectedSchool] = useState<string>("CONSOLIDADO");
@@ -85,12 +88,29 @@ export const CategoryPaymentTable: React.FC<CategoryPaymentTableProps> = ({ data
     );
 
     return (
-        <Card className="flex flex-col h-full">
-            <CardHeader>
-                <CardTitle>Categorías por Estado de Pago</CardTitle>
-                <p className="text-xs text-muted-foreground">
-                    Resumen de categorías de profesores por estado de pago.
-                </p>
+        <Card className={`flex flex-col h-full ${isMaximized ? "md:col-span-2 xl:col-span-3" : ""}`}>
+            <CardHeader className="relative">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                        <CardTitle>Categorías por Estado de Pago</CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                            Resumen de categorías de profesores por estado de pago.
+                        </p>
+                    </div>
+                    {onToggleMaximize && (
+                        <button
+                            onClick={onToggleMaximize}
+                            className="flex-shrink-0 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            aria-label={isMaximized ? "Minimizar" : "Maximizar"}
+                        >
+                            {isMaximized ? (
+                                <Minimize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            ) : (
+                                <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            )}
+                        </button>
+                    )}
+                </div>
             </CardHeader>
             <CardContent className="flex flex-col flex-1">
                 <div className="flex-1">

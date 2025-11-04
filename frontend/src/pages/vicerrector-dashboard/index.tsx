@@ -12,7 +12,7 @@ import { CategoryPaymentTable } from "@/components/charts/CategoryPaymentTable";
 import ReactECharts from "echarts-for-react";
 import { useVicerrectorDashboard } from "@/hooks/useVicerrectorDashboard";
 import { useSchoolsCrud } from "@/hooks/useSchoolsCrud";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Maximize2, Minimize2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/data/table";
 
 // Constantes y tipos para el reporte mensual por facultad
@@ -45,6 +45,58 @@ const formatCurrency = (value: number) => {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     }).format(value);
+};
+
+// Componente wrapper para cards con funcionalidad de maximizar/minimizar
+interface MaximizableCardProps {
+    cardId: string;
+    title: React.ReactNode;
+    description?: string;
+    children: React.ReactNode;
+    isMaximized: boolean;
+    onToggleMaximize: (cardId: string) => void;
+    defaultClassName?: string;
+    enableMaximize?: boolean; // Flag para habilitar/deshabilitar el botón de maximizar
+}
+
+const MaximizableCard: React.FC<MaximizableCardProps> = ({
+    cardId,
+    title,
+    description,
+    children,
+    isMaximized,
+    onToggleMaximize,
+    defaultClassName = "flex flex-col h-full",
+    enableMaximize = false, // Por defecto deshabilitado
+}) => {
+    return (
+        <Card
+            className={`${defaultClassName} ${isMaximized ? "md:col-span-2 xl:col-span-3" : ""}`}
+        >
+            <CardHeader className="relative">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                        <CardTitle>{title}</CardTitle>
+                        {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+                    </div>
+                    {enableMaximize && (
+                        <button
+                            onClick={() => onToggleMaximize(cardId)}
+                            className="flex-shrink-0 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            aria-label={isMaximized ? "Minimizar" : "Maximizar"}
+                        >
+                            {isMaximized ? (
+                                <Minimize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            ) : (
+                                <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            )}
+                        </button>
+                    )}
+                </div>
+            </CardHeader>
+            {children}
+        </Card>
+    );
 };
 
 interface MonthlyReportChartProps {
@@ -157,6 +209,12 @@ export const VicerrectorDashboard: React.FC = () => {
     const [facultyId, setFacultyId] = React.useState<number | null>(null); // null = todas las facultades
     const [schoolId, setSchoolId] = React.useState<number | null>(null);
     const [compareTermId, setCompareTermId] = React.useState<number | null>(null);
+    const [maximizedCard, setMaximizedCard] = React.useState<string | null>(null);
+
+    // Función para toggle del estado de maximización
+    const handleToggleMaximize = (cardId: string) => {
+        setMaximizedCard((prev) => (prev === cardId ? null : cardId));
+    };
 
     // Obtener escuelas según la facultad seleccionada
     const { itemsList: schools } = useSchoolsCrud({
@@ -677,13 +735,13 @@ export const VicerrectorDashboard: React.FC = () => {
             {/* Grid unificado para todos los cards excepto la tabla Comparativa */}
             <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {/* Mapa de calor */}
-                <Card className="flex flex-col h-full">
-                    <CardHeader>
-                        <CardTitle>Mapa de calor (días × horarios)</CardTitle>
-                        <p className="text-xs text-muted-foreground">
-                            Intensidad de horas-clase y costo por bloque de días/horario del ciclo seleccionado.
-                        </p>
-                    </CardHeader>
+                <MaximizableCard
+                    cardId="heatmap"
+                    title="Mapa de calor (días × horarios)"
+                    description="Intensidad de horas-clase y costo por bloque de días/horario del ciclo seleccionado."
+                    isMaximized={maximizedCard === "heatmap"}
+                    onToggleMaximize={handleToggleMaximize}
+                >
                     <CardContent className="flex flex-col flex-1">
                         <div className="flex-1">
                             <HeatmapSchedule data={charts.heatmap} metric="hours" />
@@ -694,16 +752,16 @@ export const VicerrectorDashboard: React.FC = () => {
                             detectar huecos u horarios con alta carga.
                         </p>
                     </CardContent>
-                </Card>
+                </MaximizableCard>
 
                 {/* Distribución por nivel y franja */}
-                <Card className="flex flex-col h-full">
-                    <CardHeader>
-                        <CardTitle>Distribución por nivel y franja</CardTitle>
-                        <p className="text-xs text-muted-foreground">
-                            Suma de tasas por nivel académico (GDO/M1/M2/DR/BLG) en cada franja horaria.
-                        </p>
-                    </CardHeader>
+                <MaximizableCard
+                    cardId="stacked"
+                    title="Distribución por nivel y franja"
+                    description="Suma de tasas por nivel académico (GDO/M1/M2/DR/BLG) en cada franja horaria."
+                    isMaximized={maximizedCard === "stacked"}
+                    onToggleMaximize={handleToggleMaximize}
+                >
                     <CardContent className="flex flex-col flex-1">
                         <div className="flex-1">
                             <StackedByScheduleChart data={charts.stacked_by_schedule} />
@@ -714,16 +772,16 @@ export const VicerrectorDashboard: React.FC = () => {
                             perfiles más costosos o especializados.
                         </p>
                     </CardContent>
-                </Card>
+                </MaximizableCard>
 
                 {/* Tendencia mensual */}
-                <Card className="flex flex-col h-full">
-                    <CardHeader>
-                        <CardTitle>Tendencia mensual</CardTitle>
-                        <p className="text-xs text-muted-foreground">
-                            Sesiones, horas-clase y monto mensual calculado a partir de la planilla.
-                        </p>
-                    </CardHeader>
+                <MaximizableCard
+                    cardId="trend"
+                    title="Tendencia mensual"
+                    description="Sesiones, horas-clase y monto mensual calculado a partir de la planilla."
+                    isMaximized={maximizedCard === "trend"}
+                    onToggleMaximize={handleToggleMaximize}
+                >
                     <CardContent className="flex flex-col flex-1">
                         <div className="flex-1">
                             <MonthlyTrendChart data={charts.monthly_trend} show={["hours", "dollars"]} />
@@ -734,17 +792,17 @@ export const VicerrectorDashboard: React.FC = () => {
                             identificar picos y estacionalidad.
                         </p>
                     </CardContent>
-                </Card>
+                </MaximizableCard>
 
                 {/* Gráfico Comparativo por Modalidad */}
                 {showComparativeCharts && charts.comparative_sections && charts.comparative_sections.length > 0 && (
-                    <Card className="flex flex-col h-full">
-                        <CardHeader>
-                            <CardTitle>Comparativo</CardTitle>
-                            <p className="text-xs text-muted-foreground">
-                                Comparación del número de secciones por modalidad entre dos ciclos académicos.
-                            </p>
-                        </CardHeader>
+                    <MaximizableCard
+                        cardId="comparative"
+                        title="Comparativo"
+                        description="Comparación del número de secciones por modalidad entre dos ciclos académicos."
+                        isMaximized={maximizedCard === "comparative"}
+                        onToggleMaximize={handleToggleMaximize}
+                    >
                         <CardContent className="flex flex-col flex-1">
                             <div className="flex-1">
                                 <ComparativeSectionsChart
@@ -767,18 +825,18 @@ export const VicerrectorDashboard: React.FC = () => {
                                 cambios en la distribución de modalidades.
                             </p>
                         </CardContent>
-                    </Card>
+                    </MaximizableCard>
                 )}
 
                 {/* Gráfico Secciones por Escuela */}
                 {showComparativeCharts && charts.sections_by_school && charts.sections_by_school.length > 0 && (
-                    <Card className="flex flex-col h-full">
-                        <CardHeader>
-                            <CardTitle>Secciones por Escuela</CardTitle>
-                            <p className="text-xs text-muted-foreground">
-                                Número de secciones por modalidad desglosadas por escuela.
-                            </p>
-                        </CardHeader>
+                    <MaximizableCard
+                        cardId="sections-by-school"
+                        title="Secciones por Escuela"
+                        description="Número de secciones por modalidad desglosadas por escuela."
+                        isMaximized={maximizedCard === "sections-by-school"}
+                        onToggleMaximize={handleToggleMaximize}
+                    >
                         <CardContent className="flex flex-col flex-1">
                             <div className="flex-1">
                                 <SectionsBySchoolChart
@@ -801,20 +859,23 @@ export const VicerrectorDashboard: React.FC = () => {
                                 diferentes modalidades entre escuelas.
                             </p>
                         </CardContent>
-                    </Card>
+                    </MaximizableCard>
                 )}
 
                 {/* Tabla de Categorías por Estado de Pago */}
                 {showComparativeCharts && tables.category_payment && Object.keys(tables.category_payment).length > 0 && (
-                    <CategoryPaymentTable data={tables.category_payment} />
+                    <CategoryPaymentTable
+                        data={tables.category_payment}
+                        isMaximized={maximizedCard === "category-payment"}
+                        onToggleMaximize={() => handleToggleMaximize("category-payment")}
+                    />
                 )}
 
-
+                {/* Tabla Comparativa */}
                 {data.comparison && (
-                    <Card className="md:col-span-2 xl:col-span-3">
-                        <CardHeader>
-                            <CardTitle>Comparativa</CardTitle>
-                        </CardHeader>
+                    <Card
+                       className="md:col-span-2 xl:col-span-3"
+                    >
                         <CardContent>
                             <Table>
                                 <TableHeader>
@@ -916,13 +977,15 @@ export const VicerrectorDashboard: React.FC = () => {
 
                 {/* Comparación de Grupos Pagados/No Pagados por Escuela */}
                 {data.comparison && tables.groups_comparison_by_school && tables.groups_comparison_by_school.length > 0 && (
-                    <Card className="flex flex-col">
-                        <CardHeader>
-                            <CardTitle>Comparación de Grupos por Escuela</CardTitle>
-                            <p className="text-xs text-muted-foreground">
-                                Comparación de grupos pagados y no pagados por escuela entre dos ciclos académicos.
-                            </p>
-                        </CardHeader>
+                    <MaximizableCard
+                        cardId="groups-comparison"
+                        title="Comparación de Grupos por Escuela"
+                        description="Comparación de grupos pagados y no pagados por escuela entre dos ciclos académicos."
+                        isMaximized={maximizedCard === "groups-comparison"}
+                        onToggleMaximize={handleToggleMaximize}
+                        defaultClassName="flex flex-col"
+                        enableMaximize={true}
+                    >
                         <CardContent className="flex flex-col flex-1">
                             {/* Gráfico comparativo */}
                             <div className="w-full mb-6" style={{ height: "400px" }}>
@@ -1069,7 +1132,7 @@ export const VicerrectorDashboard: React.FC = () => {
                                 Los grupos pagados representan aquellos con tasa de pago completa (100% o más), mientras que los no pagados representan aquellos con tasa de pago del 0%.
                             </p>
                         </CardContent>
-                    </Card>
+                    </MaximizableCard>
                 )}
 
                 {/* Reporte Mensual por Facultad - Los cards individuales ya están dentro del componente */}
@@ -1082,18 +1145,23 @@ export const VicerrectorDashboard: React.FC = () => {
                                 : tables.monthly_report_by_faculty;
 
                             return filteredReports.map((facultyReport: any) => (
-                                <Card key={facultyReport.faculty_id} className="w-full flex flex-col h-full">
-                                    <CardHeader>
-                                        <CardTitle className="text-lg">
+                                <MaximizableCard
+                                    key={facultyReport.faculty_id}
+                                    cardId={`monthly-report-${facultyReport.faculty_id}`}
+                                    title={
+                                        <>
                                             {facultyReport.faculty_acronym && (
                                                 <span className="font-mono mr-2">{facultyReport.faculty_acronym}</span>
                                             )}
                                             {facultyReport.faculty_name}
-                                        </CardTitle>
-                                        <p className="text-sm text-muted-foreground mt-2">
-                                            Distribución mensual de los montos presupuestados por escuela durante el período académico seleccionado.
-                                        </p>
-                                    </CardHeader>
+                                        </>
+                                    }
+                                    description="Distribución mensual de los montos presupuestados por escuela durante el período académico seleccionado."
+                                    isMaximized={maximizedCard === `monthly-report-${facultyReport.faculty_id}`}
+                                    onToggleMaximize={handleToggleMaximize}
+                                    defaultClassName="w-full flex flex-col h-full"
+                                    enableMaximize={true}
+                                >
                                     <CardContent className="flex flex-col flex-1">
                                         <div className="flex flex-col gap-6 flex-1">
                                             {/* Gráfico de barras arriba */}
@@ -1185,17 +1253,12 @@ export const VicerrectorDashboard: React.FC = () => {
                                             </p>
                                         </div>
                                     </CardContent>
-                                </Card>
+                                </MaximizableCard>
                             ));
                         })()}
                     </>
                 )}
 
-
-            </section>
-
-            {/* Tabla Comparativa - Fuera del grid */}
-            <section className="">
 
             </section>
         </div>
