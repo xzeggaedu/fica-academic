@@ -433,13 +433,15 @@ export const accessControlProvider: AccessControlProvider = {
           }
 
         case "dashboards-director":
-          if (userRole === UserRoleEnum.DIRECTOR || canAccessAdminFeatures(userRole)) {
+          // Solo directores pueden ver este dashboard (no administradores)
+          if (userRole === UserRoleEnum.DIRECTOR) {
             return { can: true };
           }
           return { can: false, reason: "Solo directores pueden ver este dashboard" };
 
         case "dashboards-decano":
-          if (userRole === UserRoleEnum.DECANO || canAccessAdminFeatures(userRole)) {
+          // Solo decanos pueden ver este dashboard (no administradores)
+          if (userRole === UserRoleEnum.DECANO) {
             return { can: true };
           }
           return { can: false, reason: "Solo decanos pueden ver este dashboard" };
