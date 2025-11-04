@@ -9,6 +9,7 @@ interface SimpleDoughnutChartProps {
   showLabels?: boolean;
   width?: number | string;
   height?: number | string;
+  radius?: string[];
 }
 
 export const SimpleDoughnutChart: React.FC<SimpleDoughnutChartProps> = ({
@@ -16,8 +17,9 @@ export const SimpleDoughnutChart: React.FC<SimpleDoughnutChartProps> = ({
   colors = ['#3b82f6', '#e5e7eb'],
   showTooltip = false,
   showLabels = false,
-  width = 84,
-  height = 84,
+  width = 45,
+  height = 45,
+  radius = ["55%", "100%"],
 }) => {
   const option: EChartsOption = {
     tooltip: showTooltip ? {
@@ -36,7 +38,7 @@ export const SimpleDoughnutChart: React.FC<SimpleDoughnutChartProps> = ({
     series: [
       {
         type: "pie",
-        radius: ["35%", "60%"],
+        radius,
         avoidLabelOverlap: false,
         itemStyle: {
           borderRadius: 0,

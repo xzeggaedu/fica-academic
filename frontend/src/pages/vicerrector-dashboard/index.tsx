@@ -9,11 +9,123 @@ import { SimpleDoughnutChart } from "@/components/charts/SimpleDoughnutChart";
 import { ComparativeSectionsChart } from "@/components/charts/ComparativeSectionsChart";
 import { SectionsBySchoolChart } from "@/components/charts/SectionsBySchoolChart";
 import { CategoryPaymentTable } from "@/components/charts/CategoryPaymentTable";
-import { MonthlyReportByFacultyComponent } from "@/components/charts/MonthlyReportByFaculty";
+import ReactECharts from "echarts-for-react";
 import { useVicerrectorDashboard } from "@/hooks/useVicerrectorDashboard";
 import { useSchoolsCrud } from "@/hooks/useSchoolsCrud";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/data/table";
+
+// Constantes y tipos para el reporte mensual por facultad
+interface MonthlyReportSchoolItem {
+    school_acronym: string;
+    july: number;
+    august: number;
+    september: number;
+    october: number;
+    november: number;
+    december: number;
+    total: number;
+}
+
+const monthNames = {
+    july: "JULIO",
+    august: "AGOSTO",
+    september: "SEPTIEMBRE",
+    october: "OCTUBRE",
+    november: "NOVIEMBRE",
+    december: "DICIEMBRE",
+};
+
+const monthOrder = ["july", "august", "september", "october", "november", "december"];
+
+const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("es-SV", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(value);
+};
+
+interface MonthlyReportChartProps {
+    data: any;
+}
+
+const MonthlyReportChart: React.FC<MonthlyReportChartProps> = ({ data }) => {
+    const formatCurrencyChart = (value: number) => {
+        return new Intl.NumberFormat("es-SV", {
+            style: "currency",
+            currency: "USD",
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(value);
+    };
+
+    // Preparar datos para el gráfico
+    const schools = data.schools.map((s: any) => s.school_acronym);
+    const months = monthOrder.map((m) => monthNames[m as keyof typeof monthNames]);
+
+    const series = schools.map((school: string) => {
+        const schoolData = data.schools.find((s: any) => s.school_acronym === school);
+        if (!schoolData) return { name: school, type: "bar", data: [] };
+
+        return {
+            name: school,
+            type: "bar",
+            data: monthOrder.map((month) => schoolData[month as keyof MonthlyReportSchoolItem] as number),
+        };
+    });
+
+    const option = {
+        tooltip: {
+            trigger: "axis",
+            axisPointer: {
+                type: "shadow",
+            },
+            formatter: (params: any) => {
+                let result = `${params[0].axisValue}<br/>`;
+                params.forEach((param: any) => {
+                    result += `${param.seriesName}: ${formatCurrencyChart(param.value)}<br/>`;
+                });
+                return result;
+            },
+        },
+        legend: {
+            data: schools,
+            bottom: 0,
+        },
+        grid: {
+            left: "3%",
+            right: "4%",
+            bottom: "15%",
+            containLabel: true,
+        },
+        xAxis: {
+            type: "category",
+            data: months,
+            axisLabel: {
+                rotate: 45,
+            },
+        },
+        yAxis: {
+            type: "value",
+            name: "Dólares",
+            nameLocation: "middle",
+            nameGap: 50,
+            nameRotate: 90,
+            axisLabel: {
+                formatter: (value: number) => formatCurrencyChart(value),
+            },
+        },
+        series: series,
+    };
+
+    return (
+        <div className="w-full" style={{ height: "400px" }}>
+            <ReactECharts option={option} style={{ height: "100%", width: "100%" }} />
+        </div>
+    );
+};
 
 export const VicerrectorDashboard: React.FC = () => {
     const { data: canShow } = useCan({ resource: "dashboards-vicerrector", action: "show" });
@@ -247,7 +359,7 @@ export const VicerrectorDashboard: React.FC = () => {
                                 <div className="flex items-start mb-2">
                                     <label className="text-[10px] text-muted-foreground uppercase">Horas clase</label>
                                 </div>
-                                <p className="text-3xl font-bold">{kpis.total_hours.toFixed(2)}</p>
+                                <p className="sm:text-lg md:text-md lg:text-sm  xl:text-3xl font-bold whitespace-nowrap">{kpis.total_hours.toFixed(2)}</p>
                                 {data.comparison && (
                                     <>
                                         <span
@@ -284,7 +396,7 @@ export const VicerrectorDashboard: React.FC = () => {
                                     ? `Ciclo ${data.comparison.compare.term_label}`
                                     : "Comparado";
                                 return (
-                                    <div className="flex items-center justify-center mt-2 mb-0">
+                                    <div className="flex items-center justify-center mt-6 mb-0 block hidden lg:block">
                                         <SimpleDoughnutChart
                                             data={[
                                                 { name: baseLabel, value: base },
@@ -328,7 +440,7 @@ export const VicerrectorDashboard: React.FC = () => {
                                 <div className="flex items-start mb-2">
                                     <label className="text-[10px] text-muted-foreground uppercase">Total $</label>
                                 </div>
-                                <p className="text-3xl font-bold">$ {kpis.total_dollars.toFixed(2)}</p>
+                                <p className="sm:text-lg md:text-md lg:text-sm  xl:text-3xl font-bold whitespace-nowrap">$ {kpis.total_dollars.toFixed(2)}</p>
                                 {data.comparison && (
                                     <>
                                         <span
@@ -365,7 +477,7 @@ export const VicerrectorDashboard: React.FC = () => {
                                     ? `Ciclo ${data.comparison.compare.term_label}`
                                     : "Comparado";
                                 return (
-                                    <div className="flex items-center justify-center mt-2 mb-0">
+                                    <div className="flex items-center justify-center mt-6 mb-0 block hidden lg:block">
                                         <SimpleDoughnutChart
                                             data={[
                                                 { name: baseLabel, value: base },
@@ -409,7 +521,7 @@ export const VicerrectorDashboard: React.FC = () => {
                                 <div className="flex items-start mb-2">
                                     <label className="text-[10px] text-muted-foreground uppercase">Nº grupos</label>
                                 </div>
-                                <p className="text-3xl font-bold">
+                                <p className="sm:text-lg md:text-md lg:text-sm  xl:text-3xl font-bold whitespace-nowrap">
                                     {data.comparison?.base?.groups_count ??
                                         kpis.paid_groups_full + kpis.paid_groups_partial + kpis.paid_groups_none}
                                 </p>
@@ -449,7 +561,7 @@ export const VicerrectorDashboard: React.FC = () => {
                                     ? `Ciclo ${data.comparison.compare.term_label}`
                                     : "Comparado";
                                 return (
-                                    <div className="flex items-center justify-center mt-2 mb-0">
+                                    <div className="flex items-center justify-center mt-6 mb-0 block hidden lg:block">
                                         <SimpleDoughnutChart
                                             data={[
                                                 { name: baseLabel, value: base },
@@ -500,7 +612,7 @@ export const VicerrectorDashboard: React.FC = () => {
                                         Cobertura (Full)
                                     </label>
                                 </div>
-                                <p className="text-3xl font-bold">
+                                <p className="sm:text-lg md:text-md lg:text-sm  xl:text-3xl font-bold whitespace-nowrap">
                                     {(() => {
                                         const total =
                                             kpis.paid_groups_full + kpis.paid_groups_partial + kpis.paid_groups_none ||
@@ -543,7 +655,7 @@ export const VicerrectorDashboard: React.FC = () => {
                                 const total = full + partial + none;
                                 if (total === 0) return null;
                                 return (
-                                    <div className="flex items-center justify-center mt-2 mb-0">
+                                    <div className="flex items-center justify-center mt-6 mb-0 block hidden lg:block">
                                         <SimpleDoughnutChart
                                             data={[
                                                 { name: "Grupos con pago completo (100% o más)", value: full },
@@ -561,16 +673,20 @@ export const VicerrectorDashboard: React.FC = () => {
                 </Card>
             </div>
 
-            <section className="grid md:grid-cols-3 gap-4">
-                <Card>
+            {/* Grid unificado para todos los cards excepto la tabla Comparativa */}
+            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {/* Mapa de calor */}
+                <Card className="flex flex-col h-full">
                     <CardHeader>
                         <CardTitle>Mapa de calor (días × horarios)</CardTitle>
                         <p className="text-xs text-muted-foreground">
                             Intensidad de horas-clase y costo por bloque de días/horario del ciclo seleccionado.
                         </p>
                     </CardHeader>
-                    <CardContent>
-                        <HeatmapSchedule data={charts.heatmap} metric="hours" />
+                    <CardContent className="flex flex-col flex-1">
+                        <div className="flex-1">
+                            <HeatmapSchedule data={charts.heatmap} metric="hours" />
+                        </div>
                         <p className="text-[11px] text-muted-foreground mt-2">
                             <span className="font-bold">Nota:</span> Cada cuadro representa un bloque de clases (día y
                             horario). Mientras más oscuro, más horas y mayor costo concentrado en ese bloque. Útil para
@@ -579,15 +695,18 @@ export const VicerrectorDashboard: React.FC = () => {
                     </CardContent>
                 </Card>
 
-                <Card>
+                {/* Distribución por nivel y franja */}
+                <Card className="flex flex-col h-full">
                     <CardHeader>
                         <CardTitle>Distribución por nivel y franja</CardTitle>
                         <p className="text-xs text-muted-foreground">
                             Suma de tasas por nivel académico (GDO/M1/M2/DR/BLG) en cada franja horaria.
                         </p>
                     </CardHeader>
-                    <CardContent>
-                        <StackedByScheduleChart data={charts.stacked_by_schedule} />
+                    <CardContent className="flex flex-col flex-1">
+                        <div className="flex-1">
+                            <StackedByScheduleChart data={charts.stacked_by_schedule} />
+                        </div>
                         <p className="text-[11px] text-muted-foreground mt-2">
                             <span className="font-bold">Nota:</span> Muestra qué niveles académicos (Grado, Maestrías,
                             Doctorado, Bilingüe) predominan en cada horario. Sirve para entender dónde se concentran los
@@ -595,15 +714,19 @@ export const VicerrectorDashboard: React.FC = () => {
                         </p>
                     </CardContent>
                 </Card>
-                <Card>
+
+                {/* Tendencia mensual */}
+                <Card className="flex flex-col h-full">
                     <CardHeader>
                         <CardTitle>Tendencia mensual</CardTitle>
                         <p className="text-xs text-muted-foreground">
                             Sesiones, horas-clase y monto mensual calculado a partir de la planilla.
                         </p>
                     </CardHeader>
-                    <CardContent>
-                        <MonthlyTrendChart data={charts.monthly_trend} show={["hours", "dollars"]} />
+                    <CardContent className="flex flex-col flex-1">
+                        <div className="flex-1">
+                            <MonthlyTrendChart data={charts.monthly_trend} show={["hours", "dollars"]} />
+                        </div>
                         <p className="text-[11px] text-muted-foreground mt-2">
                             <span className="font-bold">Nota:</span> Evolución del esfuerzo y presupuesto a lo largo del
                             ciclo. Compara cómo cambian las horas-clase y el monto en dólares de un mes a otro para
@@ -611,88 +734,83 @@ export const VicerrectorDashboard: React.FC = () => {
                         </p>
                     </CardContent>
                 </Card>
-            </section>
-            {/* Mostrar estos charts cuando se seleccionan todas las escuelas (consolidado) */}
-            {showComparativeCharts && (
-                <section className="grid md:grid-cols-3 gap-4">
-                    {/* Gráfico Comparativo por Modalidad */}
-                    {charts.comparative_sections && charts.comparative_sections.length > 0 && (
-                        <Card className="flex flex-col h-full">
-                            <CardHeader>
-                                <CardTitle>Comparativo</CardTitle>
-                                <p className="text-xs text-muted-foreground">
-                                    Comparación del número de secciones por modalidad entre dos ciclos académicos.
-                                </p>
-                            </CardHeader>
-                            <CardContent className="flex flex-col flex-1">
-                                <div className="flex-1">
-                                    <ComparativeSectionsChart
-                                        data={charts.comparative_sections}
-                                        cycleLabel1={
-                                            data.comparison?.compare?.term_label
-                                                ? data.comparison.compare.term_label
-                                                : "Ciclo anterior"
-                                        }
-                                        cycleLabel2={
-                                            data.comparison?.base?.term_label
-                                                ? data.comparison.base.term_label
-                                                : "Ciclo actual"
-                                        }
-                                    />
-                                </div>
-                                <p className="text-[11px] text-muted-foreground mt-2">
-                                    <span className="font-bold">Nota:</span> Muestra el número de secciones por modalidad
-                                    (Presenciales, En Línea, Virtuales) comparando dos ciclos académicos para identificar
-                                    cambios en la distribución de modalidades.
-                                </p>
-                            </CardContent>
-                        </Card>
-                    )}
 
-                    {/* Gráfico Secciones por Escuela */}
-                    {charts.sections_by_school && charts.sections_by_school.length > 0 && (
-                        <Card className="flex flex-col h-full">
-                            <CardHeader>
-                                <CardTitle>Secciones por Escuela</CardTitle>
-                                <p className="text-xs text-muted-foreground">
-                                    Número de secciones por modalidad desglosadas por escuela.
-                                </p>
-                            </CardHeader>
-                            <CardContent className="flex flex-col flex-1">
-                                <div className="flex-1">
-                                    <SectionsBySchoolChart
-                                        data={charts.sections_by_school}
-                                        cycleLabel1={
-                                            data.comparison?.compare?.term_label
-                                                ? data.comparison.compare.term_label
-                                                : "Ciclo anterior"
-                                        }
-                                        cycleLabel2={
-                                            data.comparison?.base?.term_label
-                                                ? data.comparison.base.term_label
-                                                : "Ciclo actual"
-                                        }
-                                    />
-                                </div>
-                                <p className="text-[11px] text-muted-foreground mt-2">
-                                    <span className="font-bold">Nota:</span> Visualiza la distribución de secciones por
-                                    modalidad en cada escuela, permitiendo comparar cómo se distribuyen las
-                                    diferentes modalidades entre escuelas.
-                                </p>
-                            </CardContent>
-                        </Card>
-                    )}
+                {/* Gráfico Comparativo por Modalidad */}
+                {showComparativeCharts && charts.comparative_sections && charts.comparative_sections.length > 0 && (
+                    <Card className="flex flex-col h-full">
+                        <CardHeader>
+                            <CardTitle>Comparativo</CardTitle>
+                            <p className="text-xs text-muted-foreground">
+                                Comparación del número de secciones por modalidad entre dos ciclos académicos.
+                            </p>
+                        </CardHeader>
+                        <CardContent className="flex flex-col flex-1">
+                            <div className="flex-1">
+                                <ComparativeSectionsChart
+                                    data={charts.comparative_sections}
+                                    cycleLabel1={
+                                        data.comparison?.compare?.term_label
+                                            ? data.comparison.compare.term_label
+                                            : "Ciclo anterior"
+                                    }
+                                    cycleLabel2={
+                                        data.comparison?.base?.term_label
+                                            ? data.comparison.base.term_label
+                                            : "Ciclo actual"
+                                    }
+                                />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-2">
+                                <span className="font-bold">Nota:</span> Muestra el número de secciones por modalidad
+                                (Presenciales, En Línea, Virtuales) comparando dos ciclos académicos para identificar
+                                cambios en la distribución de modalidades.
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
 
-                    {/* Tabla de Categorías por Estado de Pago */}
-                    {tables.category_payment && Object.keys(tables.category_payment).length > 0 && (
-                        <CategoryPaymentTable data={tables.category_payment} />
-                    )}
-                </section>
-            )}
+                {/* Gráfico Secciones por Escuela */}
+                {showComparativeCharts && charts.sections_by_school && charts.sections_by_school.length > 0 && (
+                    <Card className="flex flex-col h-full">
+                        <CardHeader>
+                            <CardTitle>Secciones por Escuela</CardTitle>
+                            <p className="text-xs text-muted-foreground">
+                                Número de secciones por modalidad desglosadas por escuela.
+                            </p>
+                        </CardHeader>
+                        <CardContent className="flex flex-col flex-1">
+                            <div className="flex-1">
+                                <SectionsBySchoolChart
+                                    data={charts.sections_by_school}
+                                    cycleLabel1={
+                                        data.comparison?.compare?.term_label
+                                            ? data.comparison.compare.term_label
+                                            : "Ciclo anterior"
+                                    }
+                                    cycleLabel2={
+                                        data.comparison?.base?.term_label
+                                            ? data.comparison.base.term_label
+                                            : "Ciclo actual"
+                                    }
+                                />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-2">
+                                <span className="font-bold">Nota:</span> Visualiza la distribución de secciones por
+                                modalidad en cada escuela, permitiendo comparar cómo se distribuyen las
+                                diferentes modalidades entre escuelas.
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
 
-            <section className="">
+                {/* Tabla de Categorías por Estado de Pago */}
+                {showComparativeCharts && tables.category_payment && Object.keys(tables.category_payment).length > 0 && (
+                    <CategoryPaymentTable data={tables.category_payment} />
+                )}
+
+
                 {data.comparison && (
-                    <Card>
+                    <Card className="md:col-span-2 xl:col-span-3">
                         <CardHeader>
                             <CardTitle>Comparativa</CardTitle>
                         </CardHeader>
@@ -794,21 +912,133 @@ export const VicerrectorDashboard: React.FC = () => {
                         </CardContent>
                     </Card>
                 )}
+
+                {/* Reporte Mensual por Facultad - Los cards individuales ya están dentro del componente */}
+                {showComparativeCharts && tables.monthly_report_by_faculty && tables.monthly_report_by_faculty.length > 0 && (
+                    <>
+                        {(() => {
+                            // Filtrar por facultad si está seleccionada
+                            const filteredReports = facultyId
+                                ? tables.monthly_report_by_faculty.filter((report: any) => report.faculty_id === facultyId)
+                                : tables.monthly_report_by_faculty;
+
+                            return filteredReports.map((facultyReport: any) => (
+                                <Card key={facultyReport.faculty_id} className="w-full flex flex-col h-full">
+                                    <CardHeader>
+                                        <CardTitle className="text-lg">
+                                            {facultyReport.faculty_acronym && (
+                                                <span className="font-mono mr-2">{facultyReport.faculty_acronym}</span>
+                                            )}
+                                            {facultyReport.faculty_name}
+                                        </CardTitle>
+                                        <p className="text-sm text-muted-foreground mt-2">
+                                            Distribución mensual de los montos presupuestados por escuela durante el período académico seleccionado.
+                                        </p>
+                                    </CardHeader>
+                                    <CardContent className="flex flex-col flex-1">
+                                        <div className="flex flex-col gap-6 flex-1">
+                                            {/* Gráfico de barras arriba */}
+                                            <div className="w-full">
+                                                <MonthlyReportChart data={facultyReport} />
+                                            </div>
+
+                                            {/* Tabla abajo */}
+                                            <div className="w-full overflow-x-auto flex-1">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="sticky left-0 bg-white dark:bg-gray-800 z-10 min-w-[100px]">
+                                                                ESCUELA
+                                                            </TableHead>
+                                                            {monthOrder.map((month) => (
+                                                                <TableHead key={month} className="text-center min-w-[100px]">
+                                                                    {monthNames[month as keyof typeof monthNames]}
+                                                                </TableHead>
+                                                            ))}
+                                                            <TableHead className="text-center min-w-[100px]">TOTAL</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {facultyReport.schools.map((school: any) => (
+                                                            <TableRow key={school.school_acronym}>
+                                                                <TableCell className="font-medium sticky left-0 bg-white dark:bg-gray-800 z-10">
+                                                                    {school.school_acronym}
+                                                                </TableCell>
+                                                                {monthOrder.map((month) => (
+                                                                    <TableCell key={month} className="text-center">
+                                                                        {formatCurrency(school[month as keyof MonthlyReportSchoolItem] as number)}
+                                                                    </TableCell>
+                                                                ))}
+                                                                <TableCell className="text-center font-semibold">
+                                                                    {formatCurrency(school.total)}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                        {/* Fila de totales mensuales */}
+                                                        <TableRow className="bg-green-50 dark:bg-green-900/20">
+                                                            <TableCell className="font-semibold sticky left-0 bg-green-50 dark:bg-green-900/20 z-10">
+                                                                Total Mensual
+                                                            </TableCell>
+                                                            {monthOrder.map((month) => (
+                                                                <TableCell key={month} className="text-center font-semibold">
+                                                                    {formatCurrency(
+                                                                        facultyReport.monthly_totals[month as keyof typeof facultyReport.monthly_totals]
+                                                                    )}
+                                                                </TableCell>
+                                                            ))}
+                                                            <TableCell className="text-center font-semibold">
+                                                                {formatCurrency(
+                                                                    (Object.values(facultyReport.monthly_totals) as number[]).reduce((a, b) => a + b, 0)
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                        {/* Fila de diferencias (si existe) */}
+                                                        {Object.keys(facultyReport.monthly_differences).length > 0 && (
+                                                            <TableRow>
+                                                                <TableCell className="sticky left-0 bg-white dark:bg-gray-800 z-10">
+                                                                    Diferencia
+                                                                </TableCell>
+                                                                {monthOrder.map((month) => {
+                                                                    const diff = facultyReport.monthly_differences[month] || 0;
+                                                                    return (
+                                                                        <TableCell
+                                                                            key={month}
+                                                                            className={`text-center ${diff > 0 ? "text-green-600" : diff < 0 ? "text-red-600" : ""
+                                                                                }`}
+                                                                        >
+                                                                            {diff !== 0 ? formatCurrency(diff) : ""}
+                                                                        </TableCell>
+                                                                    );
+                                                                })}
+                                                                <TableCell className="text-center"></TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 text-xs text-muted-foreground">
+                                            <p className="font-semibold mb-1">Nota:</p>
+                                            <p>
+                                                Los valores mostrados representan el presupuesto mensual estimado en dólares para cada escuela de la facultad,
+                                                calculado en base a las cargas académicas registradas y las tarifas horarias vigentes.
+                                                Los totales mensuales consolidan las contribuciones de todas las escuelas del período.
+                                            </p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ));
+                        })()}
+                    </>
+                )}
+
+
             </section>
 
-            {/* Reporte Mensual por Facultad */}
-            {showComparativeCharts && tables.monthly_report_by_faculty && tables.monthly_report_by_faculty.length > 0 && (
-                <section className="space-y-6">
-                    {(() => {
-                        // Filtrar por facultad si está seleccionada
-                        const filteredReports = facultyId
-                            ? tables.monthly_report_by_faculty.filter((report: any) => report.faculty_id === facultyId)
-                            : tables.monthly_report_by_faculty;
+            {/* Tabla Comparativa - Fuera del grid */}
+            <section className="">
 
-                        return <MonthlyReportByFacultyComponent data={filteredReports} />;
-                    })()}
-                </section>
-            )}
+            </section>
         </div>
     );
 };

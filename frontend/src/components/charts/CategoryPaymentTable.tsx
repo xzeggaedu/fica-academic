@@ -127,6 +127,7 @@ export const CategoryPaymentTable: React.FC<CategoryPaymentTableProps> = ({ data
                                     showLabels={true}
                                     width="100%"
                                     height={300}
+                                    radius={["35%", "65%"]}
                                 />
                             </div>
                         </div>
