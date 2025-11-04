@@ -632,7 +632,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                     );
                 default:
                     return (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
                             {status}
                         </span>
                     );
@@ -1096,7 +1096,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                                 const hasReports = groupHasReports(itemGroup.group.items);
 
                                                                 result.push(
-                                                                    <TableRow key={`group-${itemGroup.termKey}`} className="bg-gray-50 border-t-1 border-gray-200">
+                                                                    <TableRow key={`group-${itemGroup.termKey}`} className="bg-gray-50 dark:bg-gray-800 border-t-1 border-gray-200 dark:border-gray-700">
                                                                         <TableCell
                                                                             colSpan={showIdColumn ? 10 : 9}
                                                                             className="font-bold text-lg py-1"
@@ -1141,7 +1141,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                             <TableRow
                                                                 key={item.id}
                                                                 className={`
-                                                                    ${!isActive ? 'pl-8 opacity-50 bg-gray-100' : ''}
+                                                                    ${!isActive ? 'pl-8 opacity-70 bg-gray-100 dark:bg-gray-800 dark:text-gray-300' : ''}
                                                                     ${hasInactiveVersions ? 'border-b-1 border-green-600' : ''}
                                                                 `}
                                                             >
@@ -1174,7 +1174,7 @@ export const AcademicLoadFilesList: React.FC = () => {
                                                         <TableRow
                                                             key={item.id}
                                                             className={`
-                                                                ${!isActive ? 'pl-8 opacity-50 bg-gray-100' : ''}
+                                                                ${!isActive ? 'pl-8 opacity-70 bg-gray-100 dark:bg-gray-800 dark:text-gray-300' : ''}
                                                                 ${isNewGroup && !isActive ? 'border-t-1 border-gray-300' : ''}
                                                                 ${hasInactiveVersions ? 'border-b-1 border-green-600' : ''}
                                                             `}

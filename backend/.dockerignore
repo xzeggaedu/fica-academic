@@ -43,9 +43,10 @@ Thumbs.db
 *.temp
 *.bak
 
-# Documentation
-*.md
+# Documentation (keep README.md, exclude others)
 docs/
+*.md
+!README.md
 
 # Uploads (no need to copy these, they're in volumes)
 src/uploads/

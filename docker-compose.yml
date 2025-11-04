@@ -5,19 +5,11 @@ services:
       dockerfile: Dockerfile
     container_name: fica_api
     restart: always
-    command: >
-      sh -c "
-      if [ \"$$RELOAD_MODE\" = \"true\" ]; then
-        uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload
-      else
-        uvicorn src.app.main:app --host 0.0.0.0 --port 8000
-      fi
-      "
+    command: uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload
     env_file:
       - ./backend/src/.env
     environment:
       - TZ=UTC
-      - RELOAD_MODE=${RELOAD_MODE:-false}
     ports:
       - "8000:8000"
     depends_on:
@@ -105,6 +97,9 @@ services:
     command: watchmedo auto-restart --recursive --patterns="*.py" --ignore-patterns="__pycache__/*;*.pyc" --directory=/code/src -- arq src.app.core.worker.settings.WorkerSettings
     env_file:
       - ./backend/src/.env
+    environment:
+      - PYTHONPATH=/code/src:/app/.venv/lib/python3.11/site-packages
+      - RELOAD_MODE=
     depends_on:
       - db
       - redis

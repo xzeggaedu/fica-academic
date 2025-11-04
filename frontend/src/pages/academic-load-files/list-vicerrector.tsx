@@ -396,6 +396,38 @@ export const AcademicLoadFilesListVicerrector: React.FC = () => {
         return new Set(reports.map((r: any) => r.academic_load_file_id));
     }, [allBillingReports?.result?.data]);
 
+    // Obtener todos los items del ciclo seleccionado para el consolidado completo
+    const allTermItems = React.useMemo(() => {
+        if (filterTermId === null || filterTermId === undefined) {
+            return [];
+        }
+
+        let items = itemsList.filter((item) => {
+            const itemTermId = Number(item.term_id);
+            const selectedTermId = Number(filterTermId);
+            return itemTermId === selectedTermId;
+        });
+
+        // Si hay una facultad seleccionada, filtrar por esa facultad también
+        if (filterFacultyId !== null && filterFacultyId !== undefined) {
+            items = items.filter((item) => {
+                const itemFacultyId = Number(item.faculty_id);
+                const selectedFacultyId = Number(filterFacultyId);
+                return itemFacultyId === selectedFacultyId;
+            });
+        }
+
+        return items;
+    }, [itemsList, filterTermId, filterFacultyId]);
+
+    // Verificar si hay planillas para todos los items del ciclo
+    const hasReportsForAllTerm = React.useMemo(() => {
+        if (allTermItems.length === 0) {
+            return false;
+        }
+        return allTermItems.some(item => fileIdsWithReports.has(item.id));
+    }, [allTermItems, fileIdsWithReports]);
+
     // Función para verificar si un grupo tiene al menos una planilla
     const groupHasReports = (items: AcademicLoadFile[]): boolean => {
         return items.some(item => fileIdsWithReports.has(item.id));
@@ -744,7 +776,7 @@ export const AcademicLoadFilesListVicerrector: React.FC = () => {
                     );
                 default:
                     return (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
                             {status}
                         </span>
                     );
@@ -1223,6 +1255,18 @@ export const AcademicLoadFilesListVicerrector: React.FC = () => {
                             <div>
                                 <CardTitle>Archivos de Carga Académica</CardTitle>
                             </div>
+                            {/* Botón para ver consolidado completo */}
+                            {filterTermId !== null && filterSchoolId === null && !isDecano && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleViewConsolidated(filterTermId, allTermItems)}
+                                    disabled={!hasReportsForAllTerm}
+                                >
+                                    <Receipt className="h-4 w-4 mr-2" />
+                                    Ver Planilla Consolidada {filterFacultyId !== null ? "(Todas las Escuelas)" : "(Todas las Facultades)"}
+                                </Button>
+                            )}
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -1302,7 +1346,7 @@ export const AcademicLoadFilesListVicerrector: React.FC = () => {
                                                                 const hasReports = groupHasReports(itemGroup.group.items);
 
                                                                 result.push(
-                                                                    <TableRow key={`group-${itemGroup.termKey}`} className="bg-gray-50 border-t-1 border-gray-200">
+                                                                    <TableRow key={`group-${itemGroup.termKey}`} className="bg-gray-50 dark:bg-gray-800 border-t-1 border-gray-200 dark:border-gray-700">
                                                                         <TableCell
                                                                             colSpan={showIdColumn ? 10 : 9}
                                                                             className="font-bold text-lg py-1"
@@ -1347,7 +1391,7 @@ export const AcademicLoadFilesListVicerrector: React.FC = () => {
                                                             <TableRow
                                                                 key={item.id}
                                                                 className={`
-                                                                    ${!isActive ? 'pl-8 opacity-50 bg-gray-100' : ''}
+                                                                    ${!isActive ? 'pl-8 opacity-70 bg-gray-100 dark:bg-gray-800 dark:text-gray-300' : ''}
                                                                     ${hasInactiveVersions ? 'border-b-1 border-green-600' : ''}
                                                                 `}
                                                             >
@@ -1388,7 +1432,7 @@ export const AcademicLoadFilesListVicerrector: React.FC = () => {
                                                                 const hasReports = groupHasReports(itemGroup.group.items);
 
                                                                 result.push(
-                                                                    <TableRow key={`group-faculty-${itemGroup.facultyId}`} className="bg-gray-50 border-t-1 border-gray-200">
+                                                                    <TableRow key={`group-faculty-${itemGroup.facultyId}`} className="bg-gray-50 dark:bg-gray-800 border-t-1 border-gray-200 dark:border-gray-700">
                                                                         <TableCell
                                                                             colSpan={showIdColumn ? 10 : 9}
                                                                             className="font-bold text-lg py-1"
@@ -1439,7 +1483,7 @@ export const AcademicLoadFilesListVicerrector: React.FC = () => {
                                                             <TableRow
                                                                 key={item.id}
                                                                 className={`
-                                                                    ${!isActive ? 'pl-8 opacity-50 bg-gray-100' : ''}
+                                                                    ${!isActive ? 'pl-8 opacity-70 bg-gray-100 dark:bg-gray-800 dark:text-gray-300' : ''}
                                                                     ${hasInactiveVersions ? 'border-b-1 border-green-600' : ''}
                                                                 `}
                                                             >
@@ -1472,7 +1516,7 @@ export const AcademicLoadFilesListVicerrector: React.FC = () => {
                                                         <TableRow
                                                             key={item.id}
                                                             className={`
-                                                                ${!isActive ? 'pl-8 opacity-50 bg-gray-100' : ''}
+                                                                ${!isActive ? 'pl-8 opacity-70 bg-gray-100 dark:bg-gray-800 dark:text-gray-300' : ''}
                                                                 ${isNewGroup && !isActive ? 'border-t-1 border-gray-300' : ''}
                                                                 ${hasInactiveVersions ? 'border-b-1 border-green-600' : ''}
                                                             `}

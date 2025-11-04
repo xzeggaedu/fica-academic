@@ -237,48 +237,85 @@ async def get_academic_load_files(
     if isinstance(user_role, str):
         user_role = UserRoleEnum(user_role)
 
-    if user_role in [UserRoleEnum.ADMIN, UserRoleEnum.VICERRECTOR]:
-        files = await academic_load_file.get_multi(db, skip=skip, limit=limit)
-    else:
-        # Obtener alcance del usuario
+    # Importar modelos y funciones necesarias
+    from sqlalchemy import desc, func, select
+    from sqlalchemy.orm import joinedload
+
+    from ...models.academic_load_file import AcademicLoadFile
+
+    # Construir query base
+    stmt = (
+        select(AcademicLoadFile)
+        .options(
+            joinedload(AcademicLoadFile.user),
+            joinedload(AcademicLoadFile.faculty),
+            joinedload(AcademicLoadFile.school),
+            joinedload(AcademicLoadFile.term),
+        )
+        .order_by(desc(AcademicLoadFile.upload_date))
+        .offset(skip)
+        .limit(limit)
+    )
+
+    # Aplicar filtros según el rol
+    if user_role in [UserRoleEnum.ADMIN, UserRoleEnum.DIRECTOR]:
+        # ADMIN y DIRECTOR ven todas las versiones (activas e inactivas)
+        if user_role == UserRoleEnum.DIRECTOR:
+            # DIRECTOR solo ve sus escuelas asignadas
+            user_uuid = uuid_pkg.UUID(user_id) if user_id else None
+            scope = (
+                await get_user_scope_filters(db=db, user_uuid=user_uuid, user_role=user_role)
+                if user_uuid
+                else {"faculty_id": None, "school_ids": None}
+            )
+            if scope.get("school_ids"):
+                stmt = stmt.filter(AcademicLoadFile.school_id.in_(scope["school_ids"]))
+    elif user_role == UserRoleEnum.VICERRECTOR:
+        # VICERRECTOR solo ve versiones activas
+        stmt = stmt.filter(AcademicLoadFile.is_active.is_(True))
+    elif user_role == UserRoleEnum.DECANO:
+        # DECANO solo ve versiones activas de su facultad
         user_uuid = uuid_pkg.UUID(user_id) if user_id else None
         scope = (
             await get_user_scope_filters(db=db, user_uuid=user_uuid, user_role=user_role)
             if user_uuid
             else {"faculty_id": None, "school_ids": None}
         )
-        from sqlalchemy import desc, select
-        from sqlalchemy.orm import joinedload
-
-        from ...models.academic_load_file import AcademicLoadFile
-
-        stmt = (
-            select(AcademicLoadFile)
-            .options(
-                joinedload(AcademicLoadFile.user),
-                joinedload(AcademicLoadFile.faculty),
-                joinedload(AcademicLoadFile.school),
-                joinedload(AcademicLoadFile.term),
-            )
-            .order_by(desc(AcademicLoadFile.upload_date))
-            .offset(skip)
-            .limit(limit)
-        )
-
-        if user_role == UserRoleEnum.DECANO and scope.get("faculty_id"):
+        stmt = stmt.filter(AcademicLoadFile.is_active.is_(True))
+        if scope.get("faculty_id"):
             stmt = stmt.filter(AcademicLoadFile.faculty_id == scope["faculty_id"])
-        if user_role == UserRoleEnum.DIRECTOR and scope.get("school_ids"):
-            stmt = stmt.filter(AcademicLoadFile.school_id.in_(scope["school_ids"]))
 
-        result = await db.execute(stmt)
-        files = result.scalars().all()
+    result = await db.execute(stmt)
+    files = result.scalars().all()
 
-    # Obtener el total de registros
-    from sqlalchemy import func, select
+    # Obtener el total de registros aplicando los mismos filtros
+    total_stmt = select(func.count(AcademicLoadFile.id))
 
-    from ...models.academic_load_file import AcademicLoadFile
+    # Aplicar los mismos filtros que en la query principal
+    if user_role in [UserRoleEnum.ADMIN, UserRoleEnum.DIRECTOR]:
+        if user_role == UserRoleEnum.DIRECTOR:
+            user_uuid = uuid_pkg.UUID(user_id) if user_id else None
+            scope = (
+                await get_user_scope_filters(db=db, user_uuid=user_uuid, user_role=user_role)
+                if user_uuid
+                else {"faculty_id": None, "school_ids": None}
+            )
+            if scope.get("school_ids"):
+                total_stmt = total_stmt.filter(AcademicLoadFile.school_id.in_(scope["school_ids"]))
+    elif user_role == UserRoleEnum.VICERRECTOR:
+        total_stmt = total_stmt.filter(AcademicLoadFile.is_active.is_(True))
+    elif user_role == UserRoleEnum.DECANO:
+        user_uuid = uuid_pkg.UUID(user_id) if user_id else None
+        scope = (
+            await get_user_scope_filters(db=db, user_uuid=user_uuid, user_role=user_role)
+            if user_uuid
+            else {"faculty_id": None, "school_ids": None}
+        )
+        total_stmt = total_stmt.filter(AcademicLoadFile.is_active.is_(True))
+        if scope.get("faculty_id"):
+            total_stmt = total_stmt.filter(AcademicLoadFile.faculty_id == scope["faculty_id"])
 
-    total_result = await db.execute(select(func.count(AcademicLoadFile.id)))
+    total_result = await db.execute(total_stmt)
     total_count = total_result.scalar()
 
     response_data = [
@@ -491,10 +528,19 @@ async def get_version_history(
     db: AsyncSession = Depends(async_get_db),
 ):
     """Obtener historial de versiones de un documento específico."""
+    user_role = current_user.get("role")
+    if isinstance(user_role, str):
+        user_role = UserRoleEnum(user_role)
+
+    # Obtener todas las versiones
     versions = await academic_load_file.get_all_versions(db, faculty_id, school_id, term_id)
 
     if not versions:
         return {"data": [], "total": 0}
+
+    # Filtrar versiones inactivas para DECANO y VICERRECTOR
+    if user_role in [UserRoleEnum.DECANO, UserRoleEnum.VICERRECTOR]:
+        versions = [v for v in versions if v.is_active]
 
     response_data = [
         AcademicLoadFileListResponse(

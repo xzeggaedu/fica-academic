@@ -25,9 +25,14 @@ export const AcademicLoadFileShow: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [validationFilter, setValidationFilter] = useState<string>("all");
 
+  // Obtener identidad del usuario para determinar el recurso correcto
+  const { data: identity } = useGetIdentity<{ role?: UserRoleEnum }>();
+  const isVicerrector = identity?.role === UserRoleEnum.VICERRECTOR;
+  const resource = isVicerrector ? "academic-load-files-vicerrector" : "academic-load-files";
+
   // Obtener datos del archivo usando useShow
   const { query } = useShow<AcademicLoadFile>({
-    resource: "academic-load-files",
+    resource: resource,
     id: params.id,
   });
   const { data, isLoading } = query;
@@ -45,8 +50,7 @@ export const AcademicLoadFileShow: React.FC = () => {
   const firstBillingReport = billingReports?.[0];
 
   // Permisos
-  const { data: canAccess } = useCan({ resource: "academic-load-files", action: "show" });
-  const { data: identity } = useGetIdentity<{ role?: UserRoleEnum }>();
+  const { data: canAccess } = useCan({ resource: resource, action: "show" });
 
   // Verificar si el usuario puede generar reportes (admin o director)
   const canGenerateReport = identity?.role === UserRoleEnum.ADMIN || identity?.role === UserRoleEnum.DIRECTOR;
@@ -142,7 +146,7 @@ export const AcademicLoadFileShow: React.FC = () => {
 
   return (
     <CanAccess
-      resource="academic-load-files"
+      resource={resource}
       action="show"
       fallback={<Unauthorized />}
     >

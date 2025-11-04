@@ -355,6 +355,7 @@ async def get_consolidated_billing_reports_by_term(
     valid_file_ids = []
     school_acronyms = []
     faculty_name = None
+    faculty_ids = set()  # Para verificar si hay múltiples facultades
     term_info = None
 
     for file in files:
@@ -369,9 +370,9 @@ async def get_consolidated_billing_reports_by_term(
 
         valid_file_ids.append(file.id)
         school_ids.add(file.school_id)
-
-        if not faculty_name and file.faculty:
-            faculty_name = file.faculty.name
+        # Solo agregar faculty_id si no es None
+        if file.faculty_id is not None:
+            faculty_ids.add(file.faculty_id)
 
         if not term_info and file.term:
             term_info = file.term
@@ -379,6 +380,19 @@ async def get_consolidated_billing_reports_by_term(
         # Obtener acrónimo de la escuela
         if file.school and file.school.acronym not in school_acronyms:
             school_acronyms.append(file.school.acronym)
+
+    # Si hay múltiples facultades, no establecer faculty_name
+    # Si solo hay una facultad, establecer el nombre
+    # Si no hay facultades (todos son None) o hay múltiples, faculty_name es None
+    if len(faculty_ids) == 1:
+        # Buscar el nombre de la facultad única
+        for file in files:
+            if file.faculty and file.faculty_id is not None:
+                faculty_name = file.faculty.name
+                break
+    else:
+        # Múltiples facultades o ninguna: explícitamente establecer como None
+        faculty_name = None
 
     # Obtener todas las planillas de los archivos válidos
     stmt = select(BillingReport).filter(BillingReport.academic_load_file_id.in_(valid_file_ids))

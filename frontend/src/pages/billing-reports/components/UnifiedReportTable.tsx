@@ -186,42 +186,42 @@ export const UnifiedReportTable: React.FC<UnifiedReportTableProps> = ({ summarie
                     <TableHeader>
                         <TableRow>
                             {/* Columnas fijas del resumen */}
-                            <TableHead colSpan={3} className="border-r-1 border-gray-200">
+                            <TableHead colSpan={3} className="border-r-1 border-gray-200 dark:border-gray-700">
 
                             </TableHead>
                             {/* Headers de tarifas */}
-                            <TableCell className="text-center border-t-1 border-gray-200">
+                            <TableCell className="text-center border-t-1 border-gray-200 dark:border-gray-700">
                                 <div className="flex items-center justify-center gap-1 text-xs">
                                     $ {ratesByLevel["GDO"]?.toFixed(2) || "0.00"}
                                 </div>
                             </TableCell>
-                            <TableCell className="text-center border-t-1 border-gray-200">
+                            <TableCell className="text-center border-t-1 border-gray-200 dark:border-gray-700">
                                 <div className="flex items-center justify-center gap-1 text-xs">
                                     $ {ratesByLevel["M1"]?.toFixed(2) || "0.00"}
                                 </div>
                             </TableCell>
-                            <TableCell className="text-center border-t-1 border-gray-200">
+                            <TableCell className="text-center border-t-1 border-gray-200 dark:border-gray-700">
                                 <div className="flex items-center justify-center gap-1 text-xs">
                                     $ {ratesByLevel["M2"]?.toFixed(2) || "0.00"}
                                 </div>
                             </TableCell>
-                            <TableCell className="text-center border-t-1 border-gray-200">
+                            <TableCell className="text-center border-t-1 border-gray-200 dark:border-gray-700">
                                 <div className="flex items-center justify-center gap-1 text-xs">
                                     $ {ratesByLevel["DR"]?.toFixed(2) || "0.00"}
                                 </div>
                             </TableCell>
-                            <TableCell className="text-center border-t-1 border-r-1 border-gray-200">
+                            <TableCell className="text-center border-t-1 border-r-1 border-gray-200 dark:border-gray-700">
                                 <div className="flex items-center justify-center gap-1 text-xs">
                                     $ {ratesByLevel["BLG"]?.toFixed(2) || "0.00"}
                                 </div>
                             </TableCell>
-                            <TableHead className="text-center font-semibold border-r-1 border-gray-200 min-w-[65px]">
+                            <TableHead className="text-center font-semibold border-r-1 border-gray-200 dark:border-gray-700 min-w-[65px]">
 
                             </TableHead>
                             {/* Columnas dinámicas por mes */}
                             {sortedMonths.map((monthKey) => (
                                 <React.Fragment key={monthKey}>
-                                    <TableHead colSpan={4} className="text-center font-semibold border-l-1 border-gray-200 border-t-1 border-gray-200">
+                                    <TableHead colSpan={4} className="text-center font-semibold border-l-1 border-gray-200 dark:border-gray-700 border-t-1 border-gray-200 dark:border-gray-700">
                                         {monthKey}
                                     </TableHead>
                                 </React.Fragment>
@@ -234,36 +234,36 @@ export const UnifiedReportTable: React.FC<UnifiedReportTableProps> = ({ summarie
                             <TableHead colSpan={2} className="border-r-1">
                                 Bloques de Horario
                             </TableHead>
-                            <TableHead className="bg-gray-50 text-center border-r-1 border-gray-200">
+                            <TableHead className="bg-gray-50 dark:bg-gray-800 text-center border-r-1 border-gray-200 dark:border-gray-700">
                                 Duración
                             </TableHead>
 
-                            <TableHead className="text-center bg-blue-50 border-l-1 border-r-1 border-gray-200">
+                            <TableHead className="text-center bg-blue-50 dark:bg-blue-900/30 border-l-1 border-r-1 border-gray-200 dark:border-gray-700">
                                 Grado
                             </TableHead>
-                            <TableHead className="text-center bg-blue-50 border-r-1 border-gray-200">
+                            <TableHead className="text-center bg-blue-50 dark:bg-blue-900/30 border-r-1 border-gray-200 dark:border-gray-700">
                                 1 Maestría
                             </TableHead>
-                            <TableHead className="text-center bg-blue-50 border-r-1 border-gray-200">
+                            <TableHead className="text-center bg-blue-50 dark:bg-blue-900/30 border-r-1 border-gray-200 dark:border-gray-700">
                                 2 Maestrías
                             </TableHead>
-                            <TableHead className="text-center bg-blue-50 border-r-1 border-gray-200">
+                            <TableHead className="text-center bg-blue-50 dark:bg-blue-900/30 border-r-1 border-gray-200 dark:border-gray-700">
                                 Doctor
                             </TableHead>
-                            <TableHead className="text-center bg-blue-50 border-r-1 border-gray-200">
+                            <TableHead className="text-center bg-blue-50 dark:bg-blue-900/30 border-r-1 border-gray-200 dark:border-gray-700">
                                 Bilingüe
                             </TableHead>
-                            <TableCell className="text-center bg-gray-50 border-r-1 border-gray-200">Total</TableCell>
+                            <TableCell className="text-center bg-gray-50 dark:bg-gray-800 border-r-1 border-gray-200 dark:border-gray-700">Total</TableCell>
                             {/* Celdas vacías para meses */}
 
 
                             {/* Segunda fila de headers para los meses */}
                             {sortedMonths.map((monthKey) => (
                                 <React.Fragment key={monthKey}>
-                                    <TableHead className="text-center border-l-1 border-gray-200">Sesiones</TableHead>
-                                    <TableHead className="text-center border-r-1 border-gray-200">Tiempo Real</TableHead>
-                                    <TableHead className="text-center border-r-1 border-gray-200">Horas Clase</TableHead>
-                                    <TableHead className="bg-gray-50 text-center border-r-1 border-gray-200">Total $</TableHead>
+                                    <TableHead className="text-center border-l-1 border-gray-200 dark:border-gray-700">Sesiones</TableHead>
+                                    <TableHead className="text-center border-r-1 border-gray-200 dark:border-gray-700">Tiempo Real</TableHead>
+                                    <TableHead className="text-center border-r-1 border-gray-200 dark:border-gray-700">Horas Clase</TableHead>
+                                    <TableHead className="bg-gray-50 dark:bg-gray-800 text-center border-r-1 border-gray-200 dark:border-gray-700">Total $</TableHead>
                                 </React.Fragment>
                             ))}
 
@@ -274,20 +274,20 @@ export const UnifiedReportTable: React.FC<UnifiedReportTableProps> = ({ summarie
                             <TableRow key={idx}>
                                 {row.rowSpan > 0 ? (
                                     <TableCell
-                                        className="font-medium align-top border-r-1 border-gray-200 text-xs"
+                                        className="font-medium align-top border-r-1 border-gray-200 dark:border-gray-700 text-xs"
                                         rowSpan={row.rowSpan}
                                     >
                                         {row.days}
                                     </TableCell>
                                 ) : null}
-                                <TableCell className="text-center text-xs border-r-1 border-gray-200">{row.schedule}</TableCell>
-                                <TableCell className="text-center text-xs bg-gray-50 border-r-1 border-gray-200">{row.duration}</TableCell>
+                                <TableCell className="text-center text-xs border-r-1 border-gray-200 dark:border-gray-700">{row.schedule}</TableCell>
+                                <TableCell className="text-center text-xs bg-gray-50 dark:bg-gray-800 border-r-1 border-gray-200 dark:border-gray-700">{row.duration}</TableCell>
                                 <TableCell className="text-center text-xs">{row.totals.grado}</TableCell>
                                 <TableCell className="text-center text-xs">{row.totals.maestria1}</TableCell>
                                 <TableCell className="text-center text-xs">{row.totals.maestria2}</TableCell>
                                 <TableCell className="text-center text-xs">{row.totals.doctor}</TableCell>
-                                <TableCell className="text-center text-xs border-r-1 border-gray-200">{row.totals.bilingue}</TableCell>
-                                <TableCell className="text-center text-xs bg-gray-50 border-r-1 border-gray-200 font-semibold">
+                                <TableCell className="text-center text-xs border-r-1 border-gray-200 dark:border-gray-700">{row.totals.bilingue}</TableCell>
+                                <TableCell className="text-center text-xs bg-gray-50 dark:bg-gray-800 border-r-1 border-gray-200 dark:border-gray-700 font-semibold">
                                     {row.totals.grado + row.totals.maestria1 + row.totals.maestria2 + row.totals.doctor + row.totals.bilingue}
                                 </TableCell>
 
@@ -297,10 +297,10 @@ export const UnifiedReportTable: React.FC<UnifiedReportTableProps> = ({ summarie
                                     if (!monthData) {
                                         return (
                                             <React.Fragment key={monthKey}>
-                                                <TableCell className="text-center text-xs border-l-1 border-gray-200">-</TableCell>
+                                                <TableCell className="text-center text-xs border-l-1 border-gray-200 dark:border-gray-700">-</TableCell>
                                                 <TableCell className="text-center text-xs">-</TableCell>
                                                 <TableCell className="text-center text-xs">-</TableCell>
-                                                <TableCell className="text-center text-xs border-r-1 border-gray-200">-</TableCell>
+                                                <TableCell className="text-center text-xs border-r-1 border-gray-200 dark:border-gray-700">-</TableCell>
                                             </React.Fragment>
                                         );
                                     }
@@ -310,7 +310,7 @@ export const UnifiedReportTable: React.FC<UnifiedReportTableProps> = ({ summarie
                                             <TableCell className="text-center text-xs">{monthData.sessions}</TableCell>
                                             <TableCell className="text-center text-xs">{monthData.real_time_minutes}</TableCell>
                                             <TableCell className="text-center text-xs">{Number(monthData.total_class_hours).toFixed(2)}</TableCell>
-                                            <TableCell className="bg-gray-50 text-right text-xs font-semibold border-r-1 border-gray-200">
+                                            <TableCell className="bg-gray-50 dark:bg-gray-800 text-right text-xs font-semibold border-r-1 border-gray-200 dark:border-gray-700">
                                                 <div className="flex items-center justify-end gap-1">
                                                     $ {Number(monthData.total_dollars).toFixed(2)}
                                                 </div>
@@ -323,16 +323,16 @@ export const UnifiedReportTable: React.FC<UnifiedReportTableProps> = ({ summarie
 
                         {/* Fila de totales */}
                         {rows.length > 0 && (
-                            <TableRow className="border-t-2 border-blue-600 font-bold">
-                                <TableCell colSpan={3} className="text-center border-r-1 border-gray-200 ">
+                            <TableRow className="border-t-2 border-blue-600 dark:border-blue-500 font-bold">
+                                <TableCell colSpan={3} className="text-center border-r-1 border-gray-200 dark:border-gray-700 ">
                                     TOTALES
                                 </TableCell>
-                                <TableCell className="text-center text-xs border-b-1 border-gray-200">{rows.reduce((sum, row) => sum + row.totals.grado, 0)}</TableCell>
-                                <TableCell className="text-center text-xs border-b-1 border-gray-200">{rows.reduce((sum, row) => sum + row.totals.maestria1, 0)}</TableCell>
-                                <TableCell className="text-center text-xs border-b-1 border-gray-200">{rows.reduce((sum, row) => sum + row.totals.maestria2, 0)}</TableCell>
-                                <TableCell className="text-center text-xs border-b-1 border-gray-200">{rows.reduce((sum, row) => sum + row.totals.doctor, 0)}</TableCell>
-                                <TableCell className="text-center text-xs border-r-1 border-gray-200 border-b-1 border-gray-200">{rows.reduce((sum, row) => sum + row.totals.bilingue, 0)}</TableCell>
-                                <TableCell className="text-center text-xs bg-gray-100 border-r-1 border-gray-200 border-b-1 border-gray-200 font-bold">
+                                <TableCell className="text-center text-xs border-b-1 border-gray-200 dark:border-gray-700">{rows.reduce((sum, row) => sum + row.totals.grado, 0)}</TableCell>
+                                <TableCell className="text-center text-xs border-b-1 border-gray-200 dark:border-gray-700">{rows.reduce((sum, row) => sum + row.totals.maestria1, 0)}</TableCell>
+                                <TableCell className="text-center text-xs border-b-1 border-gray-200 dark:border-gray-700">{rows.reduce((sum, row) => sum + row.totals.maestria2, 0)}</TableCell>
+                                <TableCell className="text-center text-xs border-b-1 border-gray-200 dark:border-gray-700">{rows.reduce((sum, row) => sum + row.totals.doctor, 0)}</TableCell>
+                                <TableCell className="text-center text-xs border-r-1 border-gray-200 dark:border-gray-700 border-b-1 border-gray-200 dark:border-gray-700">{rows.reduce((sum, row) => sum + row.totals.bilingue, 0)}</TableCell>
+                                <TableCell className="text-center text-xs bg-gray-100 dark:bg-gray-800 dark:text-gray-200 border-r-1 border-gray-200 dark:border-gray-700 border-b-1 border-gray-200 dark:border-gray-700 font-bold">
                                     {rows.reduce((sum, row) => sum + row.totals.grado + row.totals.maestria1 + row.totals.maestria2 + row.totals.doctor + row.totals.bilingue, 0)}
                                 </TableCell>
 
@@ -351,10 +351,10 @@ export const UnifiedReportTable: React.FC<UnifiedReportTableProps> = ({ summarie
 
                                     return (
                                         <React.Fragment key={monthKey}>
-                                            <TableCell className="text-center text-xs border-l-1 border-gray-200 border-b-1 border-gray-200">{sessionsSum}</TableCell>
-                                            <TableCell className="text-center text-xs border-b-1 border-gray-200">{realTimeSum}</TableCell>
-                                            <TableCell className="text-center text-xs border-b-1 border-gray-200">{hoursSum.toFixed(2)}</TableCell>
-                                            <TableCell className="bg-gray-100 text-right text-xs font-bold border-r-1 border-gray-200 border-b-1 border-gray-200">
+                                            <TableCell className="text-center text-xs border-l-1 border-gray-200 dark:border-gray-700 border-b-1 border-gray-200 dark:border-gray-700">{sessionsSum}</TableCell>
+                                            <TableCell className="text-center text-xs border-b-1 border-gray-200 dark:border-gray-700">{realTimeSum}</TableCell>
+                                            <TableCell className="text-center text-xs border-b-1 border-gray-200 dark:border-gray-700">{hoursSum.toFixed(2)}</TableCell>
+                                            <TableCell className="bg-gray-100 dark:bg-gray-800 dark:text-gray-200 text-right text-xs font-bold border-r-1 border-gray-200 dark:border-gray-700 border-b-1 border-gray-200 dark:border-gray-700">
                                                 <div className="flex items-center justify-end gap-1">
                                                     $ {dollarsSum.toFixed(2)}
                                                 </div>
