@@ -1,0 +1,6 @@
+id,level_id,rate_per_hour,start_date,end_date
+1,GDO,9.00,2020-01-01,NULL
+2,M1,11.00,2020-01-01,NULL
+3,M2,13.00,2020-01-01,NULL
+4,DR,14.00,2020-01-01,NULL
+5,BLG,15.00,2020-01-01,NULL
