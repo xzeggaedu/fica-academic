@@ -11,6 +11,7 @@ interface AcademicLoadFileInfoCardProps {
     onViewBillingReport?: () => void;
     isGeneratingReport?: boolean;
     billingReportExists?: boolean;
+    isLoadingBillingReports?: boolean;
 }
 
 export const AcademicLoadFileInfoCard: React.FC<AcademicLoadFileInfoCardProps> = ({
@@ -20,6 +21,7 @@ export const AcademicLoadFileInfoCard: React.FC<AcademicLoadFileInfoCardProps> =
     onViewBillingReport,
     isGeneratingReport = false,
     billingReportExists = false,
+    isLoadingBillingReports = false,
 }) => {
     return (
         <Card>
@@ -32,6 +34,12 @@ export const AcademicLoadFileInfoCard: React.FC<AcademicLoadFileInfoCardProps> =
                                 <Button
                                     variant="default"
                                     onClick={onViewBillingReport}
+                                    disabled={isLoadingBillingReports}
+                                    title={
+                                        isLoadingBillingReports
+                                            ? "Cargando información de la planilla..."
+                                            : undefined
+                                    }
                                 >
                                     <Receipt className="w-4 h-4 mr-2" />
                                     Ver Planilla
@@ -40,7 +48,12 @@ export const AcademicLoadFileInfoCard: React.FC<AcademicLoadFileInfoCardProps> =
                                 <Button
                                     variant="default"
                                     onClick={onGenerateReport}
-                                    disabled={isGeneratingReport}
+                                    disabled={isGeneratingReport || isLoadingBillingReports}
+                                    title={
+                                        isLoadingBillingReports
+                                            ? "Cargando información de la planilla..."
+                                            : undefined
+                                    }
                                 >
                                     <Receipt className="w-4 h-4 mr-2" />
                                     {isGeneratingReport ? "Generando..." : "Generar Planilla"}

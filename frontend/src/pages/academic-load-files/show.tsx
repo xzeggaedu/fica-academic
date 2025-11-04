@@ -40,7 +40,7 @@ export const AcademicLoadFileShow: React.FC = () => {
   });
 
   // Hook para reportes de facturación
-  const { generateReport, isCreating: isGeneratingReport, itemsList: billingReports } = useBillingReports(file?.id);
+  const { generateReport, isCreating: isGeneratingReport, itemsList: billingReports, isLoading: isLoadingBillingReports } = useBillingReports(file?.id);
   const billingReportExists = billingReports && billingReports.length > 0;
   const firstBillingReport = billingReports?.[0];
 
@@ -161,6 +161,7 @@ export const AcademicLoadFileShow: React.FC = () => {
         onViewBillingReport={billingReportExists ? handleViewBillingReport : undefined}
         isGeneratingReport={isGeneratingReport}
         billingReportExists={billingReportExists}
+        isLoadingBillingReports={isLoadingBillingReports}
       />
 
       {statistics && <AcademicLoadFileStats statistics={statistics} />}
