@@ -102,6 +102,9 @@ async def upload_academic_load_file(
     original_path = UPLOAD_DIR / original_filename
 
     try:
+        # Asegurar que el directorio existe antes de escribir
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
         # Guardar archivo original
         with open(original_path, "wb") as buffer:
             content = await file.read()

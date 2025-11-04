@@ -216,6 +216,12 @@ def lifespan_factory(
             if create_tables_on_start:
                 await initialize_database()
 
+            # Ensure upload directories exist
+            from ..core.upload_config import ensure_upload_dirs
+
+            ensure_upload_dirs()
+            logger.info("✓ Upload directories initialized")
+
             initialization_complete.set()
             yield
 
