@@ -146,8 +146,11 @@ function SidebarItemGroup({ item, selectedKey }: MenuItemProps) {
     ));
   };
 
+  // Renderizar los hijos
+  const renderedChildren = renderChildren();
+
   return (
-    <div className={cn("border-t", "border-sidebar-border", "pt-4")}>
+    <div className={cn("border-t first:border-t-0", "border-sidebar-border", "pt-4")}>
       <span
         className={cn(
           "ml-3",
@@ -171,7 +174,7 @@ function SidebarItemGroup({ item, selectedKey }: MenuItemProps) {
         {getDisplayName(item)}
       </span>
       <div className={cn("flex", "flex-col")}>
-        {renderChildren()}
+        {renderedChildren}
       </div>
     </div>
   );

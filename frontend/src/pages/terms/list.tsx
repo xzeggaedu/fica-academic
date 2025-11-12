@@ -44,6 +44,8 @@ export const TermsList = () => {
     isCreating: creating,
     isUpdating: updating,
     isDeleting: deleting,
+    canDelete,
+    canEdit,
   } = useTermsCrud();
 
   // Hook de paginación y búsqueda (stateless)
@@ -281,99 +283,101 @@ export const TermsList = () => {
         </div>
 
         {/* Formulario de creación */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Agregar Nuevo Ciclo Académico
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleCreate} className="space-y-4">
-              {canCreate?.can && (
-                <div className="flex gap-4 items-end">
-                  <div className="space-y-2">
-                    <Label htmlFor="term">Ciclo *</Label>
-                    <Input
-                      id="term"
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={newTerm.term}
-                      onChange={(e) =>
-                        setNewTerm({ ...newTerm, term: parseInt(e.target.value) || 1 })
-                      }
-                      placeholder="Ej: 1"
-                      required
-                    />
-                  </div>
+        {canCreate?.can && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                Agregar Nuevo Ciclo Académico
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleCreate} className="space-y-4">
+                {canCreate?.can && (
+                  <div className="flex gap-4 items-end">
+                    <div className="space-y-2">
+                      <Label htmlFor="term">Ciclo *</Label>
+                      <Input
+                        id="term"
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={newTerm.term}
+                        onChange={(e) =>
+                          setNewTerm({ ...newTerm, term: parseInt(e.target.value) || 1 })
+                        }
+                        placeholder="Ej: 1"
+                        required
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="year">Año *</Label>
-                    <Input
-                      id="year"
-                      type="number"
-                      min="2020"
-                      max="2030"
-                      value={newTerm.year}
-                      onChange={(e) =>
-                        setNewTerm({ ...newTerm, year: parseInt(e.target.value) || new Date().getFullYear() })
-                      }
-                      placeholder="Ej: 2025"
-                      required
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="year">Año *</Label>
+                      <Input
+                        id="year"
+                        type="number"
+                        min="2020"
+                        max="2030"
+                        value={newTerm.year}
+                        onChange={(e) =>
+                          setNewTerm({ ...newTerm, year: parseInt(e.target.value) || new Date().getFullYear() })
+                        }
+                        placeholder="Ej: 2025"
+                        required
+                      />
+                    </div>
 
-                  <div className="space-y-2 flex-2">
-                    <Label htmlFor="description">Descripción</Label>
-                    <Input
-                      id="description"
-                      value={newTerm.description || ""}
-                      onChange={(e) =>
-                        setNewTerm({ ...newTerm, description: e.target.value })
-                      }
-                      placeholder="Ej: Primer Ciclo 2025"
-                    />
-                  </div>
+                    <div className="space-y-2 flex-2">
+                      <Label htmlFor="description">Descripción</Label>
+                      <Input
+                        id="description"
+                        value={newTerm.description || ""}
+                        onChange={(e) =>
+                          setNewTerm({ ...newTerm, description: e.target.value })
+                        }
+                        placeholder="Ej: Primer Ciclo 2025"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="start_date">Fecha Inicio *</Label>
-                    <Input
-                      id="start_date"
-                      type="date"
-                      value={newTerm.start_date}
-                      onChange={(e) =>
-                        setNewTerm({ ...newTerm, start_date: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="start_date">Fecha Inicio *</Label>
+                      <Input
+                        id="start_date"
+                        type="date"
+                        value={newTerm.start_date}
+                        onChange={(e) =>
+                          setNewTerm({ ...newTerm, start_date: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="end_date">Fecha Fin *</Label>
-                    <Input
-                      id="end_date"
-                      type="date"
-                      value={newTerm.end_date}
-                      onChange={(e) =>
-                        setNewTerm({ ...newTerm, end_date: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="end_date">Fecha Fin *</Label>
+                      <Input
+                        id="end_date"
+                        type="date"
+                        value={newTerm.end_date}
+                        onChange={(e) =>
+                          setNewTerm({ ...newTerm, end_date: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
 
-                  {/* Botón submit */}
-                  <div className="space-y-2">
-                    <Label className="invisible lg:visible">&nbsp;</Label>
-                    <Button type="submit" disabled={creating} className="w-full">
-                      {creating ? "Creando..." : "Agregar Ciclo"}
-                    </Button>
+                    {/* Botón submit */}
+                    <div className="space-y-2">
+                      <Label className="invisible lg:visible">&nbsp;</Label>
+                      <Button type="submit" disabled={creating} className="w-full">
+                        {creating ? "Creando..." : "Agregar Ciclo"}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </form>
-          </CardContent>
-        </Card>
+                )}
+              </form>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Tabla de ciclos académicos */}
         <Card>
@@ -404,9 +408,9 @@ export const TermsList = () => {
                     {visibleColumns.includes("description") && <TableHead>Descripción</TableHead>}
                     {visibleColumns.includes("start_date") && <TableHead>Fecha Inicio</TableHead>}
                     {visibleColumns.includes("end_date") && <TableHead>Fecha Fin</TableHead>}
-                    {visibleColumns.includes("actions") && <TableHead className="text-center w-[100px]">Acciones</TableHead>}
+                    {canDelete?.can && visibleColumns.includes("actions") && <TableHead className="text-center w-[100px]">Acciones</TableHead>}
                   </TableRow>
-                </TableHeader>
+                </TableHeader>on
                 <TableBody>
                   {termsList.length === 0 ? (
                     <TableRow>
@@ -425,7 +429,7 @@ export const TermsList = () => {
                         {/* Ciclo */}
                         {visibleColumns.includes("term") && (
                           <TableCell>
-                            {editingId === term.id && (!editingField || editingField === 'term') ? (
+                            {canEdit?.can && editingId === term.id && (!editingField || editingField === 'term') ? (
                               <Input
                                 type="number"
                                 min="1"
@@ -457,7 +461,7 @@ export const TermsList = () => {
                         {/* Año */}
                         {visibleColumns.includes("year") && (
                           <TableCell>
-                            {editingId === term.id && (!editingField || editingField === 'year') ? (
+                            {canEdit?.can && editingId === term.id && (!editingField || editingField === 'year') ? (
                               <Input
                                 type="number"
                                 min="2020"
@@ -489,7 +493,7 @@ export const TermsList = () => {
                         {/* Descripción */}
                         {visibleColumns.includes("description") && (
                           <TableCell>
-                            {editingId === term.id && (!editingField || editingField === 'description') ? (
+                            {canEdit?.can && editingId === term.id && (!editingField || editingField === 'description') ? (
                               <Input
                                 value={editForm.description || ""}
                                 onChange={(e) =>
@@ -518,7 +522,7 @@ export const TermsList = () => {
                         {/* Fecha Inicio */}
                         {visibleColumns.includes("start_date") && (
                           <TableCell>
-                            {editingId === term.id && (!editingField || editingField === 'start_date') ? (
+                            {canEdit?.can && editingId === term.id && (!editingField || editingField === 'start_date') ? (
                               <Input
                                 type="date"
                                 value={editForm.start_date || ""}
@@ -548,7 +552,7 @@ export const TermsList = () => {
                         {/* Fecha Fin */}
                         {visibleColumns.includes("end_date") && (
                           <TableCell>
-                            {editingId === term.id && (!editingField || editingField === 'end_date') ? (
+                            {canEdit?.can && editingId === term.id && (!editingField || editingField === 'end_date') ? (
                               <Input
                                 type="date"
                                 value={editForm.end_date || ""}
@@ -576,7 +580,7 @@ export const TermsList = () => {
                         )}
 
                         {/* Acciones */}
-                        {visibleColumns.includes("actions") && (
+                        {canDelete?.can && visibleColumns.includes("actions") && (
                           <TableCell className="text-center">
                             <TooltipProvider>
                               <Tooltip>

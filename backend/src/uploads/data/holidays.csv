@@ -1,0 +1,4 @@
+Field Name,Data Type,Key/Index,Description (ES)
+id,INT,Primary Key (PK),ID único del registro de asueto en el año específico.
+year,INT,Not Null,Año al que pertenece el asueto (Ej: 2026).
+description,VARCHAR(100), Null,Nombre del periodo/año creado.

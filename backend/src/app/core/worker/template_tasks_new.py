@@ -93,8 +93,7 @@ async def process_template_generation(ctx: Worker, template_id: int) -> dict[str
             )
 
             print(
-                f"🎯 ANTES - Estado: {template_record.generation_status}, "
-                f"Ruta: {template_record.generated_file_path}"
+                f"🎯 ANTES - Estado: {template_record.generation_status}, Ruta: {template_record.generated_file_path}"
             )
 
             # Actualizar la ruta del archivo generado en la base de datos
@@ -111,8 +110,7 @@ async def process_template_generation(ctx: Worker, template_id: int) -> dict[str
             # Verificar que se actualizó correctamente
             updated_record = await template_generation.get(db, id=template_id)
             print(
-                f"🎯 DESPUÉS - Estado: {updated_record.generation_status}, "
-                f"Ruta: {updated_record.generated_file_path}"
+                f"🎯 DESPUÉS - Estado: {updated_record.generation_status}, Ruta: {updated_record.generated_file_path}"
             )
 
             print(f"✅ Transformación completada exitosamente: {result_path}")

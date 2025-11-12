@@ -73,6 +73,7 @@ async def run_seeders() -> None:
         from src.scripts.create_first_superuser import create_first_user
         from src.scripts.seed_academic_levels import seed_academic_levels
         from src.scripts.seed_coordinations import seed_coordinations
+        from src.scripts.seed_demo_users import seed_demo_users
         from src.scripts.seed_faculties_schools import create_faculty_and_schools
         from src.scripts.seed_fixed_holiday_rules import seed_fixed_holiday_rules
         from src.scripts.seed_holidays import seed_holidays
@@ -108,6 +109,10 @@ async def run_seeders() -> None:
 
             await seed_schedule_times(session)
             logger.info("✓ Schedule times seeded")
+
+            # Usuarios demo (requiere FACULTAD/ESCUELAS previas)
+            await seed_demo_users(session)
+            logger.info("✓ Demo users seeded")
 
             await seed_terms(session)
             logger.info("✓ Terms seeded")
@@ -211,6 +216,15 @@ def lifespan_factory(
             if create_tables_on_start:
                 await initialize_database()
 
+            # Ensure upload directories exist
+            from ..core.upload_config import ensure_upload_dirs
+
+            try:
+                ensure_upload_dirs()
+                logger.info("✓ Upload directories initialized")
+            except Exception as e:
+                logger.warning(f"Warning: Could not initialize upload directories: {e}")
+
             initialization_complete.set()
             yield
 
@@ -293,6 +307,44 @@ def create_application(
 
     # Include main router
     application.include_router(router)
+
+    # Add exception handlers
+    from fastapi import Request, status
+    from fastapi.responses import JSONResponse
+    from fastcrud.exceptions.http_exceptions import (
+        DuplicateValueException,
+        ForbiddenException,
+        NotFoundException,
+        UnauthorizedException,
+    )
+
+    @application.exception_handler(UnauthorizedException)
+    async def unauthorized_exception_handler(request: Request, exc: UnauthorizedException):
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"detail": str(exc.detail) if hasattr(exc, "detail") else str(exc)},
+        )
+
+    @application.exception_handler(ForbiddenException)
+    async def forbidden_exception_handler(request: Request, exc: ForbiddenException):
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": str(exc.detail) if hasattr(exc, "detail") else str(exc)},
+        )
+
+    @application.exception_handler(NotFoundException)
+    async def not_found_exception_handler(request: Request, exc: NotFoundException):
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"detail": str(exc.detail) if hasattr(exc, "detail") else str(exc)},
+        )
+
+    @application.exception_handler(DuplicateValueException)
+    async def duplicate_exception_handler(request: Request, exc: DuplicateValueException):
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": str(exc.detail) if hasattr(exc, "detail") else str(exc)},
+        )
 
     # Add client-side caching middleware
     if isinstance(settings, ClientSideCacheSettings):

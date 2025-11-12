@@ -59,6 +59,10 @@ async def upload_template(
     generated_path = GENERATED_DIR / generated_filename
 
     try:
+        # Asegurar que los directorios existen antes de escribir
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+
         # Guardar archivo original
         with open(original_path, "wb") as buffer:
             content = await file.read()
@@ -229,6 +233,14 @@ async def update_template(
 
     # Solo el propietario puede actualizar
     user_uuid = current_user.get("user_uuid", "")
+
+    # Convertir user_uuid a UUID si es string
+    if isinstance(user_uuid, str):
+        try:
+            user_uuid = uuid.UUID(user_uuid)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="User UUID inválido")
+
     if template.user_id != user_uuid:
         raise HTTPException(status_code=403, detail="No tienes permisos para actualizar esta plantilla")
 
@@ -246,7 +258,19 @@ async def delete_template(
 
     # Solo el propietario puede eliminar
     user_uuid = current_user.get("user_uuid", "")
+
+    # Debug: imprimir los valores para verificar
+    print(f"🔍 Delete Debug: template.user_id={template.user_id}, user_uuid={user_uuid}")
+
+    # Convertir user_uuid a UUID si es string
+    if isinstance(user_uuid, str):
+        try:
+            user_uuid = uuid.UUID(user_uuid)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="User UUID inválido")
+
     if template.user_id != user_uuid:
+        print(f"❌ Permission denied: template.user_id={template.user_id}, user_uuid={user_uuid}")
         raise HTTPException(status_code=403, detail="No tienes permisos para eliminar esta plantilla")
 
     # Eliminar archivos físicos

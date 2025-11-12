@@ -376,14 +376,9 @@ credentials/
 
 # Azure deployment scripts with sensitive information
 *.sh
-
+!reset.sh
 # Application specific
 # Ignore all uploads except data directory and CSV files
-uploads/*
-!uploads/data/
-!uploads/data/**
-uploads/data/**/*
-!uploads/data/**/*.csv
-!uploads/data/**/.gitkeep
+
 media/
 staticfiles/

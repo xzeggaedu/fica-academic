@@ -19,7 +19,7 @@ class CatalogProfessor(Base):
         institutional_email: Correo electrónico institucional
         personal_email: Correo electrónico personal
         phone_number: Número de teléfono
-        professor_category: Categoría del profesor (DHC, ADM, etc.)
+        professor_category: Categoría del profesor (DEC, DIR, COOR, DTC, ADM, DHC)
         academic_title: Título profesional (Ing., Dr., Lic.)
         doctorates: Número de doctorados
         masters: Número de maestrías

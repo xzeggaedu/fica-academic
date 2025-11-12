@@ -26,11 +26,6 @@ import {
   UserShow,
 } from "./pages/users";
 import {
-  TaskCreate,
-  TaskList,
-  TaskShow,
-} from "./pages/tasks";
-import {
   FacultyList,
 } from "./pages/faculties";
 import { SubjectsList } from "./pages/subjects";
@@ -44,10 +39,12 @@ import { TermsList } from "./pages/terms/list";
 import { HolidaysList } from "./pages/holidays";
 import { FixedHolidayRulesList } from "./pages/fixed-holiday-rules";
 import { AnnualHolidaysList } from "./pages/annual-holidays";
-import { TemplateGenerationCreate, TemplateGenerationList } from "./pages/template-generation";
-import { ForgotPassword } from "./pages/forgot-password";
+import { AcademicLoadFilesListWrapper, AcademicLoadFileShow } from "./pages/academic-load-files";
+import { BillingReportShow, ConsolidatedBillingReportShow } from "./pages/billing-reports";
+import { DirectorDashboard } from "./pages/director-dashboard";
+import { DecanoDashboard } from "./pages/decano-dashboard";
+import { VicerrectorDashboard } from "./pages/vicerrector-dashboard";
 import { Login } from "./pages/login";
-import { Register } from "./pages/register";
 
 function App() {
   // Inicializar renovación automática de tokens
@@ -67,22 +64,36 @@ function App() {
                   authProvider={authProvider}
                   accessControlProvider={accessControlProvider}
                   resources={[
-                    // Top-level resources in order: Tasks, Academic Planning, then Catalogs
+                    // Top-level resources in order: Academic Planning, then Catalogs
                     {
-                      name: "tasks",
-                      list: "/tasks",
-                      create: "/tasks/create",
-                      show: "/tasks/show/:id",
+                      name: "dashboards",
+                      meta: { label: "Dashboards", group: true },
+                    },
+                    {
+                      name: "dashboards-director",
+                      list: "/director/dashboard",
                       meta: {
-                        label: "Tareas",
-                        canDelete: true,
+                        label: "Dashboard Director",
+                        parent: "dashboards",
+                        icon: "Activity",
                       },
                     },
                     {
-                      name: "separator-planning",
+                      name: "dashboards-decano",
+                      list: "/decano/dashboard",
                       meta: {
-                        group: true,
-                        label: "separator",
+                        label: "Dashboard Decano",
+                        parent: "dashboards",
+                        icon: "Activity",
+                      },
+                    },
+                    {
+                      name: "dashboards-vicerrector",
+                      list: "/vicerrector/dashboard",
+                      meta: {
+                        label: "Dashboard Vicerrector",
+                        parent: "dashboards",
+                        icon: "Activity",
                       },
                     },
                     {
@@ -93,22 +104,30 @@ function App() {
                       },
                     },
                     {
+                      name: "academic-load-files",
+                      list: "/academic-planning/academic-load-files",
+                      meta: {
+                        label: "Carga Académica",
+                        parent: "academic-planning",
+                        icon: "Upload",
+                      },
+                    },
+                    {
+                      name: "academic-load-files-vicerrector",
+                      list: "/academic-planning/academic-load-files",
+                      meta: {
+                        label: "Carga Académica",
+                        parent: "academic-planning",
+                        icon: "Upload",
+                      },
+                    },
+                    {
                       name: "terms",
                       list: "/academic-planning/terms",
                       meta: {
                         label: "Ciclos Académicos",
                         parent: "academic-planning",
                         icon: "Calendar",
-                      },
-                    },
-                    {
-                      name: "template-generation",
-                      list: "/academic-planning/template-generation",
-                      create: "/academic-planning/template-generation/create",
-                      meta: {
-                        label: "Generar Plantilla",
-                        parent: "academic-planning",
-                        icon: "FileSpreadsheet",
                       },
                     },
                     {
@@ -255,16 +274,6 @@ function App() {
                         icon: "Trash2",
                       },
                     },
-                    {
-                      name: "template-generation",
-                      list: "/template-generation",
-                      create: "/template-generation/create",
-                      meta: {
-                        label: "Generar Plantilla",
-                        canDelete: true,
-                        icon: "FileSpreadsheet",
-                      },
-                    },
 
                   ]}
                   options={{
@@ -272,7 +281,7 @@ function App() {
                     warnWhenUnsavedChanges: true,
                     projectId: "z38lBH-XJNI10-KyIM9Y",
                     title: {
-                      text: "Fica Academics 1.0",
+                      text: "Academics 1.0 | UTEC",
                     },
                   }}
                 >
@@ -291,7 +300,7 @@ function App() {
                     >
                       <Route
                         index
-                        element={<NavigateToResource resource="tasks" />}
+                        element={<NavigateToResource resource="academic-load-files" />}
                       />
                       <Route path="/users">
                         <Route index element={<UserList />} />
@@ -301,11 +310,6 @@ function App() {
                       </Route>
                       <Route path="/faculties">
                         <Route index element={<FacultyList />} />
-                      </Route>
-                      <Route path="/tasks">
-                        <Route index element={<TaskList />} />
-                        <Route path="create" element={<TaskCreate />} />
-                        <Route path="show/:id" element={<TaskShow />} />
                       </Route>
                       <Route path="/catalogs">
                         <Route path="schedule-times" element={<ScheduleTimesList />} />
@@ -320,11 +324,25 @@ function App() {
                       </Route>
                       <Route path="/academic-planning">
                         <Route path="terms" element={<TermsList />} />
-                        <Route path="template-generation" element={<TemplateGenerationList />} />
-                        <Route path="template-generation/create" element={<TemplateGenerationCreate />} />
+                        <Route path="academic-load-files" element={<AcademicLoadFilesListWrapper />} />
+                        <Route path="academic-load-files/show/:id" element={<AcademicLoadFileShow />} />
+                        <Route path="billing-reports/show/:id" element={<BillingReportShow />} />
+                        <Route path="billing-reports/consolidated/:termId" element={<ConsolidatedBillingReportShow />} />
                         <Route path="holidays" element={<HolidaysList />} />
                         <Route path="fixed-holiday-rules" element={<FixedHolidayRulesList />} />
                         <Route path="annual-holidays/:holidayId" element={<AnnualHolidaysList />} />
+                      </Route>
+                      <Route path="/director">
+                        <Route path="dashboard" element={<DirectorDashboard />} />
+                      </Route>
+                      <Route path="/decano">
+                        <Route path="dashboard" element={<DecanoDashboard />} />
+                      </Route>
+                      <Route path="/vicerrector">
+                        <Route path="dashboard" element={<VicerrectorDashboard />} />
+                      </Route>
+                      <Route path="/billing-reports">
+                        <Route path="show/:id" element={<BillingReportShow />} />
                       </Route>
                       <Route path="*" element={<ErrorComponent />} />
                     </Route>
@@ -339,8 +357,6 @@ function App() {
                       }
                     >
                       <Route path="/login" element={<Login />} />
-                      <Route path="/register" element={<Register />} />
-                      <Route path="/forgot-password" element={<ForgotPassword />} />
                     </Route>
                   </Routes>
 

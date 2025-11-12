@@ -1,0 +1,6 @@
+Field Name,Data Type,Key/Index,Description (ES)
+id,INT,Primary Key (PK),ID único del registro de asueto en el año específico.
+year,INT,Not Null,Año al que pertenece el asueto (Ej: 2026).
+date,DATE,Not Null / Unique,Fecha exacta del día no laborable (p.ej., '2026-04-03').
+name,VARCHAR(100),Not Null,Nombre descriptivo (Ej: 'Viernes Santo', 'Cierre Administrativo').
+type,VARCHAR(50),Not Null,Origen del registro: Asueto Nacional, Personalizado.

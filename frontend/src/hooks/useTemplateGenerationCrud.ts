@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCreate, useUpdate, useList, useCan, useInvalidate } from "@refinedev/core";
+import { useCreate, useUpdate, useDelete, useList, useCan, useInvalidate } from "@refinedev/core";
 import { toast } from "sonner";
 import type { TemplateGeneration, TemplateGenerationCreate, TemplateGenerationUpdate } from "@/types/api";
 
@@ -67,6 +67,9 @@ export const useTemplateGenerationCrud = () => {
     },
   });
 
+  // Hook de eliminación (callbacks manejados manualmente por el consumidor)
+  const deleteHook = useDelete();
+
   const createMutation = createHook.mutate;
   const updateMutation = updateHook.mutate;
   const isCreating = (createHook as any).isLoading;
@@ -129,5 +132,6 @@ export const useTemplateGenerationCrud = () => {
     closeCreateModal,
     openEditModal,
     closeEditModal,
+    deleteHook,
   };
 };

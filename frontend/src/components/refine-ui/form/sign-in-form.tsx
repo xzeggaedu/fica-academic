@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-import { CircleHelp } from "lucide-react";
 
 import { InputPassword } from "@/components/refine-ui/form/input-password";
 import { ThemeToggle } from "@/components/refine-ui/theme/theme-toggle";
@@ -114,9 +113,7 @@ export const SignInForm = () => {
 
             <div
               className={cn(
-                "flex items-center justify-between",
-                "flex-wrap",
-                "gap-2",
+                "flex items-center justify-start",
                 "mt-4"
               )}
             >
@@ -130,50 +127,15 @@ export const SignInForm = () => {
                 />
                 <Label htmlFor="remember">Recordarme</Label>
               </div>
-              <Link
-                to="/forgot-password"
-                className={cn(
-                  "text-sm",
-                  "flex",
-                  "items-center",
-                  "gap-2",
-                  "text-primary hover:underline",
-                  "text-blue-600",
-                  "dark:text-blue-400"
-                )}
-              >
-                <span>¿Olvidó su contraseña?</span>
-                <CircleHelp className={cn("w-4", "h-4")} />
-              </Link>
             </div>
-
-            <Button type="submit" size="lg" className={cn("w-full", "mt-6")}>
-              Iniciar Sesión
-            </Button>
-
+            <div className="flex justify-end">
+              <Button type="submit" size="lg" className={cn("w-fit", "mt-6 ml-auto")}>
+                Iniciar Sesión
+              </Button>
+            </div>
           </form>
         </CardContent>
 
-        <Separator />
-
-        <CardFooter>
-          <div className={cn("w-full", "text-center text-sm")}>
-            <span className={cn("text-sm", "text-muted-foreground")}>
-              ¿No tiene cuenta?{" "}
-            </span>
-            <Link
-              to="/register"
-              className={cn(
-                "text-green-600",
-                "dark:text-green-400",
-                "font-semibold",
-                "underline"
-              )}
-            >
-              Registrarse
-            </Link>
-          </div>
-        </CardFooter>
       </Card>
     </div>
   );

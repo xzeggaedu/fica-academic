@@ -39,6 +39,7 @@ class GlobalSettings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=True,
         env_prefix="",
+        extra="ignore",  # Ignorar variables extra que no estén definidas
     )
 
 
@@ -173,6 +174,40 @@ class AbstractSettings(GlobalSettings):
     ABSTRACT_API_KEY: str = "api-key"
 
 
+class DemoUsersSettings(GlobalSettings):
+    """Variables opcionales para demo de usuarios adicionales.
+
+    Si no están presentes, se ignorarán. Esto evita errores de validación cuando el entorno define variables extra no
+    usadas por la app principal.
+    """
+
+    DEMO_PASSWORD: SecretStr | None = None
+    VICERRECTOR_USER: str | None = None
+    DECANO_USER: str | None = None
+    DIRECTOR_USER: str | None = None
+    # Permitir varios DIRECTOR_USER_n opcionales sin romper la validación
+    DIRECTOR_USER_1: str | None = None
+    DIRECTOR_USER_2: str | None = None
+    DIRECTOR_USER_3: str | None = None
+    DIRECTOR_USER_4: str | None = None
+    DIRECTOR_USER_5: str | None = None
+    DIRECTOR_USER_6: str | None = None
+    DIRECTOR_USER_7: str | None = None
+    DIRECTOR_USER_8: str | None = None
+    DIRECTOR_USER_9: str | None = None
+    DIRECTOR_USER_10: str | None = None
+    DIRECTOR_USER_11: str | None = None
+    DIRECTOR_USER_12: str | None = None
+    DIRECTOR_USER_13: str | None = None
+    DIRECTOR_USER_14: str | None = None
+    DIRECTOR_USER_15: str | None = None
+    DIRECTOR_USER_16: str | None = None
+    DIRECTOR_USER_17: str | None = None
+    DIRECTOR_USER_18: str | None = None
+    DIRECTOR_USER_19: str | None = None
+    DIRECTOR_USER_20: str | None = None
+
+
 # ----------------------------------------------------------------------
 # Clase de Configuración Final
 # ----------------------------------------------------------------------
@@ -190,6 +225,7 @@ class Settings(
     RedisQueueSettings,
     PGAdminSettings,
     AbstractSettings,
+    DemoUsersSettings,
     GlobalSettings,
 ):
     """Clase que consolida todas las configuraciones."""

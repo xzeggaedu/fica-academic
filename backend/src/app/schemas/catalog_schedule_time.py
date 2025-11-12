@@ -6,7 +6,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # Constantes para los días de la semana (0=Lunes, 6=Domingo)
-WEEK_DAYS_MAP = {0: "Lu", 1: "Ma", 2: "Mi", 3: "Ju", 4: "Vi", 5: "Sá", 6: "Do"}
+WEEK_DAYS_MAP = {0: "Lu", 1: "Ma", 2: "Mi", 3: "Ju", 4: "Vi", 5: "Sa", 6: "Do"}
 
 
 def generate_day_group_name_from_array(days_array: list[int]) -> str:
@@ -33,7 +33,7 @@ class CatalogScheduleTimeBase(BaseModel):
     """Schema base de Catálogo de Horarios."""
 
     days_array: Annotated[list[int], Field(min_items=1, max_items=7, examples=[[0], [0, 4], [1, 3, 5]])]
-    day_group_name: Annotated[str, Field(min_length=1, max_length=50, examples=["Lu", "Lu-Vi", "Ma-Ju-Sá"])]
+    day_group_name: Annotated[str, Field(min_length=1, max_length=50, examples=["Lu", "Lu-Vi", "Ma-Ju-Sa"])]
     range_text: Annotated[
         str,
         Field(min_length=1, max_length=50, examples=["06:30-08:00", "06:30 a 08:00 a.m.", "13:45-16:00-07:00-09:15"]),
@@ -66,21 +66,21 @@ class CatalogScheduleTimeBase(BaseModel):
         import re
 
         # Normalizar el valor (convertir formatos antiguos a nuevos)
-        v_normalized = v.replace("Sab", "Sá").replace("Dom", "Do").replace("Vie", "Vi")
+        v_normalized = v.replace("Sab", "Sa").replace("Dom", "Do").replace("Vie", "Vi")
 
         # Patrón que permite abreviaciones válidas
-        valid_pattern = r"^([LuMaMiJuViSáDo]+(-[LuMaMiJuViSáDo]+)*)+$"
+        valid_pattern = r"^([LuMaMiJuViSaDo]+(-[LuMaMiJuViSaDo]+)*)+$"
 
         if re.match(valid_pattern, v_normalized):
             # Verificar que solo contenga días válidos
-            valid_days = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"]
+            valid_days = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sa", "Do"]
             parts = v_normalized.split("-")
             for part in parts:
                 if part not in valid_days:
                     raise ValueError(f"Día inválido: {part}. Días válidos: {', '.join(valid_days)}")
             return v_normalized
 
-        raise ValueError("day_group_name debe tener un formato válido (ej: Lu, Lu-Vi, Ma-Ju-Sá)")
+        raise ValueError("day_group_name debe tener un formato válido (ej: Lu, Lu-Vi, Ma-Ju-Sa)")
 
     @field_validator("end_time")
     @classmethod
