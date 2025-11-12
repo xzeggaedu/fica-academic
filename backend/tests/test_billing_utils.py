@@ -1,5 +1,7 @@
 """Tests for billing utility functions."""
 
+from unittest.mock import AsyncMock, Mock
+
 import pytest
 
 from src.app.core.billing.billing_utils import (
@@ -94,6 +96,22 @@ class TestGetAcademicLevelIdsMap:
     async def test_returns_map(self, db_session):
         """Test that function returns a dictionary mapping codes to IDs."""
         from src.app.core.billing.billing_utils import get_academic_level_ids_map
+
+        # Mock the database response
+        mock_levels = [
+            Mock(code="BLG", id=5),
+            Mock(code="DR", id=4),
+            Mock(code="M2", id=3),
+            Mock(code="M1", id=2),
+            Mock(code="GDO", id=1),
+        ]
+
+        # Configure the mock session to return a proper result
+        mock_scalars = Mock()
+        mock_scalars.all.return_value = mock_levels
+        mock_result = Mock()
+        mock_result.scalars.return_value = mock_scalars
+        db_session.execute = AsyncMock(return_value=mock_result)
 
         result = await get_academic_level_ids_map(db_session)
 
