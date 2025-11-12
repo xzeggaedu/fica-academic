@@ -72,12 +72,12 @@ class TestScheduleTimesSeeder:
         assert generate_day_group_name([1, 3]) == "Ma-Ju"
         assert generate_day_group_name([0, 4]) == "Lu-Vi"
         assert generate_day_group_name([0, 1, 2, 3, 4]) == "Lu-Ma-Mi-Ju-Vi"
-        assert generate_day_group_name([5]) == "Sá"
+        assert generate_day_group_name([5]) == "Sa"
         assert generate_day_group_name([6]) == "Do"
 
         # Casos con días no consecutivos
         assert generate_day_group_name([0, 4]) == "Lu-Vi"
-        assert generate_day_group_name([1, 3, 5]) == "Ma-Ju-Sá"
+        assert generate_day_group_name([1, 3, 5]) == "Ma-Ju-Sa"
 
     def test_generate_day_group_name_invalid(self):
         """Prueba la generación con arrays inválidos."""

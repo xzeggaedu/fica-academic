@@ -45,6 +45,8 @@ export const FixedHolidayRulesList = () => {
         isCreating: creating,
         isUpdating: updating,
         isDeleting: deleting,
+        canDelete,
+        canEdit,
     } = useFixedHolidayRulesCrud();
 
     // Hook de paginación y búsqueda (stateless)
@@ -404,7 +406,7 @@ export const FixedHolidayRulesList = () => {
                                                 {visibleColumns.includes("name") && <TableHead>Nombre</TableHead>}
                                                 {visibleColumns.includes("month") && <TableHead>Mes</TableHead>}
                                                 {visibleColumns.includes("day") && <TableHead>Día</TableHead>}
-                                                {visibleColumns.includes("actions") && <TableHead className="text-center w-[100px]">Acciones</TableHead>}
+                                                {canDelete?.can && visibleColumns.includes("actions") && <TableHead className="text-center w-[100px]">Acciones</TableHead>}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -422,7 +424,7 @@ export const FixedHolidayRulesList = () => {
                                                         )}
                                                         {visibleColumns.includes("name") && (
                                                             <TableCell>
-                                                                {editingId === item.id && editingField === "name" ? (
+                                                                {canEdit?.can && editingId === item.id && editingField === "name" ? (
                                                                     <Input
                                                                         value={editForm.name || ""}
                                                                         onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
@@ -446,7 +448,7 @@ export const FixedHolidayRulesList = () => {
                                                         )}
                                                         {visibleColumns.includes("month") && (
                                                             <TableCell>
-                                                                {editingId === item.id && editingField === "month" ? (
+                                                                {canEdit?.can && editingId === item.id && editingField === "month" ? (
                                                                     <Select
                                                                         value={editForm.month?.toString() || ""}
                                                                         onValueChange={(value) => setEditForm(prev => ({ ...prev, month: parseInt(value) }))}
@@ -477,7 +479,7 @@ export const FixedHolidayRulesList = () => {
                                                         )}
                                                         {visibleColumns.includes("day") && (
                                                             <TableCell>
-                                                                {editingId === item.id && editingField === "day" ? (
+                                                                {canEdit?.can && editingId === item.id && editingField === "day" ? (
                                                                     <Input
                                                                         type="number"
                                                                         min="1"
@@ -502,7 +504,7 @@ export const FixedHolidayRulesList = () => {
                                                                 )}
                                                             </TableCell>
                                                         )}
-                                                        {visibleColumns.includes("actions") && (
+                                                        {canDelete?.can && visibleColumns.includes("actions") && (
                                                             <TableCell className="text-center">
                                                                 <TooltipProvider>
                                                                     <Tooltip>

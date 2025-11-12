@@ -1,103 +1,216 @@
 import os
 from enum import Enum
 
-from pydantic import SecretStr
-from pydantic_settings import BaseSettings
-from starlette.config import Config
+from pydantic import EmailStr, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-current_file_dir = os.path.dirname(os.path.realpath(__file__))
-env_path = os.path.join(current_file_dir, "..", "..", ".env")
-config = Config(env_path)
-
-
-class AppSettings(BaseSettings):
-    APP_NAME: str = config("APP_NAME", default="FastAPI app")
-    APP_DESCRIPTION: str | None = config("APP_DESCRIPTION", default=None)
-    APP_VERSION: str | None = config("APP_VERSION", default=None)
-    LICENSE_NAME: str | None = config("LICENSE", default=None)
-    CONTACT_NAME: str | None = config("CONTACT_NAME", default=None)
-    CONTACT_EMAIL: str | None = config("CONTACT_EMAIL", default=None)
+# ----------------------------------------------------------------------
+# Definición de Entornos
+# ----------------------------------------------------------------------
 
 
-class CryptSettings(BaseSettings):
-    SECRET_KEY: SecretStr = config("SECRET_KEY", default="test-secret-key-for-ci", cast=SecretStr)
-    ALGORITHM: str = config("ALGORITHM", default="HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = config("ACCESS_TOKEN_EXPIRE_MINUTES", default=30)
-    REFRESH_TOKEN_EXPIRE_DAYS: int = config("REFRESH_TOKEN_EXPIRE_DAYS", default=7)
-    # Configuración para "Recordarme"
-    ACCESS_TOKEN_EXPIRE_MINUTES_REMEMBER: int = config("ACCESS_TOKEN_EXPIRE_MINUTES_REMEMBER", default=1440)  # 24 horas
-    REFRESH_TOKEN_EXPIRE_DAYS_REMEMBER: int = config("REFRESH_TOKEN_EXPIRE_DAYS_REMEMBER", default=30)  # 30 días
+class EnvironmentOption(str, Enum):
+    """Opciones de entorno para la aplicación."""
 
-
-class DatabaseSettings(BaseSettings):
-    pass
-
-
-class SQLiteSettings(DatabaseSettings):
-    SQLITE_URI: str = config("SQLITE_URI", default="./sql_app.db")
-    SQLITE_SYNC_PREFIX: str = config("SQLITE_SYNC_PREFIX", default="sqlite:///")
-    SQLITE_ASYNC_PREFIX: str = config("SQLITE_ASYNC_PREFIX", default="sqlite+aiosqlite:///")
-
-
-class MySQLSettings(DatabaseSettings):
-    MYSQL_USER: str = config("MYSQL_USER", default="username")
-    MYSQL_PASSWORD: str = config("MYSQL_PASSWORD", default="password")
-    MYSQL_SERVER: str = config("MYSQL_SERVER", default="localhost")
-    MYSQL_PORT: int = config("MYSQL_PORT", default=5432)
-    MYSQL_DB: str = config("MYSQL_DB", default="dbname")
-    MYSQL_URI: str = f"{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_SERVER}:{MYSQL_PORT}/{MYSQL_DB}"
-    MYSQL_SYNC_PREFIX: str = config("MYSQL_SYNC_PREFIX", default="mysql://")
-    MYSQL_ASYNC_PREFIX: str = config("MYSQL_ASYNC_PREFIX", default="mysql+aiomysql://")
-    MYSQL_URL: str | None = config("MYSQL_URL", default=None)
-
-
-class PostgresSettings(DatabaseSettings):
-    POSTGRES_USER: str = config("POSTGRES_USER", default="postgres")
-    POSTGRES_PASSWORD: str = config("POSTGRES_PASSWORD", default="postgres")
-    POSTGRES_SERVER: str = config("POSTGRES_SERVER", default="localhost")
-    POSTGRES_PORT: int = config("POSTGRES_PORT", default=5432)
-    POSTGRES_DB: str = config("POSTGRES_DB", default="postgres")
-    POSTGRES_SYNC_PREFIX: str = config("POSTGRES_SYNC_PREFIX", default="postgresql://")
-    POSTGRES_ASYNC_PREFIX: str = config("POSTGRES_ASYNC_PREFIX", default="postgresql+asyncpg://")
-    POSTGRES_URI: str = f"{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
-    POSTGRES_URL: str | None = config("POSTGRES_URL", default=None)
-
-
-class FirstUserSettings(BaseSettings):
-    ADMIN_NAME: str = config("ADMIN_NAME", default="admin")
-    ADMIN_EMAIL: str = config("ADMIN_EMAIL", default="admin@admin.com")
-    ADMIN_USERNAME: str = config("ADMIN_USERNAME", default="admin")
-    ADMIN_PASSWORD: str = config("ADMIN_PASSWORD", default="!Ch4ng3Th1sP4ssW0rd!")
-    ADMIN_ROLE: str = config("ADMIN_ROLE", default="admin")
-
-
-class TestSettings(BaseSettings):
-    ...
-
-
-class RedisCacheSettings(BaseSettings):
-    REDIS_CACHE_HOST: str = config("REDIS_CACHE_HOST", default="localhost")
-    REDIS_CACHE_PORT: int = config("REDIS_CACHE_PORT", default=6379)
-    REDIS_CACHE_URL: str = f"redis://{REDIS_CACHE_HOST}:{REDIS_CACHE_PORT}"
-
-
-class ClientSideCacheSettings(BaseSettings):
-    CLIENT_CACHE_MAX_AGE: int = config("CLIENT_CACHE_MAX_AGE", default=60)
-
-
-class RedisQueueSettings(BaseSettings):
-    REDIS_QUEUE_HOST: str = config("REDIS_QUEUE_HOST", default="localhost")
-    REDIS_QUEUE_PORT: int = config("REDIS_QUEUE_PORT", default=6379)
-
-
-class EnvironmentOption(Enum):
     LOCAL = "local"
     STAGING = "staging"
     PRODUCTION = "production"
 
 
-class EnvironmentSettings(BaseSettings):
-    ENVIRONMENT: EnvironmentOption = config("ENVIRONMENT", default=EnvironmentOption.LOCAL)
+# ----------------------------------------------------------------------
+# Configuración Global de Pydantic
+# ----------------------------------------------------------------------
+
+
+class GlobalSettings(BaseSettings):
+    """Configuración base que define cómo pydantic-settings debe buscar variables.
+
+    Prioridad: 1. Entorno (Azure/Sistema) 2. Archivo .env (solo si ENVIRONMENT es 'local') 3. Valores por Defecto
+    """
+
+    ENVIRONMENT: EnvironmentOption = EnvironmentOption.LOCAL
+
+    # Usamos os.getenv para obtener el valor de ENVIRONMENT antes de la inicialización de Pydantic.
+    _current_env = os.getenv("ENVIRONMENT", EnvironmentOption.LOCAL.value)
+
+    model_config = SettingsConfigDict(
+        # Carga el .env SÓLO si el entorno es 'local', tal como lo has configurado en tu .env.
+        env_file=".env" if _current_env == EnvironmentOption.LOCAL.value else None,
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        env_prefix="",
+        extra="ignore",  # Ignorar variables extra que no estén definidas
+    )
+
+
+class EnvironmentSettings(GlobalSettings):
+    """Configuración específica para el entorno de ejecución.
+
+    Hereda de GlobalSettings para cargar desde el entorno o .env.
+    """
+
+    # Pydantic automáticamente mapeará la variable de entorno 'ENVIRONMENT'
+    # a este campo y la validará contra los valores del Enum.
+    ENVIRONMENT: EnvironmentOption = EnvironmentOption.LOCAL
+
+
+# ----------------------------------------------------------------------
+# Clases de Configuración Específicas
+# ----------------------------------------------------------------------
+
+
+class AppSettings(GlobalSettings):
+    # Variables: APP_NAME, APP_DESCRIPTION, APP_VERSION
+    APP_NAME: str = "FastAPI app"
+    APP_DESCRIPTION: str | None = None
+    APP_VERSION: str | None = None
+    LICENSE_NAME: str | None = None
+    CONTACT_NAME: str | None = None
+    CONTACT_EMAIL: EmailStr | None = None
+
+
+class CryptSettings(GlobalSettings):
+    # Variables: SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
+    SECRET_KEY: SecretStr = SecretStr("test-secret-key-for-ci")
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ACCESS_TOKEN_EXPIRE_MINUTES_REMEMBER: int = 1440
+    REFRESH_TOKEN_EXPIRE_DAYS_REMEMBER: int = 30
+
+
+class DatabaseSettings(GlobalSettings):
+    pass
+
+
+class SQLiteSettings(DatabaseSettings):
+    SQLITE_URI: str = "./sql_app.db"
+    SQLITE_SYNC_PREFIX: str = "sqlite:///"
+    SQLITE_ASYNC_PREFIX: str = "sqlite+aiosqlite:///"
+
+
+class MySQLSettings(DatabaseSettings):
+    MYSQL_USER: str = "username"
+    MYSQL_PASSWORD: SecretStr = SecretStr("password")
+    MYSQL_SERVER: str = "localhost"
+    MYSQL_PORT: int = 5432
+    MYSQL_DB: str = "dbname"
+    MYSQL_SYNC_PREFIX: str = "mysql://"
+    MYSQL_ASYNC_PREFIX: str = "mysql+aiomysql://"
+    MYSQL_URL: str | None = None
+
+    @property
+    def MYSQL_URI(self) -> str:
+        return (
+            f"{self.MYSQL_USER}:{self.MYSQL_PASSWORD.get_secret_value()}"
+            f"@{self.MYSQL_SERVER}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
+        )
+
+
+class PostgresSettings(DatabaseSettings):
+    # Variables: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_SERVER, POSTGRES_PORT, POSTGRES_DB
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: SecretStr = SecretStr("postgres")
+    POSTGRES_SERVER: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_DB: str = "postgres"
+    POSTGRES_SYNC_PREFIX: str = "postgresql://"
+    POSTGRES_ASYNC_PREFIX: str = "postgresql+asyncpg://"
+    POSTGRES_URL: str | None = None
+
+    @property
+    def POSTGRES_URI(self) -> str:
+        return (
+            f"{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD.get_secret_value()}"
+            f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
+
+
+class FirstUserSettings(GlobalSettings):
+    # Variables: ADMIN_NAME, ADMIN_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD
+    ADMIN_NAME: str = "admin"
+    ADMIN_EMAIL: EmailStr = "admin@admin.com"
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: SecretStr = SecretStr("!Ch4ng3Th1sP4ssW0rd!")
+    ADMIN_ROLE: str = "admin"
+
+
+class TestSettings(GlobalSettings):
+    pass
+
+
+class RedisCacheSettings(GlobalSettings):
+    # Variables: REDIS_CACHE_HOST, REDIS_CACHE_PORT
+    REDIS_CACHE_HOST: str = "localhost"
+    REDIS_CACHE_PORT: int = 6379
+
+    @property
+    def REDIS_CACHE_URL(self) -> str:
+        return f"redis://{self.REDIS_CACHE_HOST}:{self.REDIS_CACHE_PORT}"
+
+
+class ClientSideCacheSettings(GlobalSettings):
+    # Variables: CLIENT_CACHE_MAX_AGE
+    CLIENT_CACHE_MAX_AGE: int = 60
+
+
+class RedisQueueSettings(GlobalSettings):
+    # Variables: REDIS_QUEUE_HOST, REDIS_QUEUE_PORT
+    REDIS_QUEUE_HOST: str = "localhost"
+    REDIS_QUEUE_PORT: int = 6379
+
+
+class PGAdminSettings(GlobalSettings):
+    # Variables: PGADMIN_DEFAULT_EMAIL, PGADMIN_DEFAULT_PASSWORD, PGADMIN_LISTEN_PORT
+    PGADMIN_DEFAULT_EMAIL: EmailStr = "admin@admin.com"
+    PGADMIN_DEFAULT_PASSWORD: SecretStr = SecretStr("admin")
+    PGADMIN_LISTEN_PORT: int = 80
+
+
+class AbstractSettings(GlobalSettings):
+    # Variables: ABSTRACT_EMAIL, ABSTRACT_PASSWORD, ABSTRACT_API_KEY
+    ABSTRACT_EMAIL: EmailStr = "abstract@example.com"
+    ABSTRACT_PASSWORD: SecretStr = SecretStr("password")
+    ABSTRACT_API_KEY: str = "api-key"
+
+
+class DemoUsersSettings(GlobalSettings):
+    """Variables opcionales para demo de usuarios adicionales.
+
+    Si no están presentes, se ignorarán. Esto evita errores de validación cuando el entorno define variables extra no
+    usadas por la app principal.
+    """
+
+    DEMO_PASSWORD: SecretStr | None = None
+    VICERRECTOR_USER: str | None = None
+    DECANO_USER: str | None = None
+    DIRECTOR_USER: str | None = None
+    # Permitir varios DIRECTOR_USER_n opcionales sin romper la validación
+    DIRECTOR_USER_1: str | None = None
+    DIRECTOR_USER_2: str | None = None
+    DIRECTOR_USER_3: str | None = None
+    DIRECTOR_USER_4: str | None = None
+    DIRECTOR_USER_5: str | None = None
+    DIRECTOR_USER_6: str | None = None
+    DIRECTOR_USER_7: str | None = None
+    DIRECTOR_USER_8: str | None = None
+    DIRECTOR_USER_9: str | None = None
+    DIRECTOR_USER_10: str | None = None
+    DIRECTOR_USER_11: str | None = None
+    DIRECTOR_USER_12: str | None = None
+    DIRECTOR_USER_13: str | None = None
+    DIRECTOR_USER_14: str | None = None
+    DIRECTOR_USER_15: str | None = None
+    DIRECTOR_USER_16: str | None = None
+    DIRECTOR_USER_17: str | None = None
+    DIRECTOR_USER_18: str | None = None
+    DIRECTOR_USER_19: str | None = None
+    DIRECTOR_USER_20: str | None = None
+
+
+# ----------------------------------------------------------------------
+# Clase de Configuración Final
+# ----------------------------------------------------------------------
 
 
 class Settings(
@@ -110,8 +223,13 @@ class Settings(
     RedisCacheSettings,
     ClientSideCacheSettings,
     RedisQueueSettings,
-    EnvironmentSettings,
+    PGAdminSettings,
+    AbstractSettings,
+    DemoUsersSettings,
+    GlobalSettings,
 ):
+    """Clase que consolida todas las configuraciones."""
+
     pass
 
 

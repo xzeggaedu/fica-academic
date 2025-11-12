@@ -1,7 +1,5 @@
 """CRUD operations for Annual Holiday."""
 
-from datetime import datetime
-
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -109,12 +107,10 @@ async def create_annual_holiday(session: AsyncSession, annual_holiday_data: Annu
 
     # Create new annual holiday
     new_annual_holiday = AnnualHoliday(
-        id=None,
         holiday_id=annual_holiday_data.holiday_id,
         date=annual_holiday_data.date,
         name=annual_holiday_data.name,
         type=annual_holiday_data.type,
-        created_at=datetime.utcnow(),
     )
 
     session.add(new_annual_holiday)

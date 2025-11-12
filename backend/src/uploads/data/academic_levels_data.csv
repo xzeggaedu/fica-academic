@@ -1,0 +1,6 @@
+id,code,name,priority
+1,GDO,"Grado Base (Lic., Ing., Arq.)",5
+2,M1,Una Maestría,4
+3,M2,"Dos o más Maestrías",3
+4,DR,Doctorado,2
+5,BLG,"Bilingüe (Clase y Profesor)",1

@@ -507,3 +507,209 @@ export interface HolidayRead {
   annual_holidays_count: number;
   annual_holidays?: AnnualHoliday[];
 }
+
+// Template Generation Types
+export interface TemplateGeneration {
+  id: number;
+  user_id: string;
+  faculty_id: number;
+  school_id: number;
+  original_filename: string;
+  original_file_path: string;
+  generated_file_path: string;
+  upload_date: string;
+  generation_status: string;
+  notes?: string;
+  created_at: string;
+  updated_at?: string;
+  // Relaciones
+  user?: User;
+  faculty?: Faculty;
+  school?: School;
+}
+
+export interface TemplateGenerationCreate {
+  faculty_id: number;
+  school_id: number;
+  notes?: string;
+}
+
+export interface TemplateGenerationUpdate {
+  faculty_id?: number;
+  school_id?: number;
+  notes?: string;
+  generation_status?: string;
+}
+
+export interface TemplateGenerationRead {
+  id: number;
+  faculty_name: string;
+  school_name: string;
+  original_filename: string;
+  upload_date: string;
+  generation_status: string;
+  user_name: string;
+  notes?: string;
+  download_url?: string | null;
+}
+
+// Academic Load File Types
+export interface AcademicLoadFile {
+  id: number;
+  user_id: string;
+  user_name: string;
+  faculty_id: number;
+  school_id: number;
+  term_id: number;
+  term_name?: string | null;
+  term_term?: number | null;
+  term_year?: number | null;
+  faculty_name?: string;
+  faculty_acronym?: string;
+  school_name?: string;
+  school_acronym?: string;
+  original_filename: string;
+  original_file_path: string;
+  upload_date: string;
+  ingestion_status: string;
+  notes?: string | null;
+  version?: number;
+  is_active?: boolean;
+  strict_validation?: boolean;
+  superseded_at?: string | null;
+  superseded_by_id?: number | null;
+  // Relaciones
+  user?: User;
+  faculty?: Faculty;
+  school?: School;
+  term?: Term;
+}
+
+export interface AcademicLoadFileCreate {
+  faculty_id: number;
+  school_id: number;
+  term_id: number;
+}
+
+export interface AcademicLoadFileUpdate {
+  faculty_id?: number;
+  school_id?: number;
+  term_id?: number;
+  ingestion_status?: string;
+}
+
+// Academic Load Class Types
+export interface AcademicLoadClass {
+  id: number;
+  academic_load_file_id: number;
+  correlative?: string | null;
+  coordination_code?: string | null;
+  subject_code: string;
+  subject_name: string;
+  section_unique?: string | null;
+  class_section: string;
+  class_service_assigned?: string | null;
+  class_duration: number;
+  class_schedule: string;
+  class_days: string;
+  class_type: string;
+  professor_institute?: string | null;
+  professor_academic_title?: string | null;
+  professor_name: string;
+  professor_raw_cont?: string | null;
+  professor_phone?: string | null;
+  professor_id?: string | null;
+  professor_category?: string | null;
+  professor_payment_rate: number;
+  professor_profile?: string | null;
+  professor_final_note?: string | null;
+  professor_masters: number;
+  professor_institutional_email?: string | null;
+  professor_personal_email?: string | null;
+  is_bilingual: boolean;
+  observations?: string | null;
+  team_channel_responsible?: string | null;
+  validation_status: string;
+  validation_errors?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface AcademicLoadStatistics {
+  total_classes: number;
+  valid_classes: number;
+  warning_classes: number;
+  error_classes: number;
+  unique_professors: number;
+  unique_subjects: number;
+}
+
+// Billing Report Types
+export interface BillingReportPaymentSummary {
+  id: number;
+  billing_report_id: number;
+  class_days: string;
+  class_schedule: string;
+  class_duration: number;
+  payment_rate_grado: number;
+  payment_rate_maestria_1: number;
+  payment_rate_maestria_2: number;
+  payment_rate_doctor: number;
+  payment_rate_bilingue: number;
+}
+
+export interface BillingReportMonthlyItem {
+  id: number;
+  billing_report_id: number;
+  class_days: string;
+  class_schedule: string;
+  class_duration: number;
+  year: number;
+  month: number;
+  month_name: string;
+  sessions: number;
+  real_time_minutes: number;
+  total_class_hours: number;
+  total_dollars: number;
+}
+
+export interface BillingReportRateSnapshot {
+  id: number;
+  billing_report_id: number;
+  academic_level_id: number;
+  academic_level_code: string;
+  academic_level_name: string;
+  rate_per_hour: number;
+  reference_date: string;
+  created_at: string;
+}
+
+export interface BillingReport {
+  id: number;
+  academic_load_file_id: number;
+  user_id: string;
+  user_name: string;
+  is_edited: boolean;
+  notes?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+  payment_summaries: BillingReportPaymentSummary[];
+  monthly_items: BillingReportMonthlyItem[];
+  rate_snapshots: BillingReportRateSnapshot[];
+  term_term?: number | null;
+  term_year?: number | null;
+  faculty_name?: string | null;
+  school_name?: string | null;
+  // Campos adicionales para consolidado
+  consolidated_from_file_ids?: number[];
+  school_acronyms?: string[];
+}
+
+export interface BillingReportCreate {
+  academic_load_file_id: number;
+  notes?: string | null;
+}
+
+export interface BillingReportUpdate {
+  notes?: string | null;
+}

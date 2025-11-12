@@ -91,8 +91,7 @@ async def seed_hourly_rates(session: AsyncSession) -> None:
 
                     if existing.scalar_one_or_none():
                         logger.info(
-                            f"Hourly rate already exists for level {level_code} "
-                            f"starting {start_date_parsed}, skipping"
+                            f"Hourly rate already exists for level {level_code} starting {start_date_parsed}, skipping"
                         )
                         skipped_records += 1
                         continue
@@ -136,7 +135,7 @@ async def seed_hourly_rates(session: AsyncSession) -> None:
             rates = result.scalars().all()
             for rate in rates:
                 status = "VIGENTE" if rate.end_date is None else f"hasta {rate.end_date}"
-                logger.info(f"  Level {rate.level_id}: ${rate.rate_per_hour}/hr " f"desde {rate.start_date} ({status})")
+                logger.info(f"  Level {rate.level_id}: ${rate.rate_per_hour}/hr desde {rate.start_date} ({status})")
 
     except Exception as e:
         logger.error(f"Error reading CSV file: {e}")

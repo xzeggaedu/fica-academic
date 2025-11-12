@@ -1,6 +1,6 @@
 """CRUD operations for Holiday."""
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -157,10 +157,8 @@ async def create_holiday(session: AsyncSession, holiday_data: HolidayCreate) -> 
 
     # Create new holiday
     new_holiday = Holiday(
-        id=None,
         year=holiday_data.year,
         description=holiday_data.description,
-        created_at=datetime.utcnow(),
     )
 
     session.add(new_holiday)
@@ -175,12 +173,10 @@ async def create_holiday(session: AsyncSession, holiday_data: HolidayCreate) -> 
     # Create annual holidays from fixed rules
     for rule in fixed_rules:
         annual_holiday = AnnualHoliday(
-            id=None,
             holiday_id=new_holiday.id,
             date=date(holiday_data.year, rule.month, rule.day),
             name=rule.name,
             type="Asueto Nacional",
-            created_at=datetime.utcnow(),
         )
         session.add(annual_holiday)
 
@@ -197,12 +193,10 @@ async def create_holiday(session: AsyncSession, holiday_data: HolidayCreate) -> 
         )
         if not existing_check.scalar_one_or_none():
             easter_holiday = AnnualHoliday(
-                id=None,
                 holiday_id=new_holiday.id,
                 date=holy_date,
                 name="Semana Santa",  # Nombre uniforme para todo el período
                 type="Personalizado",  # Generado por fórmula, no de fixed rules
-                created_at=datetime.utcnow(),
             )
             session.add(easter_holiday)
 

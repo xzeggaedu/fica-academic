@@ -236,7 +236,7 @@ export function MyProfileSheet({ isOpen, onClose }: MyProfileSheetProps) {
     if (callback) {
       setUpdateState(prev => ({ ...prev, functionCallback: callback }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [activeTab]);
 
   const handleActiveTabChange = (tab: string) => {

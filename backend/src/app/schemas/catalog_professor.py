@@ -13,7 +13,15 @@ class CatalogProfessorBase(BaseModel):
     institutional_email: str | None = Field(None, max_length=100, description="Correo institucional")
     personal_email: str | None = Field(None, max_length=100, description="Correo personal")
     phone_number: str | None = Field(None, max_length=20, description="Teléfono")
-    professor_category: str | None = Field(None, max_length=10, description="Categoría (DHC, ADM)")
+    professor_category: str | None = Field(
+        None,
+        max_length=10,
+        description=(
+            "Categoría del profesor: DEC (Decano), DIR (Director), "
+            "COOR (Coordinador), DTC (Docente Tiempo Completo), "
+            "ADM (Administrativo), DHC (Docente Honorario)"
+        ),
+    )
     academic_title: str | None = Field(None, max_length=20, description="Título (Ing., Dr., Lic.)")
     doctorates: int = Field(default=0, ge=0, description="Número de doctorados")
     masters: int = Field(default=0, ge=0, description="Número de maestrías")

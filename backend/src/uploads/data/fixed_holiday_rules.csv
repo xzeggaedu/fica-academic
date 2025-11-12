@@ -1,0 +1,5 @@
+Field Name,Data Type,Key/Index,Description (ES)
+id,INT,Primary Key (PK),Identificador único de la regla fija de asueto.
+name,VARCHAR(100),Not Null,Nombre del asueto fijo (Ej: 'Día del Trabajo').
+month,INT,Not Null,Mes en el que ocurre (1 a 12).
+day,INT,Not Null,Día del mes en el que ocurre (1 a 31).

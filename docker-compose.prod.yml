@@ -38,6 +38,8 @@ services:
       - prod-network
 
   # Backend API (Production)
+  # Image published by GitHub Actions: ghcr.io/${{ github.repository }}-backend:latest
+  # Where github.repository = xzeggaedu/fica-academic
   api:
     image: ghcr.io/xzeggaedu/fica-academic-backend:latest
     container_name: fica_api_prod
@@ -97,6 +99,8 @@ services:
 
   # Frontend (Production) - Refine.dev
   # Las variables VITE_* ya están compiladas en la imagen desde .env.production
+  # Image published by GitHub Actions: ghcr.io/${{ github.repository }}-frontend:latest
+  # Where github.repository = xzeggaedu/fica-academic
   frontend:
     image: ghcr.io/xzeggaedu/fica-academic-frontend:latest
     container_name: fica_frontend_prod
@@ -109,6 +113,9 @@ services:
       - prod-network
 
   # Background Worker
+  # Uses the same backend image as the API service
+  # Image published by GitHub Actions: ghcr.io/${{ github.repository }}-backend:latest
+  # Where github.repository = xzeggaedu/fica-academic
   worker:
     image: ghcr.io/xzeggaedu/fica-academic-backend:latest
     container_name: fica_worker_prod
@@ -156,57 +163,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    networks:
-      - prod-network
-
-  # Database Initialization
-  init_db:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
-    container_name: fica_init_db_prod
-    env_file:
-      - ./backend/src/.env.production
-    environment:
-      # Application
-      APP_NAME: ${APP_NAME}
-      APP_DESCRIPTION: ${APP_DESCRIPTION}
-      APP_VERSION: ${APP_VERSION}
-
-      # Database
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_SERVER: ${POSTGRES_SERVER}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_DB: ${POSTGRES_DB}
-
-      # Security
-      SECRET_KEY: ${SECRET_KEY}
-      ALGORITHM: ${ALGORITHM}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
-      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
-
-      # Redis
-      REDIS_CACHE_HOST: ${REDIS_CACHE_HOST}
-      REDIS_CACHE_PORT: ${REDIS_CACHE_PORT}
-      REDIS_QUEUE_HOST: ${REDIS_QUEUE_HOST}
-      REDIS_QUEUE_PORT: ${REDIS_QUEUE_PORT}
-      CLIENT_CACHE_MAX_AGE: ${CLIENT_CACHE_MAX_AGE}
-
-      # Admin User
-      ADMIN_NAME: ${ADMIN_NAME}
-      ADMIN_EMAIL: ${ADMIN_EMAIL}
-      ADMIN_USERNAME: ${ADMIN_USERNAME}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-
-      # Environment
-      ENVIRONMENT: ${ENVIRONMENT}
-      TZ: UTC
-    command: python -m src.scripts.init_db
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: "no"
     networks:
       - prod-network
 

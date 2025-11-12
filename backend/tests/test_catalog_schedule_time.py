@@ -69,14 +69,14 @@ class TestScheduleTimeUtilityFunctions:
 
         # Día único
         assert generate_day_group_name_from_array([0]) == "Lu"
-        assert generate_day_group_name_from_array([5]) == "Sá"
+        assert generate_day_group_name_from_array([5]) == "Sa"
 
         # Días consecutivos
         assert generate_day_group_name_from_array([0, 1, 2, 3, 4]) == "Lu-Vi"
 
         # Días no consecutivos
         assert generate_day_group_name_from_array([0, 4]) == "Lu-Vi"
-        assert generate_day_group_name_from_array([1, 3, 5]) == "Ma-Ju-Sá"
+        assert generate_day_group_name_from_array([1, 3, 5]) == "Ma-Ju-Sa"
 
         # Días mezclados
         assert generate_day_group_name_from_array([0, 2, 4]) == "Lu-Mi-Vi"

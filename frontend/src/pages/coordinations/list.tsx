@@ -67,6 +67,8 @@ export const CoordinationList = () => {
         isCreating,
         isUpdating,
         isDeleting,
+        canDelete,
+        canEdit,
     } = useCoordinationsCrud();
 
     // Hook de paginación y búsqueda (stateless)
@@ -211,210 +213,213 @@ export const CoordinationList = () => {
                         </Button>
                     )}
                 </div>
-                    {/* Card with filters and table */}
-                    <Card>
-                        <CardHeader>
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                    <CardTitle>Lista de Coordinaciones</CardTitle>
-                                    <CardDescription>
-                                        {total} coordinación(es) en total
-                                    </CardDescription>
-                                </div>
+                {/* Card with filters and table */}
+                <Card>
+                    <CardHeader>
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <CardTitle>Lista de Coordinaciones</CardTitle>
+                                <CardDescription>
+                                    {total} coordinación(es) en total
+                                </CardDescription>
                             </div>
-                        </CardHeader>
+                        </div>
+                    </CardHeader>
 
-                        <CardContent className="space-y-4">
-                            {/* Barra de búsqueda y selector de columnas */}
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                {/* Buscador */}
-                                <div className="relative w-full sm:w-96">
-                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Buscar por código o nombre..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10"
-                                    />
-                                </div>
-
-                                {/* Selector de columnas */}
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" size="sm">
-                                            <Settings2 className="mr-2 h-4 w-4" />
-                                            Columnas
-                                            <ChevronDown className="ml-2 h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-48">
-                                        <DropdownMenuCheckboxItem
-                                            checked={visibleColumns.code}
-                                            onCheckedChange={(checked) =>
-                                                setVisibleColumns((prev) => ({ ...prev, code: checked }))
-                                            }
-                                        >
-                                            Código
-                                        </DropdownMenuCheckboxItem>
-                                        <DropdownMenuCheckboxItem
-                                            checked={visibleColumns.name}
-                                            onCheckedChange={(checked) =>
-                                                setVisibleColumns((prev) => ({ ...prev, name: checked }))
-                                            }
-                                        >
-                                            Nombre
-                                        </DropdownMenuCheckboxItem>
-                                        <DropdownMenuCheckboxItem
-                                            checked={visibleColumns.faculty}
-                                            onCheckedChange={(checked) =>
-                                                setVisibleColumns((prev) => ({ ...prev, faculty: checked }))
-                                            }
-                                        >
-                                            Facultad
-                                        </DropdownMenuCheckboxItem>
-                                        <DropdownMenuCheckboxItem
-                                            checked={visibleColumns.school}
-                                            onCheckedChange={(checked) =>
-                                                setVisibleColumns((prev) => ({ ...prev, school: checked }))
-                                            }
-                                        >
-                                            Escuela
-                                        </DropdownMenuCheckboxItem>
-                                        <DropdownMenuCheckboxItem
-                                            checked={visibleColumns.coordinator}
-                                            onCheckedChange={(checked) =>
-                                                setVisibleColumns((prev) => ({ ...prev, coordinator: checked }))
-                                            }
-                                        >
-                                            Coordinador
-                                        </DropdownMenuCheckboxItem>
-                                        <DropdownMenuCheckboxItem
-                                            checked={visibleColumns.is_active}
-                                            onCheckedChange={(checked) =>
-                                                setVisibleColumns((prev) => ({ ...prev, is_active: checked }))
-                                            }
-                                        >
-                                            Estado
-                                        </DropdownMenuCheckboxItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                    <CardContent className="space-y-4">
+                        {/* Barra de búsqueda y selector de columnas */}
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            {/* Buscador */}
+                            <div className="relative w-full sm:w-96">
+                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    placeholder="Buscar por código o nombre..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10"
+                                />
                             </div>
 
-                            {/* Tabla */}
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            {visibleColumns.code && (
-                                                <TableHead className="w-[120px]">Código</TableHead>
-                                            )}
-                                            {visibleColumns.name && (
-                                                <TableHead className="w-[250px]">Nombre</TableHead>
-                                            )}
-                                            {visibleColumns.faculty && (
-                                                <TableHead className="w-[200px]">Facultad</TableHead>
-                                            )}
-                                            {visibleColumns.school && (
-                                                <TableHead className="w-[200px]">Escuela</TableHead>
-                                            )}
-                                            {visibleColumns.coordinator && (
-                                                <TableHead className="w-[200px]">Coordinador</TableHead>
-                                            )}
-                                            {visibleColumns.is_active && (
-                                                <TableHead className="text-center w-[100px]">Estado</TableHead>
-                                            )}
+                            {/* Selector de columnas */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                        <Settings2 className="mr-2 h-4 w-4" />
+                                        Columnas
+                                        <ChevronDown className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuCheckboxItem
+                                        checked={visibleColumns.code}
+                                        onCheckedChange={(checked) =>
+                                            setVisibleColumns((prev) => ({ ...prev, code: checked }))
+                                        }
+                                    >
+                                        Código
+                                    </DropdownMenuCheckboxItem>
+                                    <DropdownMenuCheckboxItem
+                                        checked={visibleColumns.name}
+                                        onCheckedChange={(checked) =>
+                                            setVisibleColumns((prev) => ({ ...prev, name: checked }))
+                                        }
+                                    >
+                                        Nombre
+                                    </DropdownMenuCheckboxItem>
+                                    <DropdownMenuCheckboxItem
+                                        checked={visibleColumns.faculty}
+                                        onCheckedChange={(checked) =>
+                                            setVisibleColumns((prev) => ({ ...prev, faculty: checked }))
+                                        }
+                                    >
+                                        Facultad
+                                    </DropdownMenuCheckboxItem>
+                                    <DropdownMenuCheckboxItem
+                                        checked={visibleColumns.school}
+                                        onCheckedChange={(checked) =>
+                                            setVisibleColumns((prev) => ({ ...prev, school: checked }))
+                                        }
+                                    >
+                                        Escuela
+                                    </DropdownMenuCheckboxItem>
+                                    <DropdownMenuCheckboxItem
+                                        checked={visibleColumns.coordinator}
+                                        onCheckedChange={(checked) =>
+                                            setVisibleColumns((prev) => ({ ...prev, coordinator: checked }))
+                                        }
+                                    >
+                                        Coordinador
+                                    </DropdownMenuCheckboxItem>
+                                    <DropdownMenuCheckboxItem
+                                        checked={visibleColumns.is_active}
+                                        onCheckedChange={(checked) =>
+                                            setVisibleColumns((prev) => ({ ...prev, is_active: checked }))
+                                        }
+                                    >
+                                        Estado
+                                    </DropdownMenuCheckboxItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+
+                        {/* Tabla */}
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        {visibleColumns.code && (
+                                            <TableHead className="w-[120px]">Código</TableHead>
+                                        )}
+                                        {visibleColumns.name && (
+                                            <TableHead className="w-[250px]">Nombre</TableHead>
+                                        )}
+                                        {visibleColumns.faculty && (
+                                            <TableHead className="w-[200px]">Facultad</TableHead>
+                                        )}
+                                        {visibleColumns.school && (
+                                            <TableHead className="w-[200px]">Escuela</TableHead>
+                                        )}
+                                        {visibleColumns.coordinator && (
+                                            <TableHead className="w-[200px]">Coordinador</TableHead>
+                                        )}
+                                        {visibleColumns.is_active && (
+                                            <TableHead className="text-center w-[100px]">Estado</TableHead>
+                                        )}
+                                        {(canDelete?.can || canEdit?.can) && (
                                             <TableHead className="text-center w-[100px] max-w-[100px]">Acciones</TableHead>
+                                        )}
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {isLoading ? (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={Object.values(visibleColumns).filter(Boolean).length + 1}
+                                                className="text-center py-8"
+                                            >
+                                                Cargando coordinaciones...
+                                            </TableCell>
                                         </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {isLoading ? (
-                                            <TableRow>
-                                                <TableCell
-                                                    colSpan={Object.values(visibleColumns).filter(Boolean).length + 1}
-                                                    className="text-center py-8"
-                                                >
-                                                    Cargando coordinaciones...
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : coordinations.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell
-                                                    colSpan={Object.values(visibleColumns).filter(Boolean).length + 1}
-                                                    className="text-center py-8"
-                                                >
-                                                    No se encontraron coordinaciones
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            coordinations.map((coordination) => (
-                                                <TableRow key={coordination.id}>
-                                                    {visibleColumns.code && (
-                                                        <TableCell>
-                                                            <span className="font-mono text-sm font-semibold">{coordination.code}</span>
-                                                        </TableCell>
-                                                    )}
-                                                    {visibleColumns.name && (
-                                                        <TableCell>
-                                                            <div className="font-medium">{coordination.name}</div>
-                                                            {coordination.description && (
-                                                                <div className="text-xs text-muted-foreground truncate max-w-[250px]">
-                                                                    {coordination.description}
-                                                                </div>
-                                                            )}
-                                                        </TableCell>
-                                                    )}
-                                                    {visibleColumns.faculty && (
-                                                        <TableCell>
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Badge variant="outline" className="cursor-help">
-                                                                            {getFacultyData(coordination.faculty_id).acronym}
-                                                                        </Badge>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>{getFacultyData(coordination.faculty_id).name}</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
-                                                        </TableCell>
-                                                    )}
-                                                    {visibleColumns.school && (
-                                                        <TableCell>
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Badge variant="secondary" className="cursor-help">
-                                                                            {getSchoolData(coordination.school_id).acronym}
-                                                                        </Badge>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>{getSchoolData(coordination.school_id).name}</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
-                                                        </TableCell>
-                                                    )}
-                                                    {visibleColumns.coordinator && (
-                                                        <TableCell>
-                                                            {coordination.coordinator_professor_id ? (
-                                                                <span className="text-sm">
-                                                                    {getProfessorName(coordination.coordinator_professor_id)}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-muted-foreground text-sm">Sin coordinador</span>
-                                                            )}
-                                                        </TableCell>
-                                                    )}
-                                                    {visibleColumns.is_active && (
-                                                        <TableCell className="text-center w-[100px]">
-                                                            {coordination.is_active ? (
-                                                                <CheckCircle className="h-5 w-5 text-green-500 mx-auto" />
-                                                            ) : (
-                                                                <XCircle className="h-5 w-5 text-red-500 mx-auto" />
-                                                            )}
-                                                        </TableCell>
-                                                    )}
+                                    ) : coordinations.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={Object.values(visibleColumns).filter(Boolean).length + 1}
+                                                className="text-center py-8"
+                                            >
+                                                No se encontraron coordinaciones
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        coordinations.map((coordination) => (
+                                            <TableRow key={coordination.id}>
+                                                {visibleColumns.code && (
+                                                    <TableCell>
+                                                        <span className="font-mono text-sm font-semibold">{coordination.code}</span>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.name && (
+                                                    <TableCell>
+                                                        <div className="font-medium">{coordination.name}</div>
+                                                        {coordination.description && (
+                                                            <div className="text-xs text-muted-foreground truncate max-w-[250px]">
+                                                                {coordination.description}
+                                                            </div>
+                                                        )}
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.faculty && (
+                                                    <TableCell>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Badge variant="outline" className="cursor-help">
+                                                                        {getFacultyData(coordination.faculty_id).acronym}
+                                                                    </Badge>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>{getFacultyData(coordination.faculty_id).name}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.school && (
+                                                    <TableCell>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Badge variant="secondary" className="cursor-help">
+                                                                        {getSchoolData(coordination.school_id).acronym}
+                                                                    </Badge>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>{getSchoolData(coordination.school_id).name}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.coordinator && (
+                                                    <TableCell>
+                                                        {coordination.coordinator_professor_id ? (
+                                                            <span className="text-sm">
+                                                                {getProfessorName(coordination.coordinator_professor_id)}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-muted-foreground text-sm">Sin coordinador</span>
+                                                        )}
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.is_active && (
+                                                    <TableCell className="text-center w-[100px]">
+                                                        {coordination.is_active ? (
+                                                            <CheckCircle className="h-5 w-5 text-green-500 mx-auto" />
+                                                        ) : (
+                                                            <XCircle className="h-5 w-5 text-red-500 mx-auto" />
+                                                        )}
+                                                    </TableCell>
+                                                )}
+                                                {(canDelete?.can || canEdit?.can) && (
                                                     <TableCell className="text-center w-[100px] max-w-[100px]">
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
@@ -444,53 +449,55 @@ export const CoordinationList = () => {
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
                                                     </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                                                )}
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
 
-                            {/* Paginación */}
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4">
-                                <div className="text-sm text-muted-foreground">
-                                    Mostrando {coordinations.length} de {total} coordinaciones
-                                </div>
-                                <TablePagination
-                                    currentPage={currentPage}
-                                    totalPages={totalPages}
-                                    canPrevPage={canPrevPage}
-                                    canNextPage={canNextPage}
-                                    onPageChange={goToPage}
-                                    onPrevPage={prevPage}
-                                    onNextPage={nextPage}
-                                />
+                        {/* Paginación */}
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4">
+                            <div className="text-sm text-muted-foreground">
+                                Mostrando {coordinations.length} de {total} coordinaciones
                             </div>
-                        </CardContent>
-                    </Card>
+                            <TablePagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                canPrevPage={canPrevPage}
+                                canNextPage={canNextPage}
+                                onPageChange={goToPage}
+                                onPrevPage={prevPage}
+                                onNextPage={nextPage}
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
 
-                    {/* Diálogo de eliminación */}
-                    {selectedCoordination && (
-                        <DeleteConfirmDialog
-                            entityType="coordinación"
-                            entityName={selectedCoordination.name}
-                            isOpen={deleteDialogOpen}
-                            onClose={() => {
+                {/* Diálogo de eliminación */}
+                {selectedCoordination && (
+                    <DeleteConfirmDialog
+                        entityType="coordinación"
+                        entityName={selectedCoordination.name}
+                        isOpen={deleteDialogOpen}
+                        onClose={() => {
+                            setDeleteDialogOpen(false);
+                            setSelectedCoordination(null);
+                        }}
+                        onConfirm={() => {
+                            softDeleteItem(selectedCoordination.id, selectedCoordination.name, () => {
                                 setDeleteDialogOpen(false);
                                 setSelectedCoordination(null);
-                            }}
-                            onConfirm={() => {
-                                softDeleteItem(selectedCoordination.id, selectedCoordination.name, () => {
-                                    setDeleteDialogOpen(false);
-                                    setSelectedCoordination(null);
-                                });
-                            }}
-                            isDeleting={isDeleting}
-                            gender="f"
-                        />
-                    )}
+                            });
+                        }}
+                        isDeleting={isDeleting}
+                        gender="f"
+                    />
+                )}
 
-                    {/* Sheet de crear/editar coordinación */}
+                {/* Sheet de crear/editar coordinación */}
+                {(canEdit?.can || canCreate?.can) && (
                     <CoordinationFormSheet
                         isOpen={isCreateModalOpen || isEditModalOpen}
                         onClose={handleCloseSheet}
@@ -514,7 +521,8 @@ export const CoordinationList = () => {
                         }}
                         isSubmitting={isCreating || isUpdating}
                     />
-                </div>
+                )}
+            </div>
         </CanAccess>
     );
 };

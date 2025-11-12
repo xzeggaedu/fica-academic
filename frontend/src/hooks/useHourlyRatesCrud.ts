@@ -60,7 +60,7 @@ export const useHourlyRatesCrud = (props?: UseHourlyRatesCrudProps) => {
   const isDeleting = deleteMutation.isPending;
 
   // Función para obtener la tarifa vigente actual para un nivel
-  const getCurrentRate = (levelId: number, referenceDate?: string) => {
+  const useCurrentRate = (levelId: number, referenceDate?: string) => {
     const params = referenceDate ? { reference_date: referenceDate } : {};
     return useCustom<HourlyRateHistory>({
       url: `/hourly-rates/current/${levelId}`,
@@ -71,8 +71,8 @@ export const useHourlyRatesCrud = (props?: UseHourlyRatesCrudProps) => {
     });
   };
 
-  // Función para obtener el timeline de un nivel
-  const getTimeline = (levelId: number) => {
+  // Hook para obtener el timeline de un nivel
+  const useTimeline = (levelId: number) => {
     return useCustom<HourlyRateTimelineItem[]>({
       url: `/hourly-rates/timeline/${levelId}`,
       method: "get",
@@ -200,8 +200,8 @@ export const useHourlyRatesCrud = (props?: UseHourlyRatesCrudProps) => {
     deleteItem,
 
     // Funciones especiales
-    getCurrentRate,
-    getTimeline,
+    useCurrentRate,
+    useTimeline,
 
     // Estados de carga
     isCreating,

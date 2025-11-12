@@ -34,7 +34,7 @@ class AnnualHoliday(Base):
 
     __tablename__ = "annual_holidays"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, init=False)
     holiday_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("holidays.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -43,8 +43,10 @@ class AnnualHoliday(Base):
     type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)  # "Asueto Nacional" | "Personalizado"
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.utcnow(), nullable=False)
-    updated_at: Mapped[datetime | None] = mapped_column(default=None, onupdate=lambda: datetime.utcnow(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.utcnow(), nullable=False, init=False)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        default=None, onupdate=lambda: datetime.utcnow(), nullable=True, init=False
+    )
 
     # Relationships (init=False to avoid conflicts with dataclasses)
     holiday: Mapped["Holiday"] = relationship("Holiday", back_populates="annual_holidays", lazy="selectin", init=False)

@@ -33,7 +33,7 @@ export function TablePagination({
   // Calcular ventana de páginas
   const half = Math.floor(windowSize / 2);
   let start = Math.max(1, currentPage - half);
-  let end = Math.min(totalPages, start + windowSize - 1);
+  const end = Math.min(totalPages, start + windowSize - 1);
 
   // Ajustar si no hay suficientes páginas
   if (end - start + 1 < windowSize) {

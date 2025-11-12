@@ -2,15 +2,20 @@
 
 from pathlib import Path
 
-# Directorio base de uploads
-UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads"
+# Directorio base de uploads (relativo para desarrollo local)
+UPLOADS_DIR_RELATIVE = Path(__file__).parent.parent.parent / "uploads"
+# Directorio base de uploads (absoluto para Docker)
+UPLOADS_DIR_ABSOLUTE = Path("/code/uploads")
 
-# Rutas específicas
+# Rutas específicas (usando rutas absolutas para Docker)
 UPLOAD_PATHS = {
-    "data": UPLOADS_DIR / "data",
-    "schedules": UPLOADS_DIR / "data" / "schedules",
-    "users": UPLOADS_DIR / "users",
-    "temp": UPLOADS_DIR / "temp",
+    "data": UPLOADS_DIR_ABSOLUTE / "data",
+    "schedules": UPLOADS_DIR_ABSOLUTE / "data" / "schedules",
+    "users": UPLOADS_DIR_ABSOLUTE / "users",
+    "temp": UPLOADS_DIR_ABSOLUTE / "temp",
+    "academic_load": UPLOADS_DIR_ABSOLUTE / "academic_load",
+    "templates": UPLOADS_DIR_ABSOLUTE / "templates",
+    "generated": UPLOADS_DIR_ABSOLUTE / "generated",
 }
 
 # Extensiones permitidas por tipo

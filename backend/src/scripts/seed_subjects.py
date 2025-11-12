@@ -136,7 +136,7 @@ async def seed_subjects(session: AsyncSession) -> None:
 
                     created_records += 1
 
-                    logger.info(f"Created subject: {subject_code} - {subject_name} " f"({len(school_ids)} school(s))")
+                    logger.info(f"Created subject: {subject_code} - {subject_name} ({len(school_ids)} school(s))")
 
                 except Exception as e:
                     logger.error(f"Error processing row {total_records}: {row} - {e}")

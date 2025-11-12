@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.dependencies import get_current_superuser, get_current_user
+from ...api.dependencies import get_current_superuser, get_current_user, get_current_user_scope
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import (
     DuplicateValueException,
@@ -31,6 +31,12 @@ from ...schemas.user import (
 from ...schemas.user_scope import UserScopeAssignment, UserScopeRead
 
 router = APIRouter(tags=["users"])
+
+
+@router.get("/me/scope", response_model=dict)
+async def get_my_scope(scope: Annotated[dict, Depends(get_current_user_scope)]) -> dict:
+    """Devuelve el alcance (faculty_id, school_ids) del usuario actual."""
+    return scope
 
 
 @router.get("/me", response_model=dict[str, Any])

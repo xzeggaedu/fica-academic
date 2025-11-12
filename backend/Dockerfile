@@ -52,6 +52,15 @@ USER app
 # Set the working directory
 WORKDIR /code
 
+# Create upload directories with proper permissions
+RUN mkdir -p /code/src/uploads/templates /code/src/uploads/generated /code/src/uploads/academic_load \
+    && chmod 755 /code/src/uploads /code/src/uploads/templates /code/src/uploads/generated /code/src/uploads/academic_load
+
+# Limpiar __pycache__ para evitar problemas de memoria
+RUN find /code -type d -name "__pycache__" -exec rm -r {} + 2>/dev/null || true
+
 # -------- replace with comment to run with gunicorn --------
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Nota: El comando --reload se sobrescribe en docker-compose.yml
+# Para producción sin reload, usar: CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 # CMD ["gunicorn", "app.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000"]

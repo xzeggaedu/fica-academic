@@ -1,5 +1,5 @@
 import { AccessControlProvider } from "@refinedev/core";
-import { UserRoleEnum, hasRolePermission, canAccessAdminFeatures } from "../types/auth";
+import { UserRoleEnum, hasRolePermission, canAccessAdminFeatures, isAdmin } from "../types/auth";
 
 // Usar la misma clave que el authProvider
 const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
@@ -19,7 +19,7 @@ export const accessControlProvider: AccessControlProvider = {
     try {
       // Decodificar el token JWT para obtener el rol
       const payload = JSON.parse(atob(token.split('.')[1]));
-      const userRole = payload.role;
+      const userRole = (payload.role || payload.user_role || "").toString().toLowerCase();
 
       // Definir permisos por recurso y acción
       switch (resource) {
@@ -98,6 +98,43 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Administradores y vicerrectores pueden ver facultades (para dashboards)
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.VICERRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver facultades",
+              };
+            case "create":
+            case "edit":
+            case "delete":
+              // Solo administradores pueden gestionar facultades
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "Solo los administradores pueden gestionar facultades",
+              };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
+        case "faculties":
+          // Recurso plural - mismo comportamiento que "faculty"
+          switch (action) {
+            case "list":
+            case "show":
+              // Administradores y vicerrectores pueden ver facultades (para dashboards)
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.VICERRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver facultades",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -118,6 +155,14 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Directores y administradores pueden ver asignaturas
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver asignaturas",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -138,6 +183,14 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Directores y administradores pueden ver horarios
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver horarios",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -158,6 +211,14 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Directores y administradores pueden ver profesores
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver profesores",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -178,6 +239,14 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Directores y administradores pueden ver coordinaciones
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver coordinaciones",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -238,6 +307,14 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Directores y administradores pueden ver ciclos académicos
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver ciclos académicos",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -258,16 +335,18 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Todos los usuarios autenticados pueden ver asuetos y su detalle
+              return { can: true };
             case "create":
             case "edit":
             case "delete":
-              // Solo administradores pueden gestionar asuetos del año
+              // Solo administradores pueden crear/editar/eliminar
               if (canAccessAdminFeatures(userRole)) {
                 return { can: true };
               }
               return {
                 can: false,
-                reason: "Solo los administradores pueden gestionar asuetos del año",
+                reason: "Solo los administradores pueden modificar asuetos del año",
               };
 
             default:
@@ -278,6 +357,14 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Directores y administradores pueden ver asuetos fijos
+              if (canAccessAdminFeatures(userRole) || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "No tienes permisos para ver asuetos fijos",
+              };
             case "create":
             case "edit":
             case "delete":
@@ -298,16 +385,18 @@ export const accessControlProvider: AccessControlProvider = {
           switch (action) {
             case "list":
             case "show":
+              // Todos los usuarios autenticados pueden ver el detalle anual
+              return { can: true };
             case "create":
             case "edit":
             case "delete":
-              // Solo administradores pueden gestionar asuetos anuales
+              // Solo administradores pueden modificar
               if (canAccessAdminFeatures(userRole)) {
                 return { can: true };
               }
               return {
                 can: false,
-                reason: "Solo los administradores pueden gestionar asuetos anuales",
+                reason: "Solo los administradores pueden modificar asuetos anuales",
               };
 
             default:
@@ -331,6 +420,102 @@ export const accessControlProvider: AccessControlProvider = {
             default:
               return { can: false, reason: "Acción no permitida" };
           }
+
+        case "academic-load-files":
+          switch (action) {
+            case "list":
+            case "show":
+              // Todos los roles autenticados pueden ver según su alcance, EXCEPTO VICERRECTOR
+              // El vicerrector debe usar academic-load-files-vicerrector
+              if (userRole === UserRoleEnum.VICERRECTOR) {
+                return { can: false, reason: "El vicerrector debe usar el recurso específico" };
+              }
+              return { can: true };
+            case "create":
+              // Admin y Directores pueden subir
+              if (userRole === UserRoleEnum.ADMIN || userRole === UserRoleEnum.DIRECTOR) {
+                return { can: true };
+              }
+              return { can: false, reason: "Solo administradores o directores pueden subir archivos" };
+            case "edit":
+              // La edición no está implementada actualmente
+              return { can: false, reason: "La edición de archivos no está implementada" };
+            case "delete":
+              // ADMIN puede eliminar cualquier archivo
+              // Los componentes deben validar adicionalmente si el usuario es propietario
+              if (isAdmin(userRole)) {
+                return { can: true };
+              }
+              // Permitir que todos vean el botón, los componentes validarán ownership
+              return { can: true };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
+        case "academic-load-files-vicerrector":
+          switch (action) {
+            case "list":
+            case "show":
+              // Solo vicerrectores pueden ver este recurso
+              if (userRole === UserRoleEnum.VICERRECTOR) {
+                return { can: true };
+              }
+              return { can: false, reason: "Solo vicerrectores pueden ver esta sección" };
+            case "create":
+              // Los vicerrectores no pueden crear archivos
+              return { can: false, reason: "Los vicerrectores no pueden subir archivos" };
+            case "edit":
+              // La edición no está implementada actualmente
+              return { can: false, reason: "La edición de archivos no está implementada" };
+            case "delete":
+              // Los vicerrectores no pueden eliminar archivos
+              return { can: false, reason: "Los vicerrectores no pueden eliminar archivos" };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
+        case "template-generation":
+          switch (action) {
+            case "list":
+            case "show":
+            case "create":
+            case "edit":
+            case "delete":
+              // Solo administradores pueden gestionar generación de plantillas
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "Solo los administradores pueden gestionar generación de plantillas",
+              };
+
+            default:
+              return { can: false, reason: "Acción no permitida" };
+          }
+
+        case "dashboards-director":
+          // Solo directores pueden ver este dashboard (no administradores)
+          if (userRole === UserRoleEnum.DIRECTOR) {
+            return { can: true };
+          }
+          return { can: false, reason: "Solo directores pueden ver este dashboard" };
+
+        case "dashboards-decano":
+          // Solo decanos pueden ver este dashboard (no administradores)
+          if (userRole === UserRoleEnum.DECANO) {
+            return { can: true };
+          }
+          return { can: false, reason: "Solo decanos pueden ver este dashboard" };
+
+        case "dashboards-vicerrector":
+          // Solo vicerrectores pueden ver este dashboard (no administradores)
+          if (userRole === UserRoleEnum.VICERRECTOR) {
+            return { can: true };
+          }
+          return { can: false, reason: "Solo vicerrectores pueden ver este dashboard" };
 
         default:
           // Para otros recursos, permitir acceso básico a usuarios autenticados

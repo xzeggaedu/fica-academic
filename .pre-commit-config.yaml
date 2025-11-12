@@ -69,6 +69,14 @@ repos:
       always_run: true
       types: [python]
       stages: [manual]
+    - id: frontend_lint
+      name: Frontend Linting
+      language: system
+      entry: bash -c 'cd frontend && npm run lint:fix'
+      pass_filenames: false
+      always_run: true
+      files: \.(js|jsx|ts|tsx|vue)$
+      stages: [manual]
     - id: frontend_unit_test
       name: Frontend Unit Tests
       language: system

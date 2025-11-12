@@ -31,6 +31,12 @@ import type {
   AnnualHoliday,
   AnnualHolidayCreate,
   AnnualHolidayUpdate,
+  TemplateGeneration,
+  TemplateGenerationCreate,
+  TemplateGenerationUpdate,
+  BillingReport,
+  BillingReportCreate,
+  BillingReportUpdate,
   PaginatedResponse
 } from "../types/api";
 
@@ -47,7 +53,7 @@ class ApiError extends Error {
 
 // Environment Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || "/api/v1";
+export const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || "/api/v1";
 const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
 const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || "10000");
 const DEBUG_MODE = import.meta.env.VITE_DEBUG_MODE === "true";
@@ -78,18 +84,25 @@ const ENDPOINTS = {
   HOLIDAYS: `${API_BASE_PATH}/holidays`,
   FIXED_HOLIDAY_RULES: `${API_BASE_PATH}/fixed-holiday-rules`,
   ANNUAL_HOLIDAYS: `${API_BASE_PATH}/annual-holidays`,
+  TEMPLATE_GENERATION: `${API_BASE_PATH}/template-generation`,
+  ACADEMIC_LOAD_FILES: `${API_BASE_PATH}/academic-load-files`,
+  BILLING_REPORTS: `${API_BASE_PATH}/billing-reports`,
 };
 
 // Helper function to get auth headers
-const getAuthHeaders = (): HeadersInit => {
+export const getAuthHeaders = (isFormData: boolean = false): HeadersInit => {
   const token = localStorage.getItem(TOKEN_KEY);
   const headers: HeadersInit = {
-    "Content-Type": "application/json",
     // Prevenir cache del navegador para evitar respuestas obsoletas
     "Cache-Control": "no-cache, no-store, must-revalidate",
     "Pragma": "no-cache",
     "Expires": "0",
   };
+
+  // Solo establecer Content-Type si NO es FormData
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -105,10 +118,13 @@ const apiRequest = async <T>(
 ): Promise<T> => {
   const url = `${API_BASE_URL}${endpoint}`;
 
+  // Detectar si el body es FormData
+  const isFormData = options.body instanceof FormData;
+
   const config: RequestInit = {
     ...options,
     headers: {
-      ...getAuthHeaders(),
+      ...getAuthHeaders(isFormData),
       ...options.headers,
     },
     credentials: "include",
@@ -120,6 +136,13 @@ const apiRequest = async <T>(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+
+      // Si es error 401, disparar evento de sesión expirada
+      if (response.status === 401) {
+        const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
+        localStorage.removeItem(TOKEN_KEY);
+        window.dispatchEvent(new CustomEvent('session-expired'));
+      }
 
       // Manejar cuando errorData.detail es un objeto
       let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
@@ -570,6 +593,75 @@ export const dataProvider: DataProvider = {
         };
       }
 
+      case "template-generation": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+        const response = await apiRequest<PaginatedResponse<any>>(
+          `${ENDPOINTS.TEMPLATE_GENERATION}/?page=${current}&items_per_page=${pageSize}`
+        );
+
+        // Mapear la respuesta del backend al formato esperado por el frontend
+        const mappedData = response.data.map((item: any) => ({
+          ...item,
+          faculty: item.faculty_name ? { name: item.faculty_name, acronym: item.faculty_acronym } : undefined,
+          school: item.school_name ? { name: item.school_name, acronym: item.school_acronym } : undefined,
+          user: item.user_name ? { name: item.user_name } : undefined,
+        }));
+
+        return {
+          data: mappedData as any[],
+          total: response.total_count || 0,
+        };
+      }
+
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+        // Convertir página a skip
+        const skip = (current - 1) * pageSize;
+        const limit = pageSize;
+        const response = await apiRequest<PaginatedResponse<any>>(
+          `${ENDPOINTS.ACADEMIC_LOAD_FILES}/?skip=${skip}&limit=${limit}`
+        );
+
+        // Mapear la respuesta del backend al formato esperado por el frontend
+        const mappedData = response.data.map((item: any) => ({
+          ...item,
+          faculty: item.faculty_name ? { name: item.faculty_name, acronym: item.faculty_acronym } : undefined,
+          school: item.school_name ? { name: item.school_name, acronym: item.school_acronym } : undefined,
+        }));
+
+        return {
+          data: mappedData as any[],
+          total: response.total_count || 0,
+        };
+      }
+
+      case "billing-reports": {
+        const current = (pagination as any)?.currentPage ?? (pagination as any)?.current ?? (pagination as any)?.page ?? 1;
+        const pageSize = pagination?.pageSize || 10;
+
+        // Verificar si hay filtro por academic_load_file_id
+        const fileIdFilter = filters?.find((f: any) => f.field === "academic_load_file_id" && f.operator === "eq");
+
+        let url: string;
+        if (fileIdFilter?.value) {
+          // Usar endpoint específico para obtener reportes por archivo
+          url = `${ENDPOINTS.BILLING_REPORTS}/file/${fileIdFilter.value}?skip=${(current - 1) * pageSize}&limit=${pageSize}`;
+        } else {
+          // Usar endpoint general
+          url = `${ENDPOINTS.BILLING_REPORTS}/?skip=${(current - 1) * pageSize}&limit=${pageSize}`;
+        }
+
+        const response = await apiRequest<PaginatedResponse<any>>(url);
+
+        return {
+          data: response.data as any[],
+          total: response.total_count || 0,
+        };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported`);
     }
@@ -634,6 +726,22 @@ export const dataProvider: DataProvider = {
 
       case "annual-holidays": {
         const response = await apiRequest<AnnualHoliday>(`${ENDPOINTS.ANNUAL_HOLIDAYS}/${id}`);
+        return { data: response as any };
+      }
+
+      case "template-generation": {
+        const response = await apiRequest<TemplateGeneration>(`${ENDPOINTS.TEMPLATE_GENERATION}/${id}`);
+        return { data: response as any };
+      }
+
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
+        const response = await apiRequest<any>(`${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`);
+        return { data: response as any };
+      }
+
+      case "billing-reports": {
+        const response = await apiRequest<any>(`${ENDPOINTS.BILLING_REPORTS}/${id}`);
         return { data: response as any };
       }
 
@@ -794,6 +902,42 @@ export const dataProvider: DataProvider = {
           {
             method: "POST",
             body: JSON.stringify(variables as AnnualHolidayCreate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "template-generation": {
+        // Para template-generation, usar FormData directamente
+        const response = await apiRequest<TemplateGeneration>(
+          `${ENDPOINTS.TEMPLATE_GENERATION}/upload`,
+          {
+            method: "POST",
+            body: variables as FormData,
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
+        // Para academic-load-files, usar FormData directamente
+        const response = await apiRequest<any>(
+          `${ENDPOINTS.ACADEMIC_LOAD_FILES}/upload`,
+          {
+            method: "POST",
+            body: variables as FormData,
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "billing-reports": {
+        const response = await apiRequest<BillingReport>(
+          `${ENDPOINTS.BILLING_REPORTS}/`,
+          {
+            method: "POST",
+            body: JSON.stringify(variables),
           }
         );
         return { data: response as any };
@@ -1037,6 +1181,40 @@ export const dataProvider: DataProvider = {
         return { data: response as any };
       }
 
+      case "template-generation": {
+        const response = await apiRequest<TemplateGeneration>(
+          `${ENDPOINTS.TEMPLATE_GENERATION}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables as TemplateGenerationUpdate),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
+        const response = await apiRequest<any>(
+          `${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
+      case "billing-reports": {
+        const response = await apiRequest<BillingReport>(
+          `${ENDPOINTS.BILLING_REPORTS}/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(variables),
+          }
+        );
+        return { data: response as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported for update`);
     }
@@ -1185,6 +1363,37 @@ export const dataProvider: DataProvider = {
         return { data: {} as any };
       }
 
+      case "template-generation": {
+        await apiRequest(
+          `${ENDPOINTS.TEMPLATE_GENERATION}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
+      }
+
+      case "academic-load-files":
+      case "academic-load-files-vicerrector": {
+        await apiRequest(
+          `${ENDPOINTS.ACADEMIC_LOAD_FILES}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
+      }
+
+      case "billing-reports": {
+        await apiRequest(
+          `${ENDPOINTS.BILLING_REPORTS}/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+        return { data: {} as any };
+      }
+
       default:
         throw new Error(`Resource ${resource} not supported for delete`);
     }
@@ -1259,7 +1468,7 @@ export const dataProvider: DataProvider = {
 
   custom: async ({ url, method, filters, sorters, payload, query, headers, meta }) => {
 
-    let requestUrl = `${API_BASE_URL}${url}`;
+    let requestUrl = url;
 
     // Add query parameters if provided
     if (query && Object.keys(query).length > 0) {

@@ -20,6 +20,7 @@ services:
     volumes:
       - ./backend/src:/code/src
       - ./backend/src/.env:/code/.env
+      - ./backend/src/uploads:/code/uploads
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
       interval: 30s
@@ -69,39 +70,23 @@ services:
     networks:
       - dev-network
 
-  devtools:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.devtools
-    container_name: refine_devtools
-    ports:
-      - "5001:5001" # Puerto para DevTools
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    working_dir: /app
-    command: npm run devtools
-    environment:
-      - VITE_API_URL=http://localhost:3000
-      - VITE_API_BASE_PATH=/api/v1
-    networks:
-      - dev-network
-    depends_on:
-      - frontend
-
   worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: arq src.app.core.worker.settings.WorkerSettings
+    command: watchmedo auto-restart --recursive --patterns="*.py" --ignore-patterns="__pycache__/*;*.pyc" --directory=/code/src -- arq src.app.core.worker.settings.WorkerSettings
     env_file:
       - ./backend/src/.env
+    environment:
+      - PYTHONPATH=/code/src:/app/.venv/lib/python3.11/site-packages
+      - RELOAD_MODE=
     depends_on:
       - db
       - redis
     volumes:
       - ./backend/src:/code/src
       - ./backend/src/.env:/code/.env
+      - ./backend/src/uploads:/code/uploads
     networks:
       - dev-network
 
@@ -133,46 +118,46 @@ services:
     networks:
       - dev-network
 
-  pgadmin:
-    container_name: pgadmin4
-    image: dpage/pgadmin4:latest
-    restart: always
-    ports:
-      - "5050:80"
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    env_file:
-      - ./backend/src/.env
-    depends_on:
-      - db
-      - api
-    networks:
-      - dev-network
+  # pgadmin: DISABLED IN DEV
+  #   container_name: pgadmin4
+  #   image: dpage/pgadmin4:latest
+  #   restart: always
+  #   ports:
+  #     - "5050:80"
+  #   volumes:
+  #     - pgadmin-data:/var/lib/pgadmin
+  #   env_file:
+  #     - ./backend/src/.env
+  #   depends_on:
+  #     - db
+  #     - api
+  #   networks:
+  #     - dev-network
 
-  init_db:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    env_file:
-      - ./backend/src/.env
-    environment:
-      - TZ=UTC
-    depends_on:
-      db:
-        condition: service_healthy
-      api:
-        condition: service_healthy
-    command: python -m src.scripts.init_db
-    volumes:
-      - ./backend/src:/code/src
-    restart: "no"
-    networks:
-      - dev-network
-
+  # init_db:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   env_file:
+  #     - ./backend/src/.env
+  #   environment:
+  #     - TZ=UTC
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     api:
+  #       condition: service_healthy
+  #   command: python -m src.scripts.init_db
+  #   volumes:
+  #     - ./backend/src:/code/src
+  #   restart: "no"
+  #   networks:
+  #     - dev-network
 volumes:
   postgres-data:
   redis-data:
   pgadmin-data:
+  uploads-data:
 
 networks:
   dev-network:

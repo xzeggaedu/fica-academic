@@ -31,13 +31,15 @@ class Holiday(Base):
 
     __tablename__ = "holidays"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True, init=False)
     year: Mapped[int] = mapped_column(Integer, unique=True, nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(String(200), nullable=True, default=None)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.utcnow(), nullable=False)
-    updated_at: Mapped[datetime | None] = mapped_column(default=None, onupdate=lambda: datetime.utcnow(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.utcnow(), nullable=False, init=False)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        default=None, onupdate=lambda: datetime.utcnow(), nullable=True, init=False
+    )
 
     # Relationships (init=False to avoid conflicts with dataclasses)
     annual_holidays: Mapped[list["AnnualHoliday"]] = relationship(
