@@ -74,5 +74,17 @@ jobs:
           password: ${{ secrets.GH_TOKEN }}
       - name: Build and push Frontend image
         run: |
-          docker build ./frontend -f ./frontend/Dockerfile.prod -t ghcr.io/${{ github.repository }}-frontend:latest
+          # Valores por defecto para variables de build del frontend
+          # Estos valores se pueden sobrescribir usando GitHub Secrets
+          VITE_API_URL="${VITE_API_URL:-https://api.fica-academics.example.com}"
+          VITE_API_BASE_PATH="${VITE_API_BASE_PATH:-/api/v1}"
+
+          docker build ./frontend -f ./frontend/Dockerfile.prod \
+            --build-arg VITE_API_URL="$VITE_API_URL" \
+            --build-arg VITE_API_BASE_PATH="$VITE_API_BASE_PATH" \
+            -t ghcr.io/${{ github.repository }}-frontend:latest
           docker push ghcr.io/${{ github.repository }}-frontend:latest
+        env:
+          # GitHub Secrets opcionales - si no están definidos, se usarán los valores por defecto
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_BASE_PATH: ${{ secrets.VITE_API_BASE_PATH }}

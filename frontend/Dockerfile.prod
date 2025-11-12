@@ -14,12 +14,15 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY . .
 
 # Set build-time environment variables
-ARG VITE_API_URL
-ARG VITE_API_BASE_URL
+# VITE_API_URL: URL base del API backend (ej: https://api.fica-academics.example.com)
+# VITE_API_BASE_PATH: Ruta base del API (default: /api/v1)
+ARG VITE_API_URL=https://api.fica-academics.example.com
+ARG VITE_API_BASE_PATH=/api/v1
 
 # Set environment variables for build
+# Estas variables se compilan en el bundle de producción en tiempo de build
 ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_API_BASE_PATH=$VITE_API_BASE_PATH
 
 # Build the application
 RUN npm run build
