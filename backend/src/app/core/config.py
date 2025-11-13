@@ -160,20 +160,6 @@ class RedisQueueSettings(GlobalSettings):
     REDIS_QUEUE_PORT: int = 6379
 
 
-class PGAdminSettings(GlobalSettings):
-    # Variables: PGADMIN_DEFAULT_EMAIL, PGADMIN_DEFAULT_PASSWORD, PGADMIN_LISTEN_PORT
-    PGADMIN_DEFAULT_EMAIL: EmailStr = "admin@admin.com"
-    PGADMIN_DEFAULT_PASSWORD: SecretStr = SecretStr("admin")
-    PGADMIN_LISTEN_PORT: int = 80
-
-
-class AbstractSettings(GlobalSettings):
-    # Variables: ABSTRACT_EMAIL, ABSTRACT_PASSWORD, ABSTRACT_API_KEY
-    ABSTRACT_EMAIL: EmailStr = "abstract@example.com"
-    ABSTRACT_PASSWORD: SecretStr = SecretStr("password")
-    ABSTRACT_API_KEY: str = "api-key"
-
-
 class DemoUsersSettings(GlobalSettings):
     """Variables opcionales para demo de usuarios adicionales.
 
@@ -184,28 +170,8 @@ class DemoUsersSettings(GlobalSettings):
     DEMO_PASSWORD: SecretStr | None = None
     VICERRECTOR_USER: str | None = None
     DECANO_USER: str | None = None
-    DIRECTOR_USER: str | None = None
-    # Permitir varios DIRECTOR_USER_n opcionales sin romper la validación
     DIRECTOR_USER_1: str | None = None
     DIRECTOR_USER_2: str | None = None
-    DIRECTOR_USER_3: str | None = None
-    DIRECTOR_USER_4: str | None = None
-    DIRECTOR_USER_5: str | None = None
-    DIRECTOR_USER_6: str | None = None
-    DIRECTOR_USER_7: str | None = None
-    DIRECTOR_USER_8: str | None = None
-    DIRECTOR_USER_9: str | None = None
-    DIRECTOR_USER_10: str | None = None
-    DIRECTOR_USER_11: str | None = None
-    DIRECTOR_USER_12: str | None = None
-    DIRECTOR_USER_13: str | None = None
-    DIRECTOR_USER_14: str | None = None
-    DIRECTOR_USER_15: str | None = None
-    DIRECTOR_USER_16: str | None = None
-    DIRECTOR_USER_17: str | None = None
-    DIRECTOR_USER_18: str | None = None
-    DIRECTOR_USER_19: str | None = None
-    DIRECTOR_USER_20: str | None = None
 
 
 # ----------------------------------------------------------------------
@@ -223,8 +189,6 @@ class Settings(
     RedisCacheSettings,
     ClientSideCacheSettings,
     RedisQueueSettings,
-    PGAdminSettings,
-    AbstractSettings,
     DemoUsersSettings,
     GlobalSettings,
 ):
