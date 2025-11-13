@@ -13,8 +13,10 @@ services:
       TZ: UTC
     volumes:
       - postgres-data-prod:/var/lib/postgresql/data
+    # Exponer puerto solo si necesitas acceso externo a la base de datos
+    # En producción, considera comentar esta línea para mayor seguridad
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -31,8 +33,10 @@ services:
     restart: always
     volumes:
       - redis-data-prod:/data
+    # Exponer puerto solo si necesitas acceso externo a Redis
+    # En producción, considera comentar esta línea para mayor seguridad
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     command: redis-server --appendonly yes
     networks:
       - prod-network
@@ -51,12 +55,15 @@ services:
       APP_NAME: ${APP_NAME}
       APP_DESCRIPTION: ${APP_DESCRIPTION}
       APP_VERSION: ${APP_VERSION}
+      LICENSE_NAME: ${LICENSE_NAME:-}
+      CONTACT_NAME: ${CONTACT_NAME:-}
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-}
 
       # Database
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_SERVER: ${POSTGRES_SERVER}
-      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_SERVER: ${POSTGRES_SERVER:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_DB: ${POSTGRES_DB}
 
       # Security
@@ -64,23 +71,38 @@ services:
       ALGORITHM: ${ALGORITHM}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
+      ACCESS_TOKEN_EXPIRE_MINUTES_REMEMBER: ${ACCESS_TOKEN_EXPIRE_MINUTES_REMEMBER:-1440}
+      REFRESH_TOKEN_EXPIRE_DAYS_REMEMBER: ${REFRESH_TOKEN_EXPIRE_DAYS_REMEMBER:-30}
 
       # Redis
-      REDIS_CACHE_HOST: ${REDIS_CACHE_HOST}
-      REDIS_CACHE_PORT: ${REDIS_CACHE_PORT}
-      REDIS_QUEUE_HOST: ${REDIS_QUEUE_HOST}
-      REDIS_QUEUE_PORT: ${REDIS_QUEUE_PORT}
-      CLIENT_CACHE_MAX_AGE: ${CLIENT_CACHE_MAX_AGE}
+      REDIS_CACHE_HOST: ${REDIS_CACHE_HOST:-redis}
+      REDIS_CACHE_PORT: ${REDIS_CACHE_PORT:-6379}
+      REDIS_QUEUE_HOST: ${REDIS_QUEUE_HOST:-redis}
+      REDIS_QUEUE_PORT: ${REDIS_QUEUE_PORT:-6379}
+      CLIENT_CACHE_MAX_AGE: ${CLIENT_CACHE_MAX_AGE:-60}
 
       # Admin User
       ADMIN_NAME: ${ADMIN_NAME}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_ROLE: ${ADMIN_ROLE:-admin}
 
       # Environment
-      ENVIRONMENT: ${ENVIRONMENT}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
       TZ: UTC
+
+      # Demo Users (Opcional)
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      VICERRECTOR_USER: ${VICERRECTOR_USER:-}
+      DECANO_USER: ${DECANO_USER:-}
+      DIRECTOR_USER_1: ${DIRECTOR_USER_1:-}
+      DIRECTOR_USER_2: ${DIRECTOR_USER_2:-}
+    volumes:
+      # Persistir uploads (templates, generated, academic_load, etc.)
+      - uploads-prod:/code/uploads
+      # Persistir logs
+      - logs-prod:/code/src/app/logs
     ports:
       - "8000:8000"
     depends_on:
@@ -127,12 +149,15 @@ services:
       APP_NAME: ${APP_NAME}
       APP_DESCRIPTION: ${APP_DESCRIPTION}
       APP_VERSION: ${APP_VERSION}
+      LICENSE_NAME: ${LICENSE_NAME:-}
+      CONTACT_NAME: ${CONTACT_NAME:-}
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-}
 
       # Database
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_SERVER: ${POSTGRES_SERVER}
-      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_SERVER: ${POSTGRES_SERVER:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_DB: ${POSTGRES_DB}
 
       # Security
@@ -140,23 +165,38 @@ services:
       ALGORITHM: ${ALGORITHM}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
+      ACCESS_TOKEN_EXPIRE_MINUTES_REMEMBER: ${ACCESS_TOKEN_EXPIRE_MINUTES_REMEMBER:-1440}
+      REFRESH_TOKEN_EXPIRE_DAYS_REMEMBER: ${REFRESH_TOKEN_EXPIRE_DAYS_REMEMBER:-30}
 
       # Redis
-      REDIS_CACHE_HOST: ${REDIS_CACHE_HOST}
-      REDIS_CACHE_PORT: ${REDIS_CACHE_PORT}
-      REDIS_QUEUE_HOST: ${REDIS_QUEUE_HOST}
-      REDIS_QUEUE_PORT: ${REDIS_QUEUE_PORT}
-      CLIENT_CACHE_MAX_AGE: ${CLIENT_CACHE_MAX_AGE}
+      REDIS_CACHE_HOST: ${REDIS_CACHE_HOST:-redis}
+      REDIS_CACHE_PORT: ${REDIS_CACHE_PORT:-6379}
+      REDIS_QUEUE_HOST: ${REDIS_QUEUE_HOST:-redis}
+      REDIS_QUEUE_PORT: ${REDIS_QUEUE_PORT:-6379}
+      CLIENT_CACHE_MAX_AGE: ${CLIENT_CACHE_MAX_AGE:-60}
 
       # Admin User
       ADMIN_NAME: ${ADMIN_NAME}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_ROLE: ${ADMIN_ROLE:-admin}
 
       # Environment
-      ENVIRONMENT: ${ENVIRONMENT}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
       TZ: UTC
+
+      # Demo Users (Opcional)
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      VICERRECTOR_USER: ${VICERRECTOR_USER:-}
+      DECANO_USER: ${DECANO_USER:-}
+      DIRECTOR_USER_1: ${DIRECTOR_USER_1:-}
+      DIRECTOR_USER_2: ${DIRECTOR_USER_2:-}
+    volumes:
+      # Compartir uploads con el servicio API
+      - uploads-prod:/code/uploads
+      # Persistir logs del worker
+      - logs-worker-prod:/code/src/app/logs
     command: arq src.app.core.worker.settings.WorkerSettings
     depends_on:
       db:
@@ -169,6 +209,9 @@ services:
 volumes:
   postgres-data-prod:
   redis-data-prod:
+  uploads-prod:
+  logs-prod:
+  logs-worker-prod:
 
 networks:
   prod-network:
