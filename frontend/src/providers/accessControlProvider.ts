@@ -517,6 +517,25 @@ export const accessControlProvider: AccessControlProvider = {
           }
           return { can: false, reason: "Solo vicerrectores pueden ver este dashboard" };
 
+        case "system-update":
+          // Solo administradores pueden acceder a actualizaciones del sistema
+          switch (action) {
+            case "list":
+            case "show":
+              if (canAccessAdminFeatures(userRole)) {
+                return { can: true };
+              }
+              return {
+                can: false,
+                reason: "Solo los administradores pueden acceder a la actualización del sistema",
+              };
+            default:
+              return {
+                can: false,
+                reason: "Acción no permitida",
+              };
+          }
+
         default:
           // Para otros recursos, permitir acceso básico a usuarios autenticados
           if (action === "list" || action === "show") {
