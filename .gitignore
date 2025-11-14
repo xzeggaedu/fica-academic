@@ -384,3 +384,4 @@ media/
 staticfiles/
 
 deploy-on-premise.md
+scripts/on-premise

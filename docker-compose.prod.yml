@@ -103,6 +103,10 @@ services:
       - uploads-prod:/code/uploads
       # Persistir logs
       - logs-prod:/code/src/app/logs
+      # Montar directorio donde está docker-compose.prod.yml para que el backend pueda ejecutarlo
+      # En Windows Server: C:\fica-academics-prod -> /host
+      # Asegúrate de que docker-compose.prod.yml esté en C:\fica-academics-prod\
+      - C:\fica-academics-prod:/host:ro
     ports:
       - "8000:8000"
     depends_on:

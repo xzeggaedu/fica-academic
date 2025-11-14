@@ -1,5 +1,6 @@
 import type { AuthProvider } from "@refinedev/core";
 import { apiRequest } from "../utils/token-interceptor";
+import { UserRoleEnum } from "../types/auth";
 
 // Environment Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -49,6 +50,41 @@ interface UserInfoResponse {
   is_deleted: boolean;
 }
 
+/**
+ * Decode JWT token to get user role
+ */
+function getRoleFromToken(token: string): string | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return (payload.role || payload.user_role || "").toString().toLowerCase();
+  } catch (error) {
+    if (DEBUG_MODE) console.error("Error decoding token:", error);
+    return null;
+  }
+}
+
+/**
+ * Get default redirect path based on user role
+ */
+function getDefaultRedirectPath(role: string | null): string {
+  if (!role) {
+    return "/";
+  }
+
+  switch (role.toLowerCase()) {
+    case UserRoleEnum.ADMIN:
+      return "/users";
+    case UserRoleEnum.DIRECTOR:
+      return "/director/dashboard";
+    case UserRoleEnum.DECANO:
+      return "/decano/dashboard";
+    case UserRoleEnum.VICERRECTOR:
+      return "/vicerrector/dashboard";
+    default:
+      return "/";
+  }
+}
+
 export const authProvider: AuthProvider = {
   login: async ({ username, password, remember_me = false }: LoginParams) => {
     try {
@@ -74,9 +110,13 @@ export const authProvider: AuthProvider = {
       // Guardar access token en localStorage
       localStorage.setItem(TOKEN_KEY, data.access_token);
 
+      // Obtener rol del token para redirigir según el rol
+      const userRole = getRoleFromToken(data.access_token);
+      const redirectPath = getDefaultRedirectPath(userRole);
+
       return {
         success: true,
-        redirectTo: "/",
+        redirectTo: redirectPath,
       };
     } catch (error) {
       return {
@@ -107,6 +147,9 @@ export const authProvider: AuthProvider = {
       console.error("Logout error:", error);
     } finally {
       localStorage.removeItem(TOKEN_KEY);
+      // Navegar directamente a /login sin query strings usando replace
+      // Esto evita que se preserve la URL anterior con query strings
+      window.location.replace("/login");
     }
 
     return {
