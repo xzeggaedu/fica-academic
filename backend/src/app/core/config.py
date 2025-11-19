@@ -1,7 +1,7 @@
 import os
 from enum import Enum
 
-from pydantic import EmailStr, SecretStr
+from pydantic import EmailStr, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ----------------------------------------------------------------------
@@ -67,6 +67,22 @@ class AppSettings(GlobalSettings):
     LICENSE_NAME: str | None = None
     CONTACT_NAME: str | None = None
     CONTACT_EMAIL: EmailStr | None = None
+
+    @field_validator("CONTACT_EMAIL", mode="before")
+    @classmethod
+    def validate_contact_email(cls, v):
+        """Convert empty strings to None before EmailStr validation."""
+        if v == "" or v is None:
+            return None
+        return v
+
+    @field_validator("CONTACT_NAME", mode="before")
+    @classmethod
+    def validate_contact_name(cls, v):
+        """Convert empty strings to None."""
+        if v == "" or v is None:
+            return None
+        return v
 
 
 class CryptSettings(GlobalSettings):

@@ -1,5 +1,5 @@
-import { useApiUrl, useCustom, CanAccess } from "@refinedev/core";
-import { useState, useEffect } from "react";
+import { useCustom, CanAccess } from "@refinedev/core";
+import { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -27,8 +27,10 @@ import {
   Loader2,
   Info,
   AlertTriangle,
+  Code2,
 } from "lucide-react";
 import { Unauthorized } from "../unauthorized";
+import { API_BASE_URL, API_BASE_PATH } from "@/providers/dataProvider";
 
 interface UpdateCheckResponse {
   has_updates: boolean;
@@ -48,16 +50,40 @@ interface UpdateStatusResponse {
   error: string | null;
 }
 
+// Helper function to detect development environment
+const isDevelopmentEnvironment = (): boolean => {
+  // Check if running in Vite dev mode
+  if (import.meta.env.DEV) {
+    return true;
+  }
+
+  // Check hostname for localhost
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0") {
+      return true;
+    }
+  }
+
+  // Check environment variable
+  if (import.meta.env.VITE_DEBUG_MODE === "true") {
+    return true;
+  }
+
+  return false;
+};
+
 export const SystemUpdate = () => {
-  const apiUrl = useApiUrl();
+  const isDevelopment = useMemo(() => isDevelopmentEnvironment(), []);
   const [checking, setChecking] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckResponse | null>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatusResponse | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [developmentWarningOpen, setDevelopmentWarningOpen] = useState(false);
 
   const { refetch: checkUpdates, data: checkData } = useCustom<UpdateCheckResponse>({
-    url: `${apiUrl}/system/update/check`,
+    url: `${API_BASE_PATH}/system/update/check`,
     method: "get",
     config: {
       enabled: false,
@@ -78,7 +104,7 @@ export const SystemUpdate = () => {
   });
 
   const { data: statusData, refetch: refetchStatus } = useCustom<UpdateStatusResponse>({
-    url: `${apiUrl}/system/update/status`,
+    url: `${API_BASE_PATH}/system/update/status`,
     method: "get",
     config: {
       enabled: false,
@@ -86,7 +112,7 @@ export const SystemUpdate = () => {
   });
 
   const { mutate: triggerUpdate, isPending: isTriggering } = useCustom({
-    url: `${apiUrl}/system/update/trigger`,
+    url: `${API_BASE_PATH}/system/update/trigger`,
     method: "post",
     config: {
       payload: {
@@ -115,7 +141,7 @@ export const SystemUpdate = () => {
   const startStatusPolling = () => {
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(`${apiUrl}/system/update/status`, {
+        const response = await fetch(`${API_BASE_URL}${API_BASE_PATH}/system/update/status`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("fica-access-token")}`,
           },
@@ -152,12 +178,24 @@ export const SystemUpdate = () => {
   };
 
   const handleCheckUpdates = () => {
+    // Bloquear en entorno de desarrollo
+    if (isDevelopment) {
+      setDevelopmentWarningOpen(true);
+      return;
+    }
+
     setChecking(true);
     setUpdateInfo(null);
     checkUpdates();
   };
 
   const handleTriggerUpdate = () => {
+    // Bloquear en entorno de desarrollo
+    if (isDevelopment) {
+      setDevelopmentWarningOpen(true);
+      return;
+    }
+
     setConfirmDialogOpen(true);
   };
 
@@ -409,6 +447,49 @@ export const SystemUpdate = () => {
               ) : (
                 "Confirmar Actualización"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={developmentWarningOpen} onOpenChange={setDevelopmentWarningOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Code2 className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+              Actualización no Disponible en Desarrollo
+            </DialogTitle>
+            <DialogDescription>
+              No es posible actualizar el sistema en el entorno de desarrollo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Alert variant="default" className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+              <Info className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+              <AlertTitle className="text-yellow-800 dark:text-yellow-200">
+                Entorno de Desarrollo Detectado
+              </AlertTitle>
+              <AlertDescription className="text-yellow-700 dark:text-yellow-300 mt-2 space-y-2">
+                <p>
+                  La funcionalidad de actualización del sistema solo está disponible en entornos de producción.
+                </p>
+                <p>
+                  En el entorno de desarrollo (localhost), las actualizaciones deben realizarse manualmente:
+                </p>
+                <ul className="list-disc list-inside space-y-1 mt-2 text-sm">
+                  <li>Usando <code className="bg-yellow-100 dark:bg-yellow-900 px-1 rounded">git pull</code> para obtener los cambios</li>
+                  <li>Reconstruyendo las imágenes Docker si es necesario</li>
+                  <li>Reiniciando los servicios manualmente</li>
+                </ul>
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => setDevelopmentWarningOpen(false)}
+              className="w-full sm:w-auto"
+            >
+              Entendido
             </Button>
           </DialogFooter>
         </DialogContent>
