@@ -54,6 +54,10 @@ async def check_for_updates(
 
     This endpoint compares the digest of local images with remote images
     to determine if updates are available.
+
+    Note: In localhost/development environments, this may not be able to
+    check remote images if they are not accessible or if Docker commands fail.
+    In such cases, it will return False for all update flags.
     """
     try:
         # Obtener ruta del docker-compose desde variables de entorno
@@ -63,10 +67,26 @@ async def check_for_updates(
         # Esto funciona porque el contenedor tiene acceso a Docker socket
         result = await asyncio.to_thread(_check_updates_direct, compose_file)
 
+        # Asegurar que todos los campos booleanos sean valores válidos
+        result["has_updates"] = bool(result.get("has_updates", False))
+        result["backend_update_available"] = bool(result.get("backend_update_available", False))
+        result["frontend_update_available"] = bool(result.get("frontend_update_available", False))
+
         return UpdateCheckResponse(**result)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error checking updates: {str(e)}")
+        # En caso de error (por ejemplo, en localhost sin acceso a Docker/remoto),
+        # retornar una respuesta válida indicando que no hay actualizaciones disponibles
+        return UpdateCheckResponse(
+            has_updates=False,
+            backend_update_available=False,
+            frontend_update_available=False,
+            backend_current_digest=None,
+            backend_remote_digest=None,
+            frontend_current_digest=None,
+            frontend_remote_digest=None,
+            message=f"No se pudo verificar actualizaciones (posiblemente en entorno de desarrollo): {str(e)}",
+        )
 
 
 def _check_updates_direct(compose_file: str) -> dict:
@@ -112,12 +132,14 @@ def _check_updates_direct(compose_file: str) -> dict:
     # Verificar backend
     backend_remote = get_remote_digest(images["backend"])
     backend_local = get_local_digest(images["backend"])
-    backend_update = backend_remote and backend_local and backend_remote != backend_local
+    # Asegurar que siempre retorne un booleano (False si hay algún problema)
+    backend_update = bool(backend_remote and backend_local and backend_remote != backend_local)
 
     # Verificar frontend
     frontend_remote = get_remote_digest(images["frontend"])
     frontend_local = get_local_digest(images["frontend"])
-    frontend_update = frontend_remote and frontend_local and frontend_remote != frontend_local
+    # Asegurar que siempre retorne un booleano (False si hay algún problema)
+    frontend_update = bool(frontend_remote and frontend_local and frontend_remote != frontend_local)
 
     has_updates = backend_update or frontend_update
 
