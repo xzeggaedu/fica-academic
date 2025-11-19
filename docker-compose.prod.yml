@@ -1,4 +1,27 @@
 services:
+  # Init container para ajustar permisos de volúmenes
+  # Este contenedor se ejecuta antes de api y worker para asegurar
+  # que los directorios de volúmenes tengan los permisos correctos
+  init-permissions:
+    image: busybox:latest
+    container_name: fica_init_permissions
+    user: root
+    volumes:
+      - logs-prod:/code/src/app/logs
+      - logs-worker-prod:/code/src/app/logs-worker
+      - uploads-prod:/code/uploads
+    command: >
+      sh -c "
+        echo 'Ajustando permisos de volúmenes...' &&
+        chmod -R 777 /code/src/app/logs 2>/dev/null || echo 'No se pudo ajustar logs-prod' &&
+        chmod -R 777 /code/src/app/logs-worker 2>/dev/null || echo 'No se pudo ajustar logs-worker-prod' &&
+        chmod -R 777 /code/uploads 2>/dev/null || echo 'No se pudo ajustar uploads-prod' &&
+        echo 'Permisos ajustados correctamente'
+      "
+    restart: "no"
+    networks:
+      - prod-network
+
   # PostgreSQL Database
   db:
     image: postgres:13
@@ -117,6 +140,8 @@ services:
     ports:
       - "127.0.0.1:8000:8000"  # Solo accesible desde localhost (Nginx hará el proxy)
     depends_on:
+      init-permissions:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:
@@ -210,6 +235,8 @@ services:
       - logs-worker-prod:/code/src/app/logs
     command: arq src.app.core.worker.settings.WorkerSettings
     depends_on:
+      init-permissions:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:
