@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useGetIdentity } from "@refinedev/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/forms/input";
 import { Switch } from "@/components/ui/switch";
@@ -10,6 +11,7 @@ import { Trash2, Check, X, Pencil, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { SchoolDeleteDialog } from "./school-delete-dialog";
 import { useSchoolsCrud } from "@/hooks/useSchoolsCrud";
+import { UserRoleEnum } from "@/types/auth";
 
 interface School {
   id: number; // School.id es int, no UUID
@@ -36,6 +38,10 @@ export function FacultySchoolsSheet({
   isOpen,
   onClose,
 }: FacultySchoolsSheetProps) {
+  // Verificar si el usuario es administrador
+  const { data: identity } = useGetIdentity<{ role?: string }>();
+  const isAdmin = identity?.role === UserRoleEnum.ADMIN;
+
   // Hook CRUD para escuelas con filtro por facultad
   const {
     itemsList: schools,
@@ -263,7 +269,8 @@ export function FacultySchoolsSheet({
                           <TableHead>Nombre</TableHead>
                           <TableHead className="w-[150px]">Acrónimo</TableHead>
                           <TableHead className="w-[100px] text-center">Estado</TableHead>
-                          <TableHead className="w-[100px]">Acciones</TableHead>
+                          {isAdmin && <TableHead className="w-[100px]">Acciones</TableHead>}
+
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -314,47 +321,49 @@ export function FacultySchoolsSheet({
                               )}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1">
-                                {editingSchoolId === school.id ? (
-                                  <>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-green-600 hover:text-green-700"
-                                      onClick={() => handleSaveEdit(school.id)}
-                                    >
-                                      <Check className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={handleCancelEdit}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleStartEdit(school)}
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-red-600 hover:text-red-700"
-                                      onClick={() => handleDeleteSchool(school.id, school.name)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
+                              {isAdmin && (
+                                <div className="flex items-center gap-1">
+                                  {editingSchoolId === school.id ? (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-green-600 hover:text-green-700"
+                                        onClick={() => handleSaveEdit(school.id)}
+                                      >
+                                        <Check className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={handleCancelEdit}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => handleStartEdit(school)}
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-red-600 hover:text-red-700"
+                                        onClick={() => handleDeleteSchool(school.id, school.name)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
