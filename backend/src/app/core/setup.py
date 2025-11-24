@@ -4,6 +4,7 @@ This module provides functions to create and configure FastAPI applications with
 connections, and middleware setup.
 """
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator, Callable
 from contextlib import _AsyncGeneratorContextManager, asynccontextmanager
@@ -18,6 +19,7 @@ from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
+from sqlalchemy.exc import IntegrityError
 
 from ..api.dependencies import get_current_superuser
 from ..middleware.client_cache_middleware import ClientCacheMiddleware
@@ -44,9 +46,31 @@ logger = logging.getLogger(__name__)
 
 
 async def create_tables() -> None:
-    """Create all database tables."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """Create all database tables with race condition protection for ENUM types."""
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all, checkfirst=True)
+    except IntegrityError as e:
+        # Handle race condition when multiple workers try to create ENUM types simultaneously
+        error_str = str(e.orig) if hasattr(e, "orig") else str(e)
+        if 'duplicate key value violates unique constraint "pg_type_typname_nsp_index"' in error_str:
+            logger.warning(
+                "Database type 'user_role_enum' already exists (likely created by another worker). "
+                "This is normal in multi-worker deployments. Retrying with checkfirst=True..."
+            )
+            # Wait a bit for the other worker to finish
+            await asyncio.sleep(0.5)
+            # Try again with checkfirst=True
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all, checkfirst=True)
+            logger.info("Database tables verified/created after retry")
+        else:
+            # Re-raise if it's a different integrity error
+            raise
+    except Exception as e:
+        # Log and re-raise other exceptions
+        logger.error(f"Error creating database tables: {e}")
+        raise
 
 
 async def check_database_population() -> bool:
