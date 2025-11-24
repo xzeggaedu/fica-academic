@@ -20,16 +20,12 @@ export const DirectorDashboard: React.FC = () => {
         pagination: { currentPage: 1, pageSize: 10000, mode: "server" },
     });
     const [termId, setTermId] = React.useState<number | null>(null);
-    const [fileId, setFileId] = React.useState<number | null>(null);
     const [compareTermId, setCompareTermId] = React.useState<number | null>(null);
 
-    const { data, isLoading } = useDirectorDashboard(termId, fileId, compareTermId);
+    // Siempre usar null para fileId, así el backend automáticamente selecciona la versión activa
+    const fileId = null;
 
-    React.useEffect(() => {
-        if (data?.context?.file_id_selected && fileId == null) {
-            setFileId(data.context.file_id_selected);
-        }
-    }, [data?.context?.file_id_selected, fileId]);
+    const { data, isLoading } = useDirectorDashboard(termId, fileId, compareTermId);
 
     const termOptions = (termsResult?.data || []).map((t: any) => ({ value: t.id, label: `Ciclo 0${t.term}/${t.year}` }));
 
@@ -113,16 +109,6 @@ export const DirectorDashboard: React.FC = () => {
                             ))}
                     </select>
                 </div>
-                {data.context?.file_versions?.length ? (
-                    <div>
-                        <label className="text-xs">Versión</label>
-                        <select className="border rounded px-2 py-1 ml-2" value={fileId ?? ''} onChange={(e) => setFileId(Number(e.target.value))}>
-                            {data.context.file_versions.map((fv: any) => (
-                                <option key={fv.file_id} value={fv.file_id}>v{fv.version} {fv.is_active ? '(activa)' : ''}</option>
-                            ))}
-                        </select>
-                    </div>
-                ) : null}
             </div>
 
 

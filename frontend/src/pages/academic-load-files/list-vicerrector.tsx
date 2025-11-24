@@ -267,36 +267,9 @@ export const AcademicLoadFilesListVicerrector: React.FC = () => {
 
                 return matchesSearch;
             })
-            // Ordenar: Si es DECANO, primero por término, luego por escuela, luego versión
-            // Si no es DECANO, por contexto (faculty, school, term) y luego por versión descendente
+            // Ordenar en orden descendente por ID (más recientes primero)
             .sort((a, b) => {
-                if (isDecano) {
-                    // Primero por término
-                    if (a.term_id !== b.term_id) {
-                        return a.term_id - b.term_id;
-                    }
-                    // Luego por escuela
-                    if (a.school_id !== b.school_id) {
-                        return a.school_id - b.school_id;
-                    }
-                    // Finalmente por versión descendente
-                    return (b.version || 1) - (a.version || 1);
-                } else {
-                    // Primero por facultad
-                    if (a.faculty_id !== b.faculty_id) {
-                        return a.faculty_id - b.faculty_id;
-                    }
-                    // Luego por escuela
-                    if (a.school_id !== b.school_id) {
-                        return a.school_id - b.school_id;
-                    }
-                    // Luego por término
-                    if (a.term_id !== b.term_id) {
-                        return a.term_id - b.term_id;
-                    }
-                    // Finalmente por versión descendente
-                    return (b.version || 1) - (a.version || 1);
-                }
+                return b.id - a.id;
             });
 
         return result;
@@ -1125,7 +1098,7 @@ export const AcademicLoadFilesListVicerrector: React.FC = () => {
                                             </Label>
                                             <p className="text-xs text-gray-500">
                                                 Si está activado, los errores de validación bloquearán la ingestión de datos.
-                                                Si está desactivado, solo se reportarán warnings.
+                                                Si está desactivado, solo se reportarán advertencias.
                                             </p>
                                         </div>
 

@@ -2,29 +2,96 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useGetIdentity } from "@refinedev/core";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 
 type User = {
-  id: number;
-  firstName: string;
-  lastName: string;
-  fullName: string;
+  id: string;
+  name: string;
+  username: string;
   email: string;
+  role: string;
   avatar?: string;
 };
 
+const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
+
 export function UserAvatar() {
-  const { data: user, isLoading: userIsLoading } = useGetIdentity<User>();
+  const queryClient = useQueryClient();
+  const tokenRef = useRef<string | null>(null);
+  const { data: user, isLoading: userIsLoading, refetch } = useGetIdentity<User>();
+
+  // Resetear y refrescar caché cuando cambia el token (después de login)
+  useEffect(() => {
+    const handleLogin = async () => {
+      const currentToken = localStorage.getItem(TOKEN_KEY);
+
+      // Si el token cambió, resetear completamente el caché de identidad
+      if (tokenRef.current !== currentToken && currentToken) {
+        tokenRef.current = currentToken;
+
+        // Resetear completamente las queries relacionadas con identidad
+        await queryClient.resetQueries({
+          predicate: (query) => {
+            const queryKey = query.queryKey;
+            if (Array.isArray(queryKey)) {
+              const keyString = JSON.stringify(queryKey);
+              return (
+                keyString.includes('getIdentity') ||
+                keyString.includes('identity') ||
+                queryKey.some(
+                  (key) =>
+                    typeof key === 'string' &&
+                    (key.toLowerCase().includes('identity') || key.toLowerCase().includes('getidentity'))
+                )
+              );
+            }
+            return false;
+          },
+        });
+
+        // También remover del caché
+        queryClient.removeQueries({
+          predicate: (query) => {
+            const queryKey = query.queryKey;
+            if (Array.isArray(queryKey)) {
+              const keyString = JSON.stringify(queryKey);
+              return (
+                keyString.includes('getIdentity') ||
+                keyString.includes('identity')
+              );
+            }
+            return false;
+          },
+        });
+
+        // Forzar refetch de la identidad
+        await refetch?.();
+      }
+    };
+
+    // Escuchar evento de login
+    window.addEventListener('user-login', handleLogin);
+
+    // Verificar token inicial
+    const initialToken = localStorage.getItem(TOKEN_KEY);
+    tokenRef.current = initialToken;
+
+    return () => {
+      window.removeEventListener('user-login', handleLogin);
+    };
+  }, [queryClient, refetch]);
 
   if (userIsLoading || !user) {
     return <Skeleton className={cn("h-10", "w-10", "rounded-full")} />;
   }
 
-  const { fullName, avatar } = user;
+  const { name, avatar } = user;
 
   return (
     <Avatar className={cn("h-10", "w-10")}>
-      {avatar && <AvatarImage src={avatar} alt={fullName} />}
-      <AvatarFallback>{getInitials(fullName)}</AvatarFallback>
+      {avatar && <AvatarImage src={avatar} alt={name} />}
+      <AvatarFallback>{getInitials(name)}</AvatarFallback>
     </Avatar>
   );
 }

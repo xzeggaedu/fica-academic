@@ -110,6 +110,9 @@ export const authProvider: AuthProvider = {
       // Guardar access token en localStorage
       localStorage.setItem(TOKEN_KEY, data.access_token);
 
+      // Disparar evento personalizado para notificar cambio de usuario (para invalidar caché)
+      window.dispatchEvent(new CustomEvent('user-login'));
+
       // Obtener rol del token para redirigir según el rol
       const userRole = getRoleFromToken(data.access_token);
       const redirectPath = getDefaultRedirectPath(userRole);

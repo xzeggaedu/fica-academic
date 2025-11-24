@@ -31,6 +31,7 @@ import {
   useCan,
   type TreeMenuItem,
 } from "@refinedev/core";
+import { useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, ListIcon, LogOut } from "lucide-react";
 import React from "react";
 
@@ -458,8 +459,47 @@ function SidebarButton({
 function SidebarFooter() {
   const { open } = useShadcnSidebar();
   const { mutate: logout } = useLogout();
+  const queryClient = useQueryClient();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Resetear completamente las queries relacionadas con getIdentity
+    // resetQueries resetea el estado de la query completamente (incluye cache, error, etc)
+    await queryClient.resetQueries({
+      predicate: (query) => {
+        const queryKey = query.queryKey;
+        if (Array.isArray(queryKey)) {
+          const keyString = JSON.stringify(queryKey);
+          // Buscar queries que contengan "getIdentity" o "identity" en cualquier parte del key
+          return (
+            keyString.includes('getIdentity') ||
+            keyString.includes('identity') ||
+            queryKey.some(
+              (key) =>
+                typeof key === 'string' &&
+                (key.toLowerCase().includes('identity') || key.toLowerCase().includes('getidentity'))
+            )
+          );
+        }
+        return false;
+      },
+    });
+
+    // También remover completamente las queries de identidad del caché
+    queryClient.removeQueries({
+      predicate: (query) => {
+        const queryKey = query.queryKey;
+        if (Array.isArray(queryKey)) {
+          const keyString = JSON.stringify(queryKey);
+          return (
+            keyString.includes('getIdentity') ||
+            keyString.includes('identity')
+          );
+        }
+        return false;
+      },
+    });
+
+    // Ejecutar logout
     logout();
   };
 

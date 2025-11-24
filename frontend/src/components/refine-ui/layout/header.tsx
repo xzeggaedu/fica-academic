@@ -14,6 +14,7 @@ import {
   useRefineOptions,
   useGetIdentity,
 } from "@refinedev/core";
+import { useQueryClient } from "@tanstack/react-query";
 import { LogOutIcon, UserIcon } from "lucide-react";
 import React, { useState } from "react";
 import { MyProfileSheet } from "@/components/ui/users/my-profile-sheet";
@@ -123,6 +124,7 @@ function MobileHeader() {
 const UserDropdown = () => {
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
   const { data: currentUser } = useGetIdentity();
+  const queryClient = useQueryClient();
   const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false);
 
   const authProvider = useActiveAuthProvider();
@@ -139,6 +141,48 @@ const UserDropdown = () => {
     setIsProfileSheetOpen(false);
   };
 
+  const handleLogout = async () => {
+    // Resetear completamente las queries relacionadas con getIdentity
+    // resetQueries resetea el estado de la query completamente (incluye cache, error, etc)
+    await queryClient.resetQueries({
+      predicate: (query) => {
+        const queryKey = query.queryKey;
+        if (Array.isArray(queryKey)) {
+          const keyString = JSON.stringify(queryKey);
+          // Buscar queries que contengan "getIdentity" o "identity" en cualquier parte del key
+          return (
+            keyString.includes('getIdentity') ||
+            keyString.includes('identity') ||
+            queryKey.some(
+              (key) =>
+                typeof key === 'string' &&
+                (key.toLowerCase().includes('identity') || key.toLowerCase().includes('getidentity'))
+            )
+          );
+        }
+        return false;
+      },
+    });
+
+    // También remover completamente las queries de identidad del caché
+    queryClient.removeQueries({
+      predicate: (query) => {
+        const queryKey = query.queryKey;
+        if (Array.isArray(queryKey)) {
+          const keyString = JSON.stringify(queryKey);
+          return (
+            keyString.includes('getIdentity') ||
+            keyString.includes('identity')
+          );
+        }
+        return false;
+      },
+    });
+
+    // Ejecutar logout
+    logout();
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -151,9 +195,7 @@ const UserDropdown = () => {
             <span>Mi Perfil</span>
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => {
-              logout();
-            }}
+            onClick={handleLogout}
           >
             <LogOutIcon
               className={cn("text-destructive", "hover:text-destructive", "mr-2", "h-4", "w-4")}

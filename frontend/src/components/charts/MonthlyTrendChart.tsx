@@ -8,6 +8,19 @@ export const MonthlyTrendChart: React.FC<{ data: Trend[]; show?: ("sessions" | "
   const nf = new Intl.NumberFormat("es-SV", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const cf = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const df = new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" });
+
+  // Mapeo de nombres de series a español
+  const seriesNameMap: Record<string, string> = {
+    hours: "Horas",
+    dollars: "Dólares",
+    sessions: "Sesiones",
+  };
+
+  // Mapeo inverso para obtener el nombre original desde el traducido
+  const reverseSeriesNameMap: Record<string, string> = Object.fromEntries(
+    Object.entries(seriesNameMap).map(([key, value]) => [value, key])
+  );
+
   const monthToLabel = (s: string) => {
     const [y, m] = s.split("-").map((v) => parseInt(v, 10));
     if (!y || !m) return s;
@@ -25,16 +38,20 @@ export const MonthlyTrendChart: React.FC<{ data: Trend[]; show?: ("sessions" | "
         const title = monthToLabel(String(raw));
         const lines = params
           .map((p) => {
-            const series = p.seriesName as string;
-            // ECharts dataset entrega p.data como objeto con keys de dimensiones
-            let v: any = p.data?.[series];
+            // p.seriesName ahora contiene el nombre traducido (ej: "Horas", "Dólares")
+            const seriesTranslated = p.seriesName as string;
+            // Necesitamos el nombre original para acceder a los datos (ej: "hours", "dollars")
+            const seriesOriginal = reverseSeriesNameMap[seriesTranslated] || seriesTranslated;
+            // ECharts dataset entrega p.data como objeto con keys de dimensiones originales
+            let v: any = p.data?.[seriesOriginal];
             if (v === undefined) {
               // fallback a value[1]
               v = Array.isArray(p.value) ? p.value[1] : p.value;
             }
             const num = Number(v ?? 0);
-            const textVal = series === "dollars" ? cf.format(num) : nf.format(num);
-            return `${p.marker} ${series}  ${textVal}`;
+            const textVal = seriesOriginal === "dollars" ? cf.format(num) : nf.format(num);
+            // Usar el nombre traducido para mostrar
+            return `${p.marker} ${seriesTranslated}  ${textVal}`;
           })
           .join("<br/>");
         return `${title}<br/>${lines}`;
@@ -56,7 +73,7 @@ export const MonthlyTrendChart: React.FC<{ data: Trend[]; show?: ("sessions" | "
     series: show.map((name) => ({
       type: name === "dollars" ? "bar" : "line",
       smooth: name !== "dollars",
-      name,
+      name: seriesNameMap[name] || name,
     })),
   } as any;
 
