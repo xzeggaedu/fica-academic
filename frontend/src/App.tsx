@@ -52,8 +52,10 @@ function App() {
   // Inicializar renovación automática de tokens
   useTokenRefresh();
 
+  const basePath = import.meta.env.VITE_BASE_PATH || undefined;
+
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basePath}>
       <RefineKbarProvider>
         <ThemeProvider>
           <TooltipProvider>
