@@ -48,8 +48,15 @@ docs/
 *.md
 !README.md
 
-# Uploads (no need to copy these, they're in volumes)
-src/uploads/
+# Uploads - exclude user-generated content but keep seed data CSV files
+# Exclude only directories that contain user-generated files
+src/uploads/users/
+src/uploads/temp/
+src/uploads/generated/
+src/uploads/academic_load/
+src/uploads/templates/
+# Note: src/uploads/data/ and src/uploads/data/schedules/ are NOT excluded
+# as they contain seed CSV files needed at runtime (will be deleted after seeding)
 
 # Git
 .git/

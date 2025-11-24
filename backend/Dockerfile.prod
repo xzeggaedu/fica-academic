@@ -46,6 +46,17 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 # Copy the source code
 COPY --from=builder --chown=app:app /app/src /code/src
 
+# Copy CSV seed data files (will be deleted after seeders complete)
+# The .dockerignore allows src/uploads/data/ but excludes user-generated directories
+# Create upload directories and copy CSV files from builder stage if they exist
+RUN mkdir -p /code/uploads/data/schedules && \
+    if [ -d /code/src/uploads/data ] && [ "$(ls -A /code/src/uploads/data/*.csv 2>/dev/null)" ]; then \
+        cp /code/src/uploads/data/*.csv /code/uploads/data/ 2>/dev/null || true; \
+    fi && \
+    if [ -d /code/src/uploads/data/schedules ] && [ "$(ls -A /code/src/uploads/data/schedules/*.csv 2>/dev/null)" ]; then \
+        cp /code/src/uploads/data/schedules/*.csv /code/uploads/data/schedules/ 2>/dev/null || true; \
+    fi
+
 # Ensure the virtual environment is in the PATH
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/code/src:$PYTHONPATH"

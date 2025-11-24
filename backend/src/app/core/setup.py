@@ -87,6 +87,37 @@ async def check_database_population() -> bool:
         return False
 
 
+async def cleanup_seed_csv_files() -> None:
+    """Remove CSV seed files after successful seeding to prevent public exposure."""
+    from src.app.core.upload_config import get_upload_path
+
+    # List of CSV files used by seeders
+    seed_csv_files = [
+        ("data", "academic_levels_data.csv"),
+        ("data", "hourly_rate_history_data.csv"),
+        ("data", "courses_catalog.csv"),
+        ("data", "terms_data.csv"),
+        ("data", "fixed_holiday_data.csv"),
+        ("data", "coordinations_catalog.csv"),
+        ("data", "faculty_catalog.csv"),
+        ("schedules", "horarios-revisados.csv"),
+    ]
+
+    deleted_count = 0
+    for category, filename in seed_csv_files:
+        try:
+            csv_path = get_upload_path(category, filename)
+            if csv_path.exists():
+                csv_path.unlink()
+                deleted_count += 1
+                logger.info(f"Deleted seed CSV file: {csv_path}")
+        except Exception as e:
+            logger.warning(f"Could not delete CSV file {filename}: {e}")
+
+    if deleted_count > 0:
+        logger.info(f"Cleaned up {deleted_count} seed CSV files")
+
+
 async def run_seeders() -> None:
     """Run database seeders to populate initial data."""
     try:
@@ -149,8 +180,13 @@ async def run_seeders() -> None:
 
         logger.info("🎉 All seeders completed successfully!")
 
+        # Clean up CSV files after successful seeding
+        await cleanup_seed_csv_files()
+        logger.info("✓ Seed CSV files cleaned up")
+
     except Exception as e:
         logger.error(f"Error running seeders: {e}")
+        # Don't clean up CSV files if seeders failed (for debugging)
         raise
 
 
