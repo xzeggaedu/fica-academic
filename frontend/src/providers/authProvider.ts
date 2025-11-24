@@ -3,7 +3,7 @@ import { apiRequest } from "../utils/token-interceptor";
 import { UserRoleEnum } from "../types/auth";
 
 // Environment Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || "/api/v1";
 const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
 const AVATAR_SERVICE_URL = import.meta.env.VITE_AVATAR_SERVICE_URL || "https://ui-avatars.com/api";
