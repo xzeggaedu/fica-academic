@@ -52,7 +52,7 @@ class ApiError extends Error {
 }
 
 // Environment Configuration
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 export const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || "/api/v1";
 const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
 const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || "10000");
