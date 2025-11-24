@@ -243,7 +243,7 @@ export const SystemUpdate = () => {
       action="list"
       fallback={
         <Unauthorized
-          resourceName="Actualización del Sistema"
+          resourceName="Actualización del Sistema Online"
           message="Solo los administradores pueden acceder a la actualización del sistema."
         />
       }
