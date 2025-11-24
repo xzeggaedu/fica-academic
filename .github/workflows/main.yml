@@ -74,10 +74,11 @@ jobs:
           password: ${{ secrets.GH_TOKEN }}
       - name: Build and push Frontend image
         run: |
-          # Valores por defecto para variables de build del frontend
-          # Estos valores se pueden sobrescribir usando GitHub Secrets
-          VITE_API_URL="${VITE_API_URL:-https://api.fica-academics.example.com}"
-          VITE_API_BASE_PATH="${VITE_API_BASE_PATH:-/api/v1}"
+          # Para producción: usar rutas relativas (API_BASE_URL siempre vacío)
+          # Ignorar el secret VITE_API_URL si existe y usar cadena vacía para rutas relativas
+          # Esto hace que las peticiones pasen por nginx correctamente con el prefijo /academics
+          VITE_API_URL=""  # Siempre cadena vacía para rutas relativas
+          VITE_API_BASE_PATH="${VITE_API_BASE_PATH:-/academics/api/v1}"  # Incluir /academics
           VITE_BASE_PATH="${VITE_BASE_PATH:-/academics}"
 
           docker build ./frontend -f ./frontend/Dockerfile.prod \
@@ -87,7 +88,7 @@ jobs:
             -t ghcr.io/${{ github.repository }}-frontend:latest
           docker push ghcr.io/${{ github.repository }}-frontend:latest
         env:
-          # GitHub Secrets opcionales - si no están definidos, se usarán los valores por defecto
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          # NO pasar VITE_API_URL desde secrets - siempre usar cadena vacía
+          # VITE_API_URL: ${{ secrets.VITE_API_URL }}  # Comentado - ignorado intencionalmente
           VITE_API_BASE_PATH: ${{ secrets.VITE_API_BASE_PATH }}
           VITE_BASE_PATH: ${{ secrets.VITE_BASE_PATH }}
