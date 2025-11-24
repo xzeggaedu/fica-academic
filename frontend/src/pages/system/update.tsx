@@ -1,4 +1,4 @@
-import { useCustom, CanAccess } from "@refinedev/core";
+import { useCustom, useCustomMutation, CanAccess } from "@refinedev/core";
 import { useState, useEffect, useMemo } from "react";
 import {
   Card,
@@ -82,44 +82,41 @@ export const SystemUpdate = () => {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [developmentWarningOpen, setDevelopmentWarningOpen] = useState(false);
 
-  const { refetch: checkUpdates, data: checkData } = useCustom<UpdateCheckResponse>({
+  const { query: checkQuery, result: checkResult } = useCustom<UpdateCheckResponse>({
     url: `${API_BASE_PATH}/system/update/check`,
     method: "get",
-    config: {
-      enabled: false,
-    },
     queryOptions: {
-      onSuccess: (data) => {
-        setUpdateInfo(data.data);
-        setChecking(false);
-        toast.success("Verificación completada");
-      },
-      onError: (error: any) => {
-        setChecking(false);
-        toast.error(
-          error?.response?.data?.detail || "Error al verificar actualizaciones"
-        );
-      },
+      enabled: false,
     },
   });
 
-  const { data: statusData, refetch: refetchStatus } = useCustom<UpdateStatusResponse>({
+  // Manejar éxito y error de la verificación
+  useEffect(() => {
+    if (checkQuery.isSuccess && checkResult.data) {
+      setUpdateInfo(checkResult.data);
+      setChecking(false);
+      toast.success("Verificación completada");
+    }
+  }, [checkQuery.isSuccess, checkResult.data]);
+
+  useEffect(() => {
+    if (checkQuery.isError && checkQuery.error) {
+      setChecking(false);
+      toast.error(
+        checkQuery.error?.response?.data?.detail || "Error al verificar actualizaciones"
+      );
+    }
+  }, [checkQuery.isError, checkQuery.error]);
+
+  const { query: statusQuery, result: statusResult } = useCustom<UpdateStatusResponse>({
     url: `${API_BASE_PATH}/system/update/status`,
     method: "get",
-    config: {
+    queryOptions: {
       enabled: false,
     },
   });
 
-  const { mutate: triggerUpdate, isPending: isTriggering } = useCustom({
-    url: `${API_BASE_PATH}/system/update/trigger`,
-    method: "post",
-    config: {
-      payload: {
-        create_backup: true,
-        run_migrations: true,
-      },
-    },
+  const { mutate: triggerUpdate, mutation: triggerMutation } = useCustomMutation<UpdateStatusResponse>({
     mutationOptions: {
       onSuccess: (data) => {
         setUpdateStatus(data.data);
@@ -137,6 +134,8 @@ export const SystemUpdate = () => {
       },
     },
   });
+
+  const isTriggering = triggerMutation.isPending;
 
   const startStatusPolling = () => {
     const interval = setInterval(async () => {
@@ -186,7 +185,7 @@ export const SystemUpdate = () => {
 
     setChecking(true);
     setUpdateInfo(null);
-    checkUpdates();
+    checkQuery.refetch();
   };
 
   const handleTriggerUpdate = () => {
@@ -200,7 +199,14 @@ export const SystemUpdate = () => {
   };
 
   const confirmUpdate = () => {
-    triggerUpdate();
+    triggerUpdate({
+      url: `${API_BASE_PATH}/system/update/trigger`,
+      method: "post",
+      values: {
+        create_backup: true,
+        run_migrations: true,
+      },
+    });
   };
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
