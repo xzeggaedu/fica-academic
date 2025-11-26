@@ -2,13 +2,13 @@
 import asyncio
 import json
 import os
-import subprocess
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from ...api.dependencies import get_current_superuser
+from ...core.utils import queue
 
 router = APIRouter(prefix="/system", tags=["system"])
 
@@ -163,11 +163,17 @@ async def trigger_update(
 ) -> UpdateStatusResponse:
     """Trigger system update - Admin only.
 
-    This will:
-    1. Create backup (if requested)
-    2. Pull new images
-    3. Update containers
+    This endpoint enqueues a system update task in ARQ. The task will be processed
+    by an external worker that has access to the Docker socket.
+
+    The update process will:
+    1. Create backup (if requested) - not implemented yet
+    2. Pull new images from GHCR
+    3. Update containers using docker compose
     4. Run migrations (if requested)
+
+    Note: This endpoint only enqueues the task. The actual update is performed
+    by an external worker running on the host with Docker socket access.
     """
     global _update_status
 
@@ -175,169 +181,169 @@ async def trigger_update(
     if _update_status["status"] in ["checking", "updating"]:
         raise HTTPException(status_code=409, detail="An update is already in progress")
 
+    # Verificar que la cola está disponible
+    if queue.pool is None:
+        raise HTTPException(
+            status_code=503, detail="Queue is not available. External update worker may not be running."
+        )
+
     try:
         compose_file = os.getenv("COMPOSE_FILE_PATH", "/host/docker-compose.prod.yml")
 
         # Actualizar estado
-        _update_status = {"status": "updating", "message": "Update process started", "progress": None, "error": None}
+        _update_status = {
+            "status": "updating",
+            "message": "Update task enqueued, waiting for external worker...",
+            "progress": None,
+            "error": None,
+        }
 
-        # Ejecutar actualización en background
-        background_tasks.add_task(execute_update, compose_file, request.create_backup, request.run_migrations)
+        # Encolar tarea en ARQ para que el worker externo la procese
+        job = await queue.pool.enqueue_job(
+            "process_system_update",
+            compose_file,
+            request.create_backup,
+            request.run_migrations,
+        )
 
-        return UpdateStatusResponse(status="updating", message="Update process started in background")
+        if job is None:
+            _update_status = {
+                "status": "failed",
+                "message": "Failed to enqueue update task",
+                "progress": None,
+                "error": "Job creation returned None",
+            }
+            raise HTTPException(status_code=500, detail="Failed to enqueue update task")
 
+        # Iniciar polling del estado del job en background
+        background_tasks.add_task(poll_update_job_status, job.job_id)
+
+        return UpdateStatusResponse(
+            status="updating",
+            message=f"Update task enqueued (job_id: {job.job_id}). External worker will process the update.",
+        )
+
+    except HTTPException:
+        raise
     except Exception as e:
         _update_status = {"status": "failed", "message": "Failed to start update", "progress": None, "error": str(e)}
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
-async def wait_for_containers_ready(compose_file: str, max_retries: int = 30, delay: int = 5) -> bool:
-    """Wait for critical containers to be running and healthy.
+async def poll_update_job_status(job_id: str):
+    """Poll the status of an update job and update global status.
+
+    This function runs in the background and periodically checks the status
+    of the ARQ job, updating the global _update_status accordingly.
 
     Parameters
     ----------
-    compose_file : str
-        Path to docker-compose file
-    max_retries : int
-        Maximum number of retry attempts (default: 30)
-    delay : int
-        Delay in seconds between retries (default: 5)
-
-    Returns
-    -------
-    bool
-        True if all containers are ready, False otherwise
+    job_id : str
+        The ARQ job ID to poll
     """
-    # Contenedores críticos que deben estar listos antes de migraciones
-    critical_containers = ["db", "api"]
-
-    for attempt in range(1, max_retries + 1):
-        try:
-            # Obtener estado de todos los contenedores
-            result = subprocess.run(
-                ["docker", "compose", "-f", compose_file, "ps", "--format", "json"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-
-            if result.returncode != 0:
-                await asyncio.sleep(delay)
-                continue
-
-            # Parsear JSON (puede haber múltiples líneas, una por contenedor)
-            containers = []
-            for line in result.stdout.strip().split("\n"):
-                if line.strip():
-                    try:
-                        containers.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        continue
-
-            # Verificar que los contenedores críticos estén corriendo
-            all_ready = True
-            ready_containers = []
-            not_ready_containers = []
-
-            for container_name in critical_containers:
-                container = next((c for c in containers if c.get("Service") == container_name), None)
-
-                if not container:
-                    all_ready = False
-                    not_ready_containers.append(f"{container_name} (not found)")
-                    continue
-
-                state = container.get("State", "").lower()
-                if state != "running":
-                    all_ready = False
-                    not_ready_containers.append(f"{container_name} (state: {state})")
-                else:
-                    ready_containers.append(container_name)
-
-            if all_ready:
-                return True
-
-            # Si no están listos, esperar y reintentar
-            await asyncio.sleep(delay)
-
-        except Exception:
-            # En caso de error, continuar intentando
-            await asyncio.sleep(delay)
-            continue
-
-    return False
-
-
-async def execute_update(compose_file: str, create_backup: bool, run_migrations: bool):
-    """Execute the update script in background."""
     global _update_status
+    from arq.jobs import Job as ArqJob
 
-    try:
-        _update_status["status"] = "updating"
-        _update_status["message"] = "Pulling new images..."
-
-        # Autenticar con GHCR
-        github_token = os.getenv("GITHUB_TOKEN")
-        if github_token:
-            subprocess.run(
-                ["docker", "login", "ghcr.io", "-u", "xzeggaedu", "--password-stdin"],
-                input=github_token,
-                text=True,
-                capture_output=True,
-                timeout=30,
-                check=False,  # No fallar si la autenticación falla
-            )
-
-        # Pull imágenes
-        _update_status["message"] = "Downloading new images..."
-        pull_result = subprocess.run(
-            ["docker", "compose", "-f", compose_file, "pull"], capture_output=True, text=True, timeout=600
-        )
-
-        if pull_result.returncode != 0:
-            raise Exception(f"Failed to pull images: {pull_result.stderr}")
-
-        # Actualizar contenedores
-        _update_status["message"] = "Updating containers..."
-        update_result = subprocess.run(
-            ["docker", "compose", "-f", compose_file, "up", "-d"], capture_output=True, text=True, timeout=300
-        )
-
-        if update_result.returncode != 0:
-            raise Exception(f"Failed to update containers: {update_result.stderr}")
-
-        # Verificar que los contenedores estén listos antes de ejecutar migraciones
-        if run_migrations:
-            _update_status["message"] = "Waiting for containers to be ready..."
-            containers_ready = await wait_for_containers_ready(compose_file, max_retries=30, delay=5)
-
-            if not containers_ready:
-                raise Exception(
-                    "Containers did not become ready within the timeout period (2.5 minutes). "
-                    "Please check container status manually."
-                )
-
-            # Ejecutar migraciones
-            _update_status["message"] = "Running database migrations..."
-            migrate_result = subprocess.run(
-                ["docker", "compose", "-f", compose_file, "exec", "-T", "api", "alembic", "upgrade", "head"],
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
-
-            if migrate_result.returncode != 0:
-                raise Exception(f"Migration failed: {migrate_result.stderr}")
-
+    if queue.pool is None:
         _update_status = {
-            "status": "completed",
-            "message": "Update completed successfully",
+            "status": "failed",
+            "message": "Queue pool not available",
             "progress": None,
-            "error": None,
+            "error": "Queue pool is None",
         }
+        return
 
-    except Exception as e:
-        _update_status = {"status": "failed", "message": "Update failed", "progress": None, "error": str(e)}
+    job = ArqJob(job_id, queue.pool)
+    max_polls = 120  # Poll for up to 10 minutes (120 * 5 seconds)
+    poll_count = 0
+
+    while poll_count < max_polls:
+        try:
+            job_info = await job.info()
+
+            if job_info is None:
+                _update_status = {
+                    "status": "failed",
+                    "message": "Job not found",
+                    "progress": None,
+                    "error": f"Job {job_id} not found in queue",
+                }
+                return
+
+            # Check if job is complete
+            if job_info.result is not None:
+                result = job_info.result
+                if isinstance(result, dict):
+                    if result.get("status") == "completed":
+                        _update_status = {
+                            "status": "completed",
+                            "message": result.get("message", "Update completed successfully"),
+                            "progress": None,
+                            "error": None,
+                        }
+                    else:
+                        _update_status = {
+                            "status": "failed",
+                            "message": result.get("message", "Update failed"),
+                            "progress": None,
+                            "error": result.get("error"),
+                        }
+                else:
+                    _update_status = {
+                        "status": "completed",
+                        "message": "Update completed",
+                        "progress": None,
+                        "error": None,
+                    }
+                return
+
+            # Check if job failed
+            if job_info.success is False:
+                _update_status = {
+                    "status": "failed",
+                    "message": "Update job failed",
+                    "progress": None,
+                    "error": str(job_info.result) if job_info.result else "Unknown error",
+                }
+                return
+
+            # Update status message based on job status
+            if job_info.finished:
+                _update_status = {
+                    "status": "completed",
+                    "message": "Update completed",
+                    "progress": None,
+                    "error": None,
+                }
+                return
+
+            # Job is still running, update message
+            _update_status = {
+                "status": "updating",
+                "message": f"Update in progress (polling job status: {poll_count}/{max_polls})",
+                "progress": None,
+                "error": None,
+            }
+
+            await asyncio.sleep(5)  # Poll every 5 seconds
+            poll_count += 1
+
+        except Exception as e:
+            _update_status = {
+                "status": "failed",
+                "message": f"Error polling job status: {str(e)}",
+                "progress": None,
+                "error": str(e),
+            }
+            return
+
+    # Timeout
+    _update_status = {
+        "status": "failed",
+        "message": "Update job timed out (exceeded maximum polling time)",
+        "progress": None,
+        "error": "Job did not complete within expected time",
+    }
 
 
 @router.get("/update/status", response_model=UpdateStatusResponse)
