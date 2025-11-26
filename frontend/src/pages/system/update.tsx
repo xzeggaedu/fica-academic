@@ -1,5 +1,5 @@
 import { useCustom, useCustomMutation, CanAccess } from "@refinedev/core";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -90,23 +90,54 @@ export const SystemUpdate = () => {
     },
   });
 
-  // Manejar éxito y error de la verificación
+  // Sincronizar estado checking con isFetching del query
   useEffect(() => {
-    if (checkQuery.isSuccess && checkResult.data) {
-      setUpdateInfo(checkResult.data);
-      setChecking(false);
-      toast.success("Verificación completada");
-    }
-  }, [checkQuery.isSuccess, checkResult.data]);
+    console.log("checkQuery.isFetching changed:", checkQuery.isFetching);
+    setChecking(checkQuery.isFetching);
+  }, [checkQuery.isFetching]);
+
+  // Manejar éxito de la verificación cuando el fetch termina
+  const lastProcessedRef = useRef<string | null>(null);
+  const prevIsFetchingRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (checkQuery.isError && checkQuery.error) {
-      setChecking(false);
+    const wasFetching = prevIsFetchingRef.current;
+    const isNowNotFetching = !checkQuery.isFetching && wasFetching;
+
+    console.log("Check query state:", {
+      isSuccess: checkQuery.isSuccess,
+      isFetching: checkQuery.isFetching,
+      wasFetching,
+      isNowNotFetching,
+      hasData: !!checkResult.data,
+      data: checkResult.data,
+    });
+
+    // Cuando el fetch termina (cambia de true a false) y hay datos exitosos
+    if (isNowNotFetching && checkQuery.isSuccess && checkResult.data) {
+      // Crear una clave única basada en los datos para evitar procesar dos veces
+      const dataKey = JSON.stringify(checkResult.data);
+      if (lastProcessedRef.current !== dataKey) {
+        console.log("Setting update info:", checkResult.data);
+        setUpdateInfo(checkResult.data);
+        lastProcessedRef.current = dataKey;
+        toast.success("Verificación completada");
+      }
+    }
+
+    // Actualizar el ref para el próximo render
+    prevIsFetchingRef.current = checkQuery.isFetching;
+  }, [checkQuery.isSuccess, checkQuery.isFetching, checkResult.data]);
+
+  // Manejar error de la verificación
+  useEffect(() => {
+    if (checkQuery.isError && checkQuery.error && !checkQuery.isFetching) {
+      console.error("Check query error:", checkQuery.error);
       toast.error(
         checkQuery.error?.response?.data?.detail || "Error al verificar actualizaciones"
       );
     }
-  }, [checkQuery.isError, checkQuery.error]);
+  }, [checkQuery.isError, checkQuery.isFetching, checkQuery.error]);
 
   const { query: statusQuery, result: statusResult } = useCustom<UpdateStatusResponse>({
     url: `${API_BASE_PATH}/system/update/status`,
@@ -176,16 +207,32 @@ export const SystemUpdate = () => {
     }, 30 * 60 * 1000);
   };
 
-  const handleCheckUpdates = () => {
+  const handleCheckUpdates = async () => {
     // Bloquear en entorno de desarrollo
     if (isDevelopment) {
       setDevelopmentWarningOpen(true);
       return;
     }
 
+    // Evitar múltiples llamadas simultáneas
+    if (checking || checkQuery.isFetching) {
+      console.log("Check already in progress, skipping...");
+      return;
+    }
+
+    console.log("Starting check updates...");
     setChecking(true);
     setUpdateInfo(null);
-    checkQuery.refetch();
+    lastProcessedRef.current = null; // Resetear el ref para permitir procesar nuevos datos
+
+    try {
+      const result = await checkQuery.refetch();
+      console.log("Check updates refetch result:", result);
+    } catch (error) {
+      console.error("Error in check updates:", error);
+      // El error ya será manejado por el useEffect
+      setChecking(false);
+    }
   };
 
   const handleTriggerUpdate = () => {
