@@ -3,18 +3,24 @@ from arq.connections import RedisSettings
 from ...core.config import settings
 from .academic_load_tasks import process_academic_load_file
 from .functions import process_template_generation, sample_background_task, shutdown, startup
-from .system_update_tasks import process_system_update
 
 REDIS_QUEUE_HOST = settings.REDIS_QUEUE_HOST
 REDIS_QUEUE_PORT = settings.REDIS_QUEUE_PORT
 
 
 class WorkerSettings:
+    """Settings for the internal ARQ worker (runs inside Docker container).
+
+    Note: process_system_update is NOT included here because it requires Docker access.
+    It should only be executed by the external worker (scripts/external_update_worker.py)
+    that runs on the host with Docker socket access.
+    """
+
     functions = [
         sample_background_task,
         process_template_generation,
         process_academic_load_file,
-        process_system_update,  # System update task (executed by external worker)
+        # process_system_update is NOT here - it's only for external worker
     ]
     redis_settings = RedisSettings(host=REDIS_QUEUE_HOST, port=REDIS_QUEUE_PORT)
     on_startup = startup
