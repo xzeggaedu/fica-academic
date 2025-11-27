@@ -81,7 +81,7 @@ export const SignInForm = () => {
           <CardDescription
             className={cn("text-muted-foreground", "font-medium")}
           >
-            Bienvenido de nuevo
+            Sistema de Gestión de la Carga Académica
           </CardDescription>
         </CardHeader>
 
