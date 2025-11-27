@@ -1,6 +1,7 @@
 """System update endpoints - Admin only."""
 import asyncio
 import json
+import logging
 import os
 from typing import Annotated
 
@@ -9,6 +10,8 @@ from pydantic import BaseModel
 
 from ...api.dependencies import get_current_superuser
 from ...core.utils import queue
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/system", tags=["system"])
 
@@ -59,22 +62,32 @@ async def check_for_updates(
     check remote images if they are not accessible or if Docker commands fail.
     In such cases, it will return False for all update flags.
     """
+    logger.info("Received request to check for updates")
     try:
         # Obtener ruta del docker-compose desde variables de entorno
         compose_file = os.getenv("COMPOSE_FILE_PATH", "/host/docker-compose.prod.yml")
+        logger.info(f"Using compose file: {compose_file}")
 
         # Verificar actualizaciones directamente usando comandos Docker
-        # Esto funciona porque el contenedor tiene acceso a Docker socket
-        result = await asyncio.to_thread(_check_updates_direct, compose_file)
+        # Usar timeout más corto para evitar que se cuelgue
+        logger.info("Starting update check with timeout of 60 seconds")
+        try:
+            result = await asyncio.wait_for(asyncio.to_thread(_check_updates_direct, compose_file), timeout=60.0)
+            logger.info(f"Update check completed: {result}")
+        except asyncio.TimeoutError:
+            logger.error("Update check timed out after 60 seconds")
+            raise Exception("Update check timed out. Docker commands may be hanging.")
 
         # Asegurar que todos los campos booleanos sean valores válidos
         result["has_updates"] = bool(result.get("has_updates", False))
         result["backend_update_available"] = bool(result.get("backend_update_available", False))
         result["frontend_update_available"] = bool(result.get("frontend_update_available", False))
 
+        logger.info("Returning update check response")
         return UpdateCheckResponse(**result)
 
     except Exception as e:
+        logger.error(f"Error checking for updates: {str(e)}", exc_info=True)
         # En caso de error (por ejemplo, en localhost sin acceso a Docker/remoto),
         # retornar una respuesta válida indicando que no hay actualizaciones disponibles
         return UpdateCheckResponse(
@@ -85,13 +98,38 @@ async def check_for_updates(
             backend_remote_digest=None,
             frontend_current_digest=None,
             frontend_remote_digest=None,
-            message=f"No se pudo verificar actualizaciones (posiblemente en entorno de desarrollo): {str(e)}",
+            message=f"No se pudo verificar actualizaciones: {str(e)}",
         )
 
 
 def _check_updates_direct(compose_file: str) -> dict:
     """Check for updates directly using docker commands."""
     import subprocess
+
+    logger.info("Starting _check_updates_direct function")
+
+    # Verificar primero si Docker está disponible
+    try:
+        logger.info("Checking if Docker is available...")
+        check_result = subprocess.run(
+            ["docker", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if check_result.returncode != 0:
+            logger.error("Docker command failed or not available")
+            raise Exception("Docker is not available or not accessible")
+        logger.info(f"Docker is available: {check_result.stdout.strip()}")
+    except FileNotFoundError:
+        logger.error("Docker command not found in PATH")
+        raise Exception("Docker command not found. The container may not have access to Docker.")
+    except subprocess.TimeoutExpired:
+        logger.error("Timeout checking Docker availability")
+        raise Exception("Docker command timed out. The container may not have access to Docker.")
+    except Exception as e:
+        logger.error(f"Error checking Docker availability: {str(e)}")
+        raise
 
     images = {
         "backend": "ghcr.io/xzeggaedu/fica-academic-backend:latest",
@@ -100,23 +138,34 @@ def _check_updates_direct(compose_file: str) -> dict:
 
     def get_remote_digest(image: str) -> str | None:
         try:
+            logger.info(f"Checking remote digest for {image}")
             result = subprocess.run(
-                ["docker", "manifest", "inspect", image], capture_output=True, text=True, timeout=30
+                ["docker", "manifest", "inspect", image],
+                capture_output=True,
+                text=True,
+                timeout=15,  # Reducir timeout a 15 segundos
             )
             if result.returncode == 0:
                 manifest = json.loads(result.stdout)
-                return manifest.get("config", {}).get("digest")
-        except Exception:
-            pass
+                digest = manifest.get("config", {}).get("digest")
+                logger.info(f"Remote digest for {image}: {digest}")
+                return digest
+            else:
+                logger.warning(f"Failed to get remote digest for {image}: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            logger.error(f"Timeout getting remote digest for {image}")
+        except Exception as e:
+            logger.error(f"Error getting remote digest for {image}: {str(e)}")
         return None
 
     def get_local_digest(image: str) -> str | None:
         try:
+            logger.info(f"Checking local digest for {image}")
             result = subprocess.run(
                 ["docker", "image", "inspect", image, "--format", "{{.RepoDigests}}"],
                 capture_output=True,
                 text=True,
-                timeout=10,
+                timeout=5,  # Reducir timeout a 5 segundos
             )
             if result.returncode == 0 and result.stdout.strip():
                 # Extraer digest del formato [image@sha256:...]
@@ -124,26 +173,36 @@ def _check_updates_direct(compose_file: str) -> dict:
 
                 match = re.search(r"sha256:([a-f0-9]+)", result.stdout)
                 if match:
-                    return f"sha256:{match.group(1)}"
-        except Exception:
-            pass
+                    digest = f"sha256:{match.group(1)}"
+                    logger.info(f"Local digest for {image}: {digest}")
+                    return digest
+            else:
+                logger.warning(f"Failed to get local digest for {image}: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            logger.error(f"Timeout getting local digest for {image}")
+        except Exception as e:
+            logger.error(f"Error getting local digest for {image}: {str(e)}")
         return None
 
     # Verificar backend
+    logger.info("Checking backend updates...")
     backend_remote = get_remote_digest(images["backend"])
     backend_local = get_local_digest(images["backend"])
     # Asegurar que siempre retorne un booleano (False si hay algún problema)
     backend_update = bool(backend_remote and backend_local and backend_remote != backend_local)
+    logger.info(f"Backend update available: {backend_update}")
 
     # Verificar frontend
+    logger.info("Checking frontend updates...")
     frontend_remote = get_remote_digest(images["frontend"])
     frontend_local = get_local_digest(images["frontend"])
     # Asegurar que siempre retorne un booleano (False si hay algún problema)
     frontend_update = bool(frontend_remote and frontend_local and frontend_remote != frontend_local)
+    logger.info(f"Frontend update available: {frontend_update}")
 
     has_updates = backend_update or frontend_update
 
-    return {
+    result = {
         "has_updates": has_updates,
         "backend_update_available": backend_update,
         "frontend_update_available": frontend_update,
@@ -153,6 +212,8 @@ def _check_updates_direct(compose_file: str) -> dict:
         "frontend_remote_digest": frontend_remote,
         "message": "Actualizaciones disponibles" if has_updates else "Sistema actualizado",
     }
+    logger.info(f"Update check result: {result}")
+    return result
 
 
 @router.post("/update/trigger", response_model=UpdateStatusResponse)
