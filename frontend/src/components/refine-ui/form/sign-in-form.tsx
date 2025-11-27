@@ -32,6 +32,10 @@ export const SignInForm = () => {
 
   const { mutate: login } = useLogin();
 
+  // Get base path for images
+  const basePath = import.meta.env.VITE_BASE_PATH || "";
+  const logoPath = `${basePath}/images/logo-utec.png`;
+
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -72,7 +76,7 @@ export const SignInForm = () => {
           >
             <div className={cn("mb-4")}>
           <img
-            src="/images/logo-utec.png"
+            src={logoPath}
             alt="Logo UTEC"
             className={cn("w-full", "max-w-[220px]", "min-w-[120px]", "h-auto", "object-contain")}
           />

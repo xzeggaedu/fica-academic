@@ -5,6 +5,7 @@ import { UserRoleEnum } from "../types/auth";
 // Environment Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || "/api/v1";
+const BASE_PATH = import.meta.env.VITE_BASE_PATH || "";
 const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
 const AVATAR_SERVICE_URL = import.meta.env.VITE_AVATAR_SERVICE_URL || "https://ui-avatars.com/api";
 const AVATAR_DEFAULT_BG = import.meta.env.VITE_AVATAR_DEFAULT_BG || "random";
@@ -152,12 +153,14 @@ export const authProvider: AuthProvider = {
       localStorage.removeItem(TOKEN_KEY);
       // Navegar directamente a /login sin query strings usando replace
       // Esto evita que se preserve la URL anterior con query strings
-      window.location.replace("/login");
+      // Incluir el base path en la ruta de login
+      const loginPath = `${BASE_PATH}/login`;
+      window.location.replace(loginPath);
     }
 
     return {
       success: true,
-      redirectTo: "/login",
+      redirectTo: `${BASE_PATH}/login`,
     };
   },
 
@@ -175,7 +178,7 @@ export const authProvider: AuthProvider = {
 
       return {
         authenticated: false,
-        redirectTo: "/login",
+        redirectTo: `${BASE_PATH}/login`,
       };
     }
 
@@ -195,7 +198,7 @@ export const authProvider: AuthProvider = {
         window.dispatchEvent(new CustomEvent('session-expired'));
         return {
           authenticated: false,
-          redirectTo: "/login",
+          redirectTo: `${BASE_PATH}/login`,
         };
       }
     } catch (error) {
@@ -204,7 +207,7 @@ export const authProvider: AuthProvider = {
       window.dispatchEvent(new CustomEvent('session-expired'));
       return {
         authenticated: false,
-        redirectTo: "/login",
+        redirectTo: `${BASE_PATH}/login`,
       };
     }
   },
