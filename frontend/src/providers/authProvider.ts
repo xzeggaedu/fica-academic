@@ -5,7 +5,13 @@ import { UserRoleEnum } from "../types/auth";
 // Environment Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || "/api/v1";
-const BASE_PATH = import.meta.env.VITE_BASE_PATH || "";
+// Normalize BASE_PATH: ensure it starts with / if it has a value
+// If VITE_BASE_PATH is "academics" (without leading slash), add it
+const rawBasePath = import.meta.env.VITE_BASE_PATH || "";
+const BASE_PATH = rawBasePath
+  ? (rawBasePath.startsWith("/") ? rawBasePath : `/${rawBasePath}`)
+      .replace(/\/+$/, "") // Remove trailing slashes
+  : "";
 const TOKEN_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || "fica-access-token";
 const AVATAR_SERVICE_URL = import.meta.env.VITE_AVATAR_SERVICE_URL || "https://ui-avatars.com/api";
 const AVATAR_DEFAULT_BG = import.meta.env.VITE_AVATAR_DEFAULT_BG || "random";

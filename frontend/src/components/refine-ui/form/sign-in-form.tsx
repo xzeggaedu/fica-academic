@@ -32,9 +32,14 @@ export const SignInForm = () => {
 
   const { mutate: login } = useLogin();
 
-  // Get base path for images
-  const basePath = import.meta.env.VITE_BASE_PATH || "";
-  const logoPath = `${basePath}/images/logo-utec.png`;
+  // Get base path for images - normalize to ensure it starts with /
+  // If VITE_BASE_PATH is "academics" (without leading slash), add it
+  const rawBasePath = import.meta.env.VITE_BASE_PATH || "";
+  const basePath = rawBasePath
+    ? (rawBasePath.startsWith("/") ? rawBasePath : `/${rawBasePath}`)
+        .replace(/\/+$/, "") // Remove trailing slashes
+    : "";
+  const logoPath = basePath ? `${basePath}/images/logo-utec.png` : "/images/logo-utec.png";
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

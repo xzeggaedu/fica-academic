@@ -52,11 +52,13 @@ function App() {
   // Inicializar renovación automática de tokens
   useTokenRefresh();
 
-  // Normalize base path: remove trailing slash and ensure it starts with /
+  // Normalize base path: ensure it starts with / and remove trailing slash
   // React Router requires basename to match exactly the URL path
+  // If VITE_BASE_PATH is "academics" (without leading slash), add it
   const rawBasePath = import.meta.env.VITE_BASE_PATH || "";
   const basePath = rawBasePath
-    ? rawBasePath.replace(/\/$/, "") // Remove trailing slash
+    ? (rawBasePath.startsWith("/") ? rawBasePath : `/${rawBasePath}`)
+        .replace(/\/+$/, "") // Remove trailing slashes
     : undefined;
 
   return (
@@ -283,15 +285,17 @@ function App() {
                         icon: "Trash2",
                       },
                     },
-                    {
-                      name: "system-update",
-                      list: "/configuration/system-update",
-                      meta: {
-                        label: "Actualización del Sistema",
-                        parent: "configuration",
-                        icon: "RefreshCw",
-                      },
-                    },
+                    // TEMPORALMENTE COMENTADO: Item del menú de actualización del sistema
+                    // La funcionalidad sigue disponible accediendo directamente a /configuration/system-update
+                    // {
+                    //   name: "system-update",
+                    //   list: "/configuration/system-update",
+                    //   meta: {
+                    //     label: "Actualización del Sistema",
+                    //     parent: "configuration",
+                    //     icon: "RefreshCw",
+                    //   },
+                    // },
 
                   ]}
                   options={{

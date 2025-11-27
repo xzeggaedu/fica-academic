@@ -13,9 +13,14 @@ export const Unauthorized: React.FC<UnauthorizedProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  // Get base path for images
-  const basePath = import.meta.env.VITE_BASE_PATH || "";
-  const imagePath = `${basePath}/images/access-denied.svg`;
+  // Get base path for images - normalize to ensure it starts with /
+  // If VITE_BASE_PATH is "academics" (without leading slash), add it
+  const rawBasePath = import.meta.env.VITE_BASE_PATH || "";
+  const basePath = rawBasePath
+    ? (rawBasePath.startsWith("/") ? rawBasePath : `/${rawBasePath}`)
+        .replace(/\/+$/, "") // Remove trailing slashes
+    : "";
+  const imagePath = basePath ? `${basePath}/images/access-denied.svg` : "/images/access-denied.svg";
 
   return (
     <div className="flex items-center justify-center h-full p-4">
