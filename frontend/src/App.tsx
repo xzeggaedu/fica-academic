@@ -52,7 +52,12 @@ function App() {
   // Inicializar renovación automática de tokens
   useTokenRefresh();
 
-  const basePath = import.meta.env.VITE_BASE_PATH || undefined;
+  // Normalize base path: remove trailing slash and ensure it starts with /
+  // React Router requires basename to match exactly the URL path
+  const rawBasePath = import.meta.env.VITE_BASE_PATH || "";
+  const basePath = rawBasePath
+    ? rawBasePath.replace(/\/$/, "") // Remove trailing slash
+    : undefined;
 
   return (
     <BrowserRouter basename={basePath}>
