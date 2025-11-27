@@ -13,13 +13,17 @@ export const Unauthorized: React.FC<UnauthorizedProps> = ({
 }) => {
   const navigate = useNavigate();
 
+  // Get base path for images
+  const basePath = import.meta.env.VITE_BASE_PATH || "";
+  const imagePath = `${basePath}/images/access-denied.svg`;
+
   return (
     <div className="flex items-center justify-center h-full p-4">
       <div className="max-w-lg w-full">
         <div className="text-center pb-2">
           <div className="mx-auto mb-4 max-w-sm">
             <img
-              src="/images/access-denied.svg"
+              src={imagePath}
               alt="Acceso Denegado"
               className="w-full h-auto dark:opacity-90"
             />
