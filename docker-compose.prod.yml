@@ -122,6 +122,15 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       TZ: UTC
 
+      # System Update Configuration
+      GHCR_REGISTRY_URL: ${GHCR_REGISTRY_URL:-https://ghcr.io}
+      GHCR_BACKEND_IMAGE: ${GHCR_BACKEND_IMAGE:-ghcr.io/xzeggaedu/fica-academic-backend:latest}
+      GHCR_FRONTEND_IMAGE: ${GHCR_FRONTEND_IMAGE:-ghcr.io/xzeggaedu/fica-academic-frontend:latest}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      BACKEND_IMAGE_DIGEST: ${BACKEND_IMAGE_DIGEST:-}
+      FRONTEND_IMAGE_DIGEST: ${FRONTEND_IMAGE_DIGEST:-}
+      COMPOSE_FILE_PATH: ${COMPOSE_FILE_PATH:-/host/docker-compose.prod.yml}
+
       # Demo Users (Opcional)
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}
       VICERRECTOR_USER: ${VICERRECTOR_USER:-}

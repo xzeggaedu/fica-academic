@@ -85,6 +85,148 @@ async def check_for_updates(
         )
 
 
+async def get_remote_digest_via_api(image: str) -> str | None:
+    """Get remote digest from GHCR API using proper Docker Registry API v2 authentication flow."""
+    try:
+        # Parse image: ghcr.io/owner/repo:tag or https://ghcr.io/owner/repo:tag
+        # Example: ghcr.io/xzeggaedu/fica-academic-backend:latest
+        # Remove protocol and registry URL if present
+        image_clean = image
+        if image_clean.startswith("https://"):
+            image_clean = image_clean.replace("https://", "")
+        elif image_clean.startswith("http://"):
+            image_clean = image_clean.replace("http://", "")
+
+        # Remove registry URL if present (e.g., ghcr.io/)
+        registry_domain = settings.GHCR_REGISTRY_URL.replace("https://", "").replace("http://", "")
+        if image_clean.startswith(f"{registry_domain}/"):
+            image_clean = image_clean.replace(f"{registry_domain}/", "")
+
+        # Split into repo and tag
+        parts = image_clean.split(":")
+        repo = parts[0]
+        tag = parts[1] if len(parts) > 1 else "latest"
+
+        # GHCR API endpoint (Docker Registry API v2)
+        # Format: https://ghcr.io/v2/owner/repo/manifests/tag
+        manifest_url = f"{settings.GHCR_REGISTRY_URL}/v2/{repo}/manifests/{tag}"
+
+        logger.info(f"Querying GHCR API for {image}: {manifest_url}")
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # Step 1: Get WWW-Authenticate header to determine auth requirements
+            initial_headers = {
+                "Accept": "application/vnd.docker.distribution.manifest.v2+json",
+            }
+            initial_response = await client.get(manifest_url, headers=initial_headers)
+
+            # If already authorized (public image or already authenticated), return digest
+            if initial_response.status_code == 200:
+                digest = initial_response.headers.get("Docker-Content-Digest")
+                if digest:
+                    logger.info(f"Got remote digest for {image}: {digest}")
+                    return digest
+
+            # Step 2: If authentication required, get token from GHCR token service
+            if initial_response.status_code == 401 and settings.GITHUB_TOKEN:
+                www_auth = initial_response.headers.get("WWW-Authenticate", "")
+                if www_auth:
+                    # Parse WWW-Authenticate header
+                    # Format: Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:owner/repo:pull"
+                    import re
+
+                    realm_match = re.search(r'realm="([^"]+)"', www_auth)
+                    service_match = re.search(r'service="([^"]+)"', www_auth)
+                    scope_match = re.search(r'scope="([^"]+)"', www_auth)
+
+                    realm = realm_match.group(1) if realm_match else f"{settings.GHCR_REGISTRY_URL}/token"
+                    service = service_match.group(1) if service_match else registry_domain
+                    scope = scope_match.group(1) if scope_match else f"repository:{repo}:pull"
+
+                    # Step 3: Get GHCR token using GitHub token with Basic auth
+                    github_token = settings.GITHUB_TOKEN.get_secret_value()
+                    token_url = f"{realm}?service={service}&scope={scope}"
+
+                    # GHCR requires Basic auth with username:token format
+                    # Username can be the GitHub username or any value, token is the GitHub token
+                    import base64
+
+                    # Extract username from repo (owner) or use a default
+                    username = repo.split("/")[0] if "/" in repo else "github"
+                    auth_string = base64.b64encode(f"{username}:{github_token}".encode()).decode()
+
+                    token_headers = {
+                        "Authorization": f"Basic {auth_string}",
+                        "Accept": "application/json",
+                    }
+
+                    token_response = await client.get(token_url, headers=token_headers)
+
+                    if token_response.status_code == 200:
+                        token_data = token_response.json()
+                        ghcr_token = token_data.get("token") or token_data.get("access_token")
+
+                        if ghcr_token:
+                            # Step 4: Use GHCR token to get manifest
+                            manifest_headers = {
+                                "Accept": "application/vnd.docker.distribution.manifest.v2+json",
+                                "Authorization": f"Bearer {ghcr_token}",
+                            }
+
+                            response = await client.get(manifest_url, headers=manifest_headers)
+
+                            if response.status_code == 200:
+                                # The Docker-Content-Digest header contains the digest
+                                digest = response.headers.get("Docker-Content-Digest")
+                                if digest:
+                                    logger.info(f"Got remote digest for {image}: {digest}")
+                                    return digest
+
+                                # Fallback: parse from manifest config digest
+                                try:
+                                    manifest = response.json()
+                                    config_digest = manifest.get("config", {}).get("digest")
+                                    if config_digest:
+                                        logger.info(f"Got remote digest from manifest for {image}: {config_digest}")
+                                        return config_digest
+                                except json.JSONDecodeError:
+                                    pass
+
+                                logger.warning(f"Could not extract digest from response for {image}")
+                            else:
+                                error_msg = (
+                                    f"GHCR API returned status {response.status_code} "
+                                    f"for {image}: {response.text[:200]}"
+                                )
+                                logger.warning(error_msg)
+                        else:
+                            error_msg = f"Could not get GHCR token from token service: " f"{token_response.text[:200]}"
+                            logger.warning(error_msg)
+                    else:
+                        error_msg = (
+                            f"GHCR token service returned status {token_response.status_code}: "
+                            f"{token_response.text[:200]}"
+                        )
+                        logger.warning(error_msg)
+            else:
+                # No authentication token available or image is public but failed
+                if initial_response.status_code == 401:
+                    logger.warning(f"Authentication required for {image} but no GITHUB_TOKEN provided")
+                else:
+                    error_msg = (
+                        f"GHCR API returned status {initial_response.status_code} "
+                        f"for {image}: {initial_response.text[:200]}"
+                    )
+                    logger.warning(error_msg)
+
+    except httpx.TimeoutException:
+        logger.error(f"Timeout querying GHCR API for {image}")
+    except Exception as e:
+        logger.error(f"Error getting remote digest for {image}: {str(e)}")
+
+    return None
+
+
 async def _check_updates_via_ghcr_api() -> dict:
     """Check for updates using GHCR API directly (no Docker required).
 
@@ -99,64 +241,6 @@ async def _check_updates_via_ghcr_api() -> dict:
         Dictionary with update information
     """
     logger.info("Starting update check via GHCR API")
-
-    async def get_remote_digest_via_api(image: str) -> str | None:
-        """Get remote digest from GHCR API."""
-        try:
-            # Parse image: ghcr.io/owner/repo:tag
-            # Example: ghcr.io/xzeggaedu/fica-academic-backend:latest
-            image_without_registry = image.replace(f"{settings.GHCR_REGISTRY_URL}/", "")
-            parts = image_without_registry.split(":")
-            repo = parts[0]
-            tag = parts[1] if len(parts) > 1 else "latest"
-
-            # GHCR API endpoint (Docker Registry API v2)
-            url = f"{settings.GHCR_REGISTRY_URL}/v2/{repo}/manifests/{tag}"
-
-            # Headers for Docker Registry API v2
-            headers = {
-                "Accept": "application/vnd.docker.distribution.manifest.v2+json",
-            }
-
-            # Add authentication if GITHUB_TOKEN is available
-            if settings.GITHUB_TOKEN:
-                token = settings.GITHUB_TOKEN.get_secret_value()
-                headers["Authorization"] = f"Bearer {token}"
-
-            logger.info(f"Querying GHCR API for {image}: {url}")
-
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.get(url, headers=headers)
-
-                if response.status_code == 200:
-                    # The Docker-Content-Digest header contains the digest
-                    digest = response.headers.get("Docker-Content-Digest")
-                    if digest:
-                        logger.info(f"Got remote digest for {image}: {digest}")
-                        return digest
-
-                    # Fallback: parse from manifest config digest
-                    try:
-                        manifest = response.json()
-                        config_digest = manifest.get("config", {}).get("digest")
-                        if config_digest:
-                            logger.info(f"Got remote digest from manifest for {image}: {config_digest}")
-                            return config_digest
-                    except json.JSONDecodeError:
-                        pass
-
-                    logger.warning(f"Could not extract digest from response for {image}")
-                else:
-                    logger.warning(
-                        f"GHCR API returned status {response.status_code} for {image}: {response.text[:200]}"
-                    )
-
-        except httpx.TimeoutException:
-            logger.error(f"Timeout querying GHCR API for {image}")
-        except Exception as e:
-            logger.error(f"Error getting remote digest for {image}: {str(e)}")
-
-        return None
 
     async def get_local_digest_from_redis_or_env(image_type: str) -> str | None:
         """Get local digest from Redis (preferred) or environment variables (fallback).
