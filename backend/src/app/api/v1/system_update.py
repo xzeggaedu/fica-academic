@@ -2,13 +2,14 @@
 import asyncio
 import json
 import logging
-import os
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from ...api.dependencies import get_current_superuser
+from ...core.config import settings
 from ...core.utils import queue
 
 logger = logging.getLogger(__name__)
@@ -55,41 +56,23 @@ async def check_for_updates(
 ) -> UpdateCheckResponse:
     """Check if there are updates available from GHCR - Admin only.
 
-    This endpoint compares the digest of local images with remote images
-    to determine if updates are available.
+    This endpoint uses the GHCR API directly (no Docker required) to check for updates.
+    It compares remote image digests from GHCR with local digests from environment variables.
 
-    Note: In localhost/development environments, this may not be able to
-    check remote images if they are not accessible or if Docker commands fail.
-    In such cases, it will return False for all update flags.
+    Architecture:
+    - This endpoint queries GHCR API directly (no Docker socket needed)
+    - Local digests come from environment variables (set by external worker or docker-compose)
+    - Actual updates are performed by the external worker (which has Docker access)
     """
-    logger.info("Received request to check for updates")
+    logger.info("Received request to check for updates via GHCR API")
+
     try:
-        # Obtener ruta del docker-compose desde variables de entorno
-        compose_file = os.getenv("COMPOSE_FILE_PATH", "/host/docker-compose.prod.yml")
-        logger.info(f"Using compose file: {compose_file}")
-
-        # Verificar actualizaciones directamente usando comandos Docker
-        # Usar timeout más corto para evitar que se cuelgue
-        logger.info("Starting update check with timeout of 60 seconds")
-        try:
-            result = await asyncio.wait_for(asyncio.to_thread(_check_updates_direct, compose_file), timeout=60.0)
-            logger.info(f"Update check completed: {result}")
-        except asyncio.TimeoutError:
-            logger.error("Update check timed out after 60 seconds")
-            raise Exception("Update check timed out. Docker commands may be hanging.")
-
-        # Asegurar que todos los campos booleanos sean valores válidos
-        result["has_updates"] = bool(result.get("has_updates", False))
-        result["backend_update_available"] = bool(result.get("backend_update_available", False))
-        result["frontend_update_available"] = bool(result.get("frontend_update_available", False))
-
-        logger.info("Returning update check response")
+        result = await _check_updates_via_ghcr_api()
+        logger.info(f"Update check completed: has_updates={result['has_updates']}")
         return UpdateCheckResponse(**result)
 
     except Exception as e:
         logger.error(f"Error checking for updates: {str(e)}", exc_info=True)
-        # En caso de error (por ejemplo, en localhost sin acceso a Docker/remoto),
-        # retornar una respuesta válida indicando que no hay actualizaciones disponibles
         return UpdateCheckResponse(
             has_updates=False,
             backend_update_available=False,
@@ -102,105 +85,148 @@ async def check_for_updates(
         )
 
 
-def _check_updates_direct(compose_file: str) -> dict:
-    """Check for updates directly using docker commands."""
-    import subprocess
+async def _check_updates_via_ghcr_api() -> dict:
+    """Check for updates using GHCR API directly (no Docker required).
 
-    logger.info("Starting _check_updates_direct function")
+    This function:
+    1. Queries GHCR API for remote image digests
+    2. Gets local digests from environment variables
+    3. Compares them to determine if updates are available
 
-    # Verificar primero si Docker está disponible
-    try:
-        logger.info("Checking if Docker is available...")
-        check_result = subprocess.run(
-            ["docker", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if check_result.returncode != 0:
-            logger.error("Docker command failed or not available")
-            raise Exception("Docker is not available or not accessible")
-        logger.info(f"Docker is available: {check_result.stdout.strip()}")
-    except FileNotFoundError:
-        logger.error("Docker command not found in PATH")
-        raise Exception("Docker command not found. The container may not have access to Docker.")
-    except subprocess.TimeoutExpired:
-        logger.error("Timeout checking Docker availability")
-        raise Exception("Docker command timed out. The container may not have access to Docker.")
-    except Exception as e:
-        logger.error(f"Error checking Docker availability: {str(e)}")
-        raise
+    Returns
+    -------
+    dict
+        Dictionary with update information
+    """
+    logger.info("Starting update check via GHCR API")
 
-    images = {
-        "backend": "ghcr.io/xzeggaedu/fica-academic-backend:latest",
-        "frontend": "ghcr.io/xzeggaedu/fica-academic-frontend:latest",
-    }
-
-    def get_remote_digest(image: str) -> str | None:
+    async def get_remote_digest_via_api(image: str) -> str | None:
+        """Get remote digest from GHCR API."""
         try:
-            logger.info(f"Checking remote digest for {image}")
-            result = subprocess.run(
-                ["docker", "manifest", "inspect", image],
-                capture_output=True,
-                text=True,
-                timeout=15,  # Reducir timeout a 15 segundos
-            )
-            if result.returncode == 0:
-                manifest = json.loads(result.stdout)
-                digest = manifest.get("config", {}).get("digest")
-                logger.info(f"Remote digest for {image}: {digest}")
-                return digest
-            else:
-                logger.warning(f"Failed to get remote digest for {image}: {result.stderr}")
-        except subprocess.TimeoutExpired:
-            logger.error(f"Timeout getting remote digest for {image}")
+            # Parse image: ghcr.io/owner/repo:tag
+            # Example: ghcr.io/xzeggaedu/fica-academic-backend:latest
+            image_without_registry = image.replace(f"{settings.GHCR_REGISTRY_URL}/", "")
+            parts = image_without_registry.split(":")
+            repo = parts[0]
+            tag = parts[1] if len(parts) > 1 else "latest"
+
+            # GHCR API endpoint (Docker Registry API v2)
+            url = f"{settings.GHCR_REGISTRY_URL}/v2/{repo}/manifests/{tag}"
+
+            # Headers for Docker Registry API v2
+            headers = {
+                "Accept": "application/vnd.docker.distribution.manifest.v2+json",
+            }
+
+            # Add authentication if GITHUB_TOKEN is available
+            if settings.GITHUB_TOKEN:
+                token = settings.GITHUB_TOKEN.get_secret_value()
+                headers["Authorization"] = f"Bearer {token}"
+
+            logger.info(f"Querying GHCR API for {image}: {url}")
+
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(url, headers=headers)
+
+                if response.status_code == 200:
+                    # The Docker-Content-Digest header contains the digest
+                    digest = response.headers.get("Docker-Content-Digest")
+                    if digest:
+                        logger.info(f"Got remote digest for {image}: {digest}")
+                        return digest
+
+                    # Fallback: parse from manifest config digest
+                    try:
+                        manifest = response.json()
+                        config_digest = manifest.get("config", {}).get("digest")
+                        if config_digest:
+                            logger.info(f"Got remote digest from manifest for {image}: {config_digest}")
+                            return config_digest
+                    except json.JSONDecodeError:
+                        pass
+
+                    logger.warning(f"Could not extract digest from response for {image}")
+                else:
+                    logger.warning(
+                        f"GHCR API returned status {response.status_code} for {image}: {response.text[:200]}"
+                    )
+
+        except httpx.TimeoutException:
+            logger.error(f"Timeout querying GHCR API for {image}")
         except Exception as e:
             logger.error(f"Error getting remote digest for {image}: {str(e)}")
+
         return None
 
-    def get_local_digest(image: str) -> str | None:
-        try:
-            logger.info(f"Checking local digest for {image}")
-            result = subprocess.run(
-                ["docker", "image", "inspect", image, "--format", "{{.RepoDigests}}"],
-                capture_output=True,
-                text=True,
-                timeout=5,  # Reducir timeout a 5 segundos
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                # Extraer digest del formato [image@sha256:...]
-                import re
+    async def get_local_digest_from_redis_or_env(image_type: str) -> str | None:
+        """Get local digest from Redis (preferred) or environment variables (fallback).
 
-                match = re.search(r"sha256:([a-f0-9]+)", result.stdout)
-                if match:
-                    digest = f"sha256:{match.group(1)}"
-                    logger.info(f"Local digest for {image}: {digest}")
-                    return digest
-            else:
-                logger.warning(f"Failed to get local digest for {image}: {result.stderr}")
-        except subprocess.TimeoutExpired:
-            logger.error(f"Timeout getting local digest for {image}")
-        except Exception as e:
-            logger.error(f"Error getting local digest for {image}: {str(e)}")
-        return None
+        Parameters
+        ----------
+        image_type : str
+            Type of image: "backend" or "frontend"
 
-    # Verificar backend
-    logger.info("Checking backend updates...")
-    backend_remote = get_remote_digest(images["backend"])
-    backend_local = get_local_digest(images["backend"])
-    # Asegurar que siempre retorne un booleano (False si hay algún problema)
+        Returns
+        -------
+        str | None
+            Digest string or None if not found
+        """
+        from ...core.utils.cache import client as redis_client
+
+        # Try Redis first (preferred - always up to date after updates)
+        if redis_client:
+            try:
+                key = f"system:update:{image_type}_digest"
+                digest = await redis_client.get(key)
+                if digest:
+                    digest_str = digest.decode() if isinstance(digest, bytes) else digest
+                    logger.info(f"Got local digest for {image_type} from Redis: {digest_str}")
+                    return digest_str
+            except Exception as e:
+                logger.warning(f"Error reading {image_type} digest from Redis: {str(e)}")
+
+        # Fallback to environment variables
+        if image_type == "backend":
+            digest = settings.BACKEND_IMAGE_DIGEST
+        elif image_type == "frontend":
+            digest = settings.FRONTEND_IMAGE_DIGEST
+        else:
+            return None
+
+        if digest:
+            logger.info(f"Got local digest for {image_type} from env (fallback): {digest}")
+        else:
+            logger.warning(f"No local digest found for {image_type} (neither Redis nor env)")
+
+        return digest
+
+    # Get remote digests via API
+    logger.info("Fetching remote digests from GHCR...")
+    backend_remote = await get_remote_digest_via_api(settings.GHCR_BACKEND_IMAGE)
+    frontend_remote = await get_remote_digest_via_api(settings.GHCR_FRONTEND_IMAGE)
+
+    # Get local digests from Redis (preferred) or environment variables (fallback)
+    logger.info("Getting local digests from Redis or environment variables...")
+    backend_local = await get_local_digest_from_redis_or_env("backend")
+    frontend_local = await get_local_digest_from_redis_or_env("frontend")
+
+    # Compare digests
     backend_update = bool(backend_remote and backend_local and backend_remote != backend_local)
-    logger.info(f"Backend update available: {backend_update}")
-
-    # Verificar frontend
-    logger.info("Checking frontend updates...")
-    frontend_remote = get_remote_digest(images["frontend"])
-    frontend_local = get_local_digest(images["frontend"])
-    # Asegurar que siempre retorne un booleano (False si hay algún problema)
     frontend_update = bool(frontend_remote and frontend_local and frontend_remote != frontend_local)
-    logger.info(f"Frontend update available: {frontend_update}")
-
     has_updates = backend_update or frontend_update
+
+    # Determine message
+    if not backend_local and not frontend_local:
+        message = (
+            "No se pudieron obtener los digests locales. "
+            "Configure BACKEND_IMAGE_DIGEST y FRONTEND_IMAGE_DIGEST en las variables de entorno."
+        )
+    elif not backend_remote and not frontend_remote:
+        message = "No se pudieron obtener los digests remotos desde GHCR."
+    elif has_updates:
+        message = "Actualizaciones disponibles"
+    else:
+        message = "Sistema actualizado"
 
     result = {
         "has_updates": has_updates,
@@ -210,8 +236,9 @@ def _check_updates_direct(compose_file: str) -> dict:
         "backend_remote_digest": backend_remote,
         "frontend_current_digest": frontend_local,
         "frontend_remote_digest": frontend_remote,
-        "message": "Actualizaciones disponibles" if has_updates else "Sistema actualizado",
+        "message": message,
     }
+
     logger.info(f"Update check result: {result}")
     return result
 
@@ -249,7 +276,7 @@ async def trigger_update(
         )
 
     try:
-        compose_file = os.getenv("COMPOSE_FILE_PATH", "/host/docker-compose.prod.yml")
+        compose_file = settings.COMPOSE_FILE_PATH
 
         # Actualizar estado
         _update_status = {
