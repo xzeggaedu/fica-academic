@@ -91,6 +91,45 @@ async def process_system_update(
         )
         logger.info("Containers updated successfully")
 
+        # Step 3.5: Update local image digests in Redis (for next check)
+        # After pulling and updating, get the new local digests and store them in Redis
+        try:
+            logger.info("Getting updated local image digests and storing in Redis...")
+            backend_digest = get_local_image_digest("ghcr.io/xzeggaedu/fica-academic-backend:latest")
+            frontend_digest = get_local_image_digest("ghcr.io/xzeggaedu/fica-academic-frontend:latest")
+
+            # Store digests in Redis for the API to read
+            try:
+                import redis.asyncio as redis_async
+
+                from ...core.config import settings
+
+                # Create Redis connection (worker runs outside container, needs direct connection)
+                redis_url = f"redis://{settings.REDIS_CACHE_HOST}:{settings.REDIS_CACHE_PORT}"
+                logger.info(
+                    f"Connecting to Redis at {settings.REDIS_CACHE_HOST}:{settings.REDIS_CACHE_PORT} to store digests"
+                )
+
+                async with redis_async.from_url(redis_url) as redis_client:
+                    if backend_digest:
+                        await redis_client.set("system:update:backend_digest", backend_digest)
+                        logger.info(f"Stored backend digest in Redis: {backend_digest}")
+                    else:
+                        logger.warning("Backend digest is None, not storing in Redis")
+
+                    if frontend_digest:
+                        await redis_client.set("system:update:frontend_digest", frontend_digest)
+                        logger.info(f"Stored frontend digest in Redis: {frontend_digest}")
+                    else:
+                        logger.warning("Frontend digest is None, not storing in Redis")
+
+            except Exception as redis_error:
+                logger.warning(f"Could not store digests in Redis: {str(redis_error)}")
+                # Continue even if Redis storage fails
+
+        except Exception as e:
+            logger.warning(f"Could not get updated local digests: {str(e)}")
+
         # Step 4: Wait for containers to be ready and run migrations
         if run_migrations:
             logger.info("Waiting for containers to be ready...")
@@ -155,6 +194,39 @@ async def process_system_update(
             "run_migrations": run_migrations,
             "error": str(e),
         }
+
+
+def get_local_image_digest(image: str) -> str | None:
+    """Get local image digest using docker image inspect.
+
+    Parameters
+    ----------
+    image : str
+        Full image name (e.g., ghcr.io/xzeggaedu/fica-academic-backend:latest)
+
+    Returns
+    -------
+    str | None
+        Digest string (e.g., sha256:abc123...) or None if not found
+    """
+    try:
+        result = subprocess.run(
+            ["docker", "image", "inspect", image, "--format", "{{index .RepoDigests 0}}"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        )
+        if result.stdout.strip():
+            # Extract digest from format: image@sha256:abc123...
+            import re
+
+            match = re.search(r"sha256:([a-f0-9]+)", result.stdout)
+            if match:
+                return f"sha256:{match.group(1)}"
+    except Exception as e:
+        logger.warning(f"Error getting local digest for {image}: {str(e)}")
+    return None
 
 
 async def wait_for_containers_ready(compose_file: str, max_retries: int = 30, delay: int = 5) -> bool:

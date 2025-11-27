@@ -35,12 +35,43 @@ Esta implementación sigue la **Opción 7: Sistema de colas (Redis/ARQ) + Worker
 
 ## Configuración
 
+### Variables de Entorno del Worker
+
 El worker lee las siguientes variables de entorno:
 
 - `REDIS_QUEUE_HOST`: Host de Redis (default: `localhost`)
 - `REDIS_QUEUE_PORT`: Puerto de Redis (default: `6379`)
 - `GITHUB_TOKEN`: Token de GitHub para autenticación con GHCR (opcional, se puede pasar al worker)
 - `COMPOSE_FILE_PATH`: Ruta al archivo `docker-compose.prod.yml` (default: `./docker-compose.prod.yml`)
+- `REDIS_CACHE_HOST`: Host de Redis para almacenar digests (default: `localhost`)
+- `REDIS_CACHE_PORT`: Puerto de Redis para almacenar digests (default: `6379`)
+
+### Variables de Entorno del API
+
+El API necesita las siguientes variables de entorno para verificar actualizaciones:
+
+- `GHCR_REGISTRY_URL`: URL del registro de contenedores (default: `https://ghcr.io`)
+- `GHCR_BACKEND_IMAGE`: Imagen completa del backend (default: `ghcr.io/xzeggaedu/fica-academic-backend:latest`)
+- `GHCR_FRONTEND_IMAGE`: Imagen completa del frontend (default: `ghcr.io/xzeggaedu/fica-academic-frontend:latest`)
+- `GITHUB_TOKEN`: Token de GitHub para autenticación con GHCR (opcional, para repos privados)
+- `BACKEND_IMAGE_DIGEST`: Digest SHA256 de la imagen backend local (opcional, solo fallback si Redis no está disponible)
+- `FRONTEND_IMAGE_DIGEST`: Digest SHA256 de la imagen frontend local (opcional, solo fallback si Redis no está disponible)
+- `COMPOSE_FILE_PATH`: Ruta al archivo `docker-compose.prod.yml` (default: `/host/docker-compose.prod.yml`)
+
+### Almacenamiento Automático de Digests en Redis
+
+**IMPORTANTE**: El worker externo almacena automáticamente los digests locales en Redis después de cada actualización exitosa. Esto permite que el sistema compare versiones de forma automática sin necesidad de configurar variables de entorno manualmente.
+
+**Flujo automático**:
+
+1. Worker externo ejecuta actualización (pull, up, migrations)
+1. Después de actualizar, obtiene los nuevos digests locales
+1. Almacena los digests en Redis bajo las claves:
+   - `system:update:backend_digest`
+   - `system:update:frontend_digest`
+1. El endpoint de verificación lee desde Redis (siempre actualizado)
+
+**Variables de entorno como fallback**: Las variables `BACKEND_IMAGE_DIGEST` y `FRONTEND_IMAGE_DIGEST` solo se usan si Redis no está disponible o si no hay valores almacenados aún.
 
 ## Ejecución
 

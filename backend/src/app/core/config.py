@@ -190,6 +190,23 @@ class DemoUsersSettings(GlobalSettings):
     DIRECTOR_USER_2: str | None = None
 
 
+class SystemUpdateSettings(GlobalSettings):
+    """Configuración para el sistema de actualizaciones."""
+
+    # GitHub Container Registry configuration
+    GHCR_REGISTRY_URL: str = "https://ghcr.io"
+    GHCR_BACKEND_IMAGE: str = "ghcr.io/xzeggaedu/fica-academic-backend:latest"
+    GHCR_FRONTEND_IMAGE: str = "ghcr.io/xzeggaedu/fica-academic-frontend:latest"
+    GITHUB_TOKEN: SecretStr | None = None  # Optional, for private repos
+
+    # Local image digests (set by external worker or docker-compose)
+    BACKEND_IMAGE_DIGEST: str | None = None
+    FRONTEND_IMAGE_DIGEST: str | None = None
+
+    # Docker Compose file path (for external worker)
+    COMPOSE_FILE_PATH: str = "/host/docker-compose.prod.yml"
+
+
 # ----------------------------------------------------------------------
 # Clase de Configuración Final
 # ----------------------------------------------------------------------
@@ -206,6 +223,7 @@ class Settings(
     ClientSideCacheSettings,
     RedisQueueSettings,
     DemoUsersSettings,
+    SystemUpdateSettings,
     GlobalSettings,
 ):
     """Clase que consolida todas las configuraciones."""
