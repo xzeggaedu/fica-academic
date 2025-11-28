@@ -147,6 +147,112 @@ async def read_active_professors(
 
 
 @router.get(
+    "/statistics",
+    response_model=dict[str, Any],
+)
+async def get_professor_statistics(
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)],  # All authenticated users
+) -> dict[str, Any]:
+    """Obtener estadísticas agregadas de profesores.
+
+    Accesible para todos los usuarios autenticados.
+    """
+    from sqlalchemy import func, select
+
+    # Query base: solo profesores no eliminados
+    base_query = select(CatalogProfessor).where(CatalogProfessor.deleted.is_(False))
+
+    # Total de profesores
+    total_query = select(func.count()).select_from(base_query.subquery())
+    total_result = await db.execute(total_query)
+    total = total_result.scalar_one() or 0
+
+    # Profesores activos e inactivos
+    active_query = select(func.count()).select_from(base_query.where(CatalogProfessor.is_active.is_(True)).subquery())
+    active_result = await db.execute(active_query)
+    active = active_result.scalar_one() or 0
+    inactive = total - active
+
+    # Profesores bilingües y no bilingües
+    bilingual_query = select(func.count()).select_from(
+        base_query.where(CatalogProfessor.is_bilingual.is_(True)).subquery()
+    )
+    bilingual_result = await db.execute(bilingual_query)
+    bilingual = bilingual_result.scalar_one() or 0
+    not_bilingual = total - bilingual
+
+    # Distribución por categoría
+    category_query = (
+        select(
+            CatalogProfessor.professor_category,
+            func.count(CatalogProfessor.id).label("count"),
+        )
+        .where(CatalogProfessor.deleted.is_(False))
+        .group_by(CatalogProfessor.professor_category)
+    )
+    category_result = await db.execute(category_query)
+    category_rows = category_result.all()
+
+    by_category: dict[str, int] = {}
+    for row in category_rows:
+        category = row.professor_category or "Sin categoría"
+        by_category[category] = row.count
+
+    # Distribución por título académico
+    title_query = (
+        select(
+            CatalogProfessor.academic_title,
+            func.count(CatalogProfessor.id).label("count"),
+        )
+        .where(CatalogProfessor.deleted.is_(False))
+        .group_by(CatalogProfessor.academic_title)
+    )
+    title_result = await db.execute(title_query)
+    title_rows = title_result.all()
+
+    by_title: dict[str, int] = {}
+    for row in title_rows:
+        title = row.academic_title or "Sin título"
+        by_title[title] = row.count
+
+    # Profesores con 1 maestría
+    one_master_query = select(func.count()).select_from(base_query.where(CatalogProfessor.masters == 1).subquery())
+    one_master_result = await db.execute(one_master_query)
+    one_master = one_master_result.scalar_one() or 0
+
+    # Profesores con 2 o más maestrías
+    two_or_more_masters_query = select(func.count()).select_from(
+        base_query.where(CatalogProfessor.masters >= 2).subquery()
+    )
+    two_or_more_masters_result = await db.execute(two_or_more_masters_query)
+    two_or_more_masters = two_or_more_masters_result.scalar_one() or 0
+
+    # Profesores con doctorado
+    # Cuenta si doctorates > 0 O si el título académico es "Dr."
+    from sqlalchemy import or_
+
+    doctorate_query = select(func.count()).select_from(
+        base_query.where(or_(CatalogProfessor.doctorates > 0, CatalogProfessor.academic_title == "Dr.")).subquery()
+    )
+    doctorate_result = await db.execute(doctorate_query)
+    doctorate = doctorate_result.scalar_one() or 0
+
+    return {
+        "total": total,
+        "active": active,
+        "inactive": inactive,
+        "bilingual": bilingual,
+        "not_bilingual": not_bilingual,
+        "by_category": by_category,
+        "by_title": by_title,
+        "one_master": one_master,
+        "two_or_more_masters": two_or_more_masters,
+        "doctorate": doctorate,
+    }
+
+
+@router.get(
     "/{professor_id}",
     response_model=CatalogProfessorRead,
 )

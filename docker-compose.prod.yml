@@ -122,15 +122,6 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       TZ: UTC
 
-      # System Update Configuration
-      GHCR_REGISTRY_URL: ${GHCR_REGISTRY_URL:-https://ghcr.io}
-      GHCR_BACKEND_IMAGE: ${GHCR_BACKEND_IMAGE:-ghcr.io/xzeggaedu/fica-academic-backend:latest}
-      GHCR_FRONTEND_IMAGE: ${GHCR_FRONTEND_IMAGE:-ghcr.io/xzeggaedu/fica-academic-frontend:latest}
-      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      BACKEND_IMAGE_DIGEST: ${BACKEND_IMAGE_DIGEST:-}
-      FRONTEND_IMAGE_DIGEST: ${FRONTEND_IMAGE_DIGEST:-}
-      COMPOSE_FILE_PATH: ${COMPOSE_FILE_PATH:-/host/docker-compose.prod.yml}
-
       # Demo Users (Opcional)
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}
       VICERRECTOR_USER: ${VICERRECTOR_USER:-}
@@ -142,10 +133,6 @@ services:
       - uploads-prod:/code/uploads
       # Persistir logs
       - logs-prod:/code/src/app/logs
-      # Montar directorio donde está docker-compose.prod.yml para que el backend pueda ejecutarlo
-      # En Linux: /opt/fica-academics-prod -> /host
-      # Asegúrate de que docker-compose.prod.yml esté en /opt/fica-academics-prod/
-      - ${COMPOSE_FILE_PATH:-${PWD}}:/host:ro
     ports:
       - "127.0.0.1:8000:8000"  # Solo accesible desde localhost (Nginx hará el proxy)
     depends_on:

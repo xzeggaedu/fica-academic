@@ -7,8 +7,101 @@ import { StackedByScheduleChart } from "@/components/charts/StackedByScheduleCha
 import { MonthlyTrendChart } from "@/components/charts/MonthlyTrendChart";
 import { SimpleDoughnutChart } from "@/components/charts/SimpleDoughnutChart";
 import { useDirectorDashboard } from "@/hooks/useDirectorDashboard";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Maximize2, Minimize2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/data/table";
+
+// Componente wrapper para cards con funcionalidad de maximizar/minimizar
+interface MaximizableCardProps {
+    cardId: string;
+    title: React.ReactNode;
+    description?: string;
+    children: React.ReactNode;
+    isMaximized: boolean;
+    onToggleMaximize: (cardId: string, gridRowStart?: number) => void;
+    defaultClassName?: string;
+    enableMaximize?: boolean; // Flag para habilitar/deshabilitar el botón de maximizar
+}
+
+const MaximizableCard: React.FC<MaximizableCardProps> = ({
+    cardId,
+    title,
+    description,
+    children,
+    isMaximized,
+    onToggleMaximize,
+    defaultClassName = "flex flex-col h-full",
+    enableMaximize = false, // Por defecto deshabilitado
+}) => {
+    const cardRef = React.useRef<HTMLDivElement>(null);
+    const [gridRowStart, setGridRowStart] = React.useState<number | undefined>(undefined);
+
+    const handleClick = () => {
+        if (!isMaximized && cardRef.current) {
+            // Calcular la fila ANTES de maximizar
+            const element = cardRef.current;
+            const parent = element.parentElement;
+            if (parent) {
+                const gridItems = Array.from(parent.children) as HTMLElement[];
+                const currentIndex = gridItems.indexOf(element);
+
+                // Calcular columnas por fila según el tamaño de ventana
+                const windowWidth = window.innerWidth;
+
+                let colsPerRow = 1;
+                if (windowWidth >= 1280) {
+                    colsPerRow = 3; // xl:grid-cols-3
+                } else if (windowWidth >= 768) {
+                    colsPerRow = 2; // md:grid-cols-2
+                }
+
+                // Calcular la fila basándose en el índice
+                const rowByIndex = Math.floor(currentIndex / colsPerRow) + 1;
+                setGridRowStart(rowByIndex);
+                onToggleMaximize(cardId, rowByIndex);
+            } else {
+                onToggleMaximize(cardId);
+            }
+        } else {
+            setGridRowStart(undefined);
+            onToggleMaximize(cardId);
+        }
+    };
+
+    return (
+        <Card
+            ref={cardRef}
+            className={`${defaultClassName} ${isMaximized ? "md:col-span-2 xl:col-span-3" : ""}`}
+            style={
+                isMaximized && gridRowStart
+                    ? { gridColumnStart: 1, gridRowStart: gridRowStart }
+                    : {}
+            }
+        >
+            <CardHeader className="relative">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                        <CardTitle>{title}</CardTitle>
+                        {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+                    </div>
+                    {enableMaximize && (
+                        <button
+                            onClick={handleClick}
+                            className="flex-shrink-0 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            aria-label={isMaximized ? "Minimizar" : "Maximizar"}
+                        >
+                            {isMaximized ? (
+                                <Minimize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            ) : (
+                                <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            )}
+                        </button>
+                    )}
+                </div>
+            </CardHeader>
+            {children}
+        </Card>
+    );
+};
 
 export const DirectorDashboard: React.FC = () => {
     const { data: canShow } = useCan({ resource: "dashboards-director", action: "show" });
@@ -21,6 +114,12 @@ export const DirectorDashboard: React.FC = () => {
     });
     const [termId, setTermId] = React.useState<number | null>(null);
     const [compareTermId, setCompareTermId] = React.useState<number | null>(null);
+    const [maximizedCard, setMaximizedCard] = React.useState<string | null>(null);
+
+    // Función para toggle del estado de maximización
+    const handleToggleMaximize = (cardId: string, _gridRowStart?: number) => {
+        setMaximizedCard((prev) => (prev === cardId ? null : cardId));
+    };
 
     // Siempre usar null para fileId, así el backend automáticamente selecciona la versión activa
     const fileId = null;
@@ -362,11 +461,14 @@ export const DirectorDashboard: React.FC = () => {
 
             {/* Grid unificado para todos los cards */}
             <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                <Card className="flex flex-col h-full">
-                    <CardHeader>
-                        <CardTitle>Mapa de calor (días × horarios)</CardTitle>
-                        <p className="text-xs text-muted-foreground">Intensidad de horas-clase y costo por bloque de días/horario del ciclo seleccionado.</p>
-                    </CardHeader>
+                <MaximizableCard
+                    cardId="heatmap"
+                    title="Mapa de calor (días × horarios)"
+                    description="Intensidad de horas-clase y costo por bloque de días/horario del ciclo seleccionado."
+                    isMaximized={maximizedCard === "heatmap"}
+                    onToggleMaximize={handleToggleMaximize}
+                    enableMaximize={true}
+                >
                     <CardContent className="flex flex-col flex-1">
                         <div className="flex-1">
                             <HeatmapSchedule data={charts.heatmap} metric="hours" />
@@ -374,13 +476,16 @@ export const DirectorDashboard: React.FC = () => {
                         <p className="text-[11px] text-muted-foreground mt-2">
                             <span className="font-bold">Nota:</span> Cada cuadro representa un bloque de clases (día y horario). Mientras más oscuro, más horas y mayor costo concentrado en ese bloque. Útil para detectar huecos u horarios con alta carga.</p>
                     </CardContent>
-                </Card>
+                </MaximizableCard>
 
-                <Card className="flex flex-col h-full">
-                    <CardHeader>
-                        <CardTitle>Distribución por nivel y franja</CardTitle>
-                        <p className="text-xs text-muted-foreground">Suma de tasas por nivel académico (GDO/M1/M2/DR/BLG) en cada franja horaria.</p>
-                    </CardHeader>
+                <MaximizableCard
+                    cardId="stacked"
+                    title="Distribución por nivel y franja"
+                    description="Suma de tasas por nivel académico (GDO/M1/M2/DR/BLG) en cada franja horaria."
+                    isMaximized={maximizedCard === "stacked"}
+                    onToggleMaximize={handleToggleMaximize}
+                    enableMaximize={true}
+                >
                     <CardContent className="flex flex-col flex-1">
                         <div className="flex-1">
                             <StackedByScheduleChart data={charts.stacked_by_schedule} />
@@ -388,13 +493,16 @@ export const DirectorDashboard: React.FC = () => {
                         <p className="text-[11px] text-muted-foreground mt-2">
                             <span className="font-bold">Nota:</span> Muestra qué niveles académicos (Grado, Maestrías, Doctorado, Bilingüe) predominan en cada horario. Sirve para entender dónde se concentran los perfiles más costosos o especializados.</p>
                     </CardContent>
-                </Card>
+                </MaximizableCard>
 
-                <Card className="flex flex-col h-full">
-                    <CardHeader>
-                        <CardTitle>Tendencia mensual</CardTitle>
-                        <p className="text-xs text-muted-foreground">Sesiones, horas-clase y monto mensual calculado a partir de la planilla.</p>
-                    </CardHeader>
+                <MaximizableCard
+                    cardId="trend"
+                    title="Tendencia mensual"
+                    description="Sesiones, horas-clase y monto mensual calculado a partir de la planilla."
+                    isMaximized={maximizedCard === "trend"}
+                    onToggleMaximize={handleToggleMaximize}
+                    enableMaximize={true}
+                >
                     <CardContent className="flex flex-col flex-1">
                         <div className="flex-1">
                             <MonthlyTrendChart data={charts.monthly_trend} show={["hours", "dollars"]} />
@@ -402,7 +510,7 @@ export const DirectorDashboard: React.FC = () => {
                         <p className="text-[11px] text-muted-foreground mt-2">
                             <span className="font-bold">Nota:</span> Evolución del esfuerzo y presupuesto a lo largo del ciclo. Compara cómo cambian las horas-clase y el monto en dólares de un mes a otro para identificar picos y estacionalidad.</p>
                     </CardContent>
-                </Card>
+                </MaximizableCard>
             </section>
 
 

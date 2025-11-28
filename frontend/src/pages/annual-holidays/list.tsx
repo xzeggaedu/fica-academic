@@ -31,7 +31,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/forms/select";
-import { CanAccess } from "@refinedev/core";
+import { CanAccess, useOne } from "@refinedev/core";
 import { Plus, Trash2, List, Grid3X3 } from "lucide-react";
 import { Unauthorized } from "../unauthorized";
 import { TableFilters } from "@/components/ui/data/table-filters";
@@ -50,10 +50,20 @@ import {
     BreadcrumbSeparator,
 } from "@/components/ui/layout/breadcrumb";
 import { Calendar } from "@/components/ui/calendar";
+import type { Holiday } from "@/types/api";
 
 export const AnnualHolidaysList = () => {
     const navigate = useNavigate();
     const { holidayId } = useParams<{ holidayId: string }>();
+
+    // Obtener el Holiday para extraer el año
+    const { result: holidayData } = useOne<Holiday>({
+        resource: "holidays",
+        id: holidayId || "",
+        queryOptions: {
+            enabled: !!holidayId,
+        },
+    });
 
     // Hook principal de asuetos anuales con todas las operaciones CRUD
     const {
@@ -100,6 +110,9 @@ export const AnnualHolidaysList = () => {
     const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
     const [dates, setDates] = useState<Date[]>([]);
     const [dateRanges, setDateRanges] = useState<Array<{ from: Date, to: Date, name: string }>>([]);
+
+    // Obtener el año del grupo de asuetos
+    const holidayYear = holidayData?.year || new Date().getFullYear();
 
     // Función para crear fecha sin problemas de zona horaria
     const createLocalDate = (dateString: string) => {
@@ -788,26 +801,45 @@ export const AnnualHolidaysList = () => {
                                                     handleCalendarDayClick(date[0]);
                                                 }
                                             }}
-                                            defaultMonth={new Date(2025, 0)}
+                                            defaultMonth={new Date(holidayYear, 0)}
                                             disableNavigation={true}
                                             modifiers={{
-                                                rangeStart: dateRanges.map(range => range.from),
-                                                rangeEnd: dateRanges.map(range => range.to),
+                                                rangeStart: dateRanges.map(range => {
+                                                    // Normalizar fecha a medianoche local
+                                                    const d = new Date(range.from);
+                                                    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                                                }),
+                                                rangeEnd: dateRanges.map(range => {
+                                                    // Normalizar fecha a medianoche local
+                                                    const d = new Date(range.to);
+                                                    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                                                }),
                                                 rangeMiddle: dateRanges.flatMap(range => {
                                                     const middleDates = [];
-                                                    const current = new Date(range.from);
+                                                    const from = new Date(range.from);
+                                                    const to = new Date(range.to);
+                                                    const current = new Date(from);
                                                     current.setDate(current.getDate() + 1);
-                                                    while (current < range.to) {
-                                                        middleDates.push(new Date(current));
+                                                    while (current < to) {
+                                                        // Normalizar cada fecha a medianoche local
+                                                        middleDates.push(new Date(current.getFullYear(), current.getMonth(), current.getDate()));
                                                         current.setDate(current.getDate() + 1);
                                                     }
                                                     return middleDates;
                                                 }),
-                                                individual: dates.filter(date => {
+                                                individual: dates.map(date => {
+                                                    // Normalizar fecha a medianoche local
+                                                    const d = new Date(date);
+                                                    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                                                }).filter(date => {
                                                     // Solo incluir fechas que no estén en ningún rango
-                                                    return !dateRanges.some(range =>
-                                                        date >= range.from && date <= range.to
-                                                    );
+                                                    return !dateRanges.some(range => {
+                                                        const rangeFrom = new Date(range.from);
+                                                        const rangeTo = new Date(range.to);
+                                                        const normalizedFrom = new Date(rangeFrom.getFullYear(), rangeFrom.getMonth(), rangeFrom.getDate());
+                                                        const normalizedTo = new Date(rangeTo.getFullYear(), rangeTo.getMonth(), rangeTo.getDate());
+                                                        return date >= normalizedFrom && date <= normalizedTo;
+                                                    });
                                                 })
                                             }}
                                             modifiersStyles={{

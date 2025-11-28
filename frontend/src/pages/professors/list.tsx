@@ -28,6 +28,9 @@ import {
 import { ProfessorFormSheet } from "../../components/ui/professors/professor-form-sheet";
 import { useTablePagination } from "../../hooks/useTablePagination";
 import { useProfessorsCrud } from "../../hooks/useProfessorsCrud";
+import { useProfessorStatistics } from "../../hooks/useProfessorStatistics";
+import { SimpleDoughnutChart } from "../../components/charts/SimpleDoughnutChart";
+import { SimpleBarChart } from "../../components/charts/SimpleBarChart";
 
 interface Professor {
     id: number;
@@ -71,6 +74,9 @@ export const ProfessorList = () => {
         canDelete,
         canEdit,
     } = useProfessorsCrud();
+
+    // Hook para estadísticas
+    const { data: statistics, isLoading: isLoadingStats } = useProfessorStatistics();
 
 
     // Hook de paginación y búsqueda (stateless)
@@ -214,6 +220,173 @@ export const ProfessorList = () => {
                     )}
                 </div>
 
+                {/* Widgets de estadísticas */}
+                {!isLoadingStats && statistics && (
+                    <div className="grid md:grid-cols-3 gap-4 w-full">
+                        {/* Widget Distribución por Categoría */}
+                        <Card className="relative pb-1">
+                            <CardContent className="p-4 py-0 relative pb-0">
+                                <div className="flex items-start mb-2">
+                                    <label className="text-[10px] text-muted-foreground uppercase">Por Categoría</label>
+                                </div>
+                                {(() => {
+                                    const categoryEntries = Object.entries(statistics.by_category)
+                                        .filter(([, count]) => (count as number) > 0)
+                                        .sort((a, b) => (b[1] as number) - (a[1] as number));
+
+                                    if (categoryEntries.length === 0) return <p className="text-sm text-muted-foreground">No hay datos</p>;
+
+                                    // Paleta de colores para múltiples categorías
+                                    const categoryColors = ['#8b5cf6', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#6366f1'];
+
+                                    return (
+                                        <div className="flex gap-2 items-start pt-2">
+                                            <div className="min-w-[30%]">
+                                                <Table>
+                                                    <TableBody>
+                                                        {categoryEntries.map(([name, value]) => (
+                                                            <TableRow key={name} className="border-b">
+                                                                <TableCell className="text-[10px] px-2 py-1 h-auto font-medium">{name}</TableCell>
+                                                                <TableCell className="text-[10px] px-2 py-1 h-auto text-right">{value as number}</TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                            <div className="flex-1">
+                                                <SimpleBarChart
+                                                    data={categoryEntries.map(([name, value]) => ({
+                                                        name,
+                                                        value: value as number
+                                                    }))}
+                                                    colors={categoryColors}
+                                                    height={115}
+                                                    showTooltip={true}
+                                                    grid={{
+                                                        top: 10,
+                                                        left: 10,
+                                                        right: 10,
+                                                        bottom: 10,
+                                                        containLabel: true,
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </CardContent>
+                        </Card>
+
+                        {/* Widget Distribución por Título Académico */}
+                        <Card className="relative pb-1">
+                            <CardContent className="p-4 py-0 relative pb-0">
+                                <div className="flex items-start mb-2">
+                                    <label className="text-[10px] text-muted-foreground uppercase">Por Título Académico</label>
+                                </div>
+                                {(() => {
+                                    const titleEntries = Object.entries(statistics.by_title)
+                                        .filter(([, count]) => (count as number) > 0)
+                                        .sort((a, b) => (b[1] as number) - (a[1] as number));
+
+                                    if (titleEntries.length === 0) return <p className="text-sm text-muted-foreground">No hay datos</p>;
+
+                                    // Paleta de colores para múltiples títulos
+                                    const titleColors = ['#f59e0b', '#3b82f6', '#22c55e', '#8b5cf6', '#ef4444', '#ec4899', '#14b8a6', '#6366f1'];
+
+                                    return (
+                                        <div className="flex gap-2 items-start pt-2">
+                                            <div className="min-w-[30%]">
+                                                <Table>
+                                                    <TableBody>
+                                                        {titleEntries.map(([name, value]) => (
+                                                            <TableRow key={name} className="border-b">
+                                                                <TableCell className="text-[10px] px-2 py-1 h-auto font-medium">{name}</TableCell>
+                                                                <TableCell className="text-[10px] px-2 py-1 h-auto text-right">{value as number}</TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                            <div className="flex-1">
+                                                <SimpleBarChart
+                                                    data={titleEntries.map(([name, value]) => ({
+                                                        name,
+                                                        value: value as number
+                                                    }))}
+                                                    colors={titleColors}
+                                                    height={115}
+                                                    showTooltip={true}
+                                                    grid={{
+                                                        top: 10,
+                                                        left: 10,
+                                                        right: 10,
+                                                        bottom: 10,
+                                                        containLabel: true,
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </CardContent>
+                        </Card>
+
+                        {/* Widget Resumen de Estadísticas */}
+                        <Card className="relative pb-1">
+                            <CardContent className="p-4 py-0 relative pb-0">
+                                <div className="flex items-start justify-between mb-2">
+                                    <label className="text-[10px] text-muted-foreground uppercase">Resumen</label>
+                                    <span className="text-[10px] font-semibold">Total: {statistics.total}</span>
+                                </div>
+                                <div className="flex gap-2 items-start pt-2">
+                                    <div className="min-w-[30%]">
+                                        <Table>
+                                            <TableBody>
+                                                <TableRow className="border-b">
+                                                    <TableCell className="text-[10px] px-2 py-1 h-auto font-medium">1 Maestría</TableCell>
+                                                    <TableCell className="text-[10px] px-2 py-1 h-auto text-right">{statistics.one_master}</TableCell>
+                                                </TableRow>
+                                                <TableRow className="border-b">
+                                                    <TableCell className="text-[10px] px-2 py-1 h-auto font-medium">2 o más maestrías</TableCell>
+                                                    <TableCell className="text-[10px] px-2 py-1 h-auto text-right">{statistics.two_or_more_masters}</TableCell>
+                                                </TableRow>
+                                                <TableRow className="border-b">
+                                                    <TableCell className="text-[10px] px-2 py-1 h-auto font-medium">Doctorado</TableCell>
+                                                    <TableCell className="text-[10px] px-2 py-1 h-auto text-right">{statistics.doctorate}</TableCell>
+                                                </TableRow>
+                                                <TableRow className="border-b">
+                                                    <TableCell className="text-[10px] px-2 py-1 h-auto font-medium">Bilingües</TableCell>
+                                                    <TableCell className="text-[10px] px-2 py-1 h-auto text-right">{statistics.bilingual}</TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                    <div className="flex-1">
+                                        <SimpleBarChart
+                                            data={[
+                                                { name: "1 Maestría", value: statistics.one_master },
+                                                { name: "2+ Maestrías", value: statistics.two_or_more_masters },
+                                                { name: "Doctorado", value: statistics.doctorate },
+                                                { name: "Bilingües", value: statistics.bilingual },
+                                            ]}
+                                            colors={['#8b5cf6', '#3b82f6', '#22c55e', '#f59e0b']}
+                                            height={100}
+                                            showTooltip={true}
+                                            hideXAxisLabels={true}
+                                            grid={{
+                                                top: 15,
+                                                left: 10,
+                                                right: 10,
+                                                bottom: 10,
+                                                containLabel: true,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
 
                 {/* Card with filters and table */}
                 <Card>

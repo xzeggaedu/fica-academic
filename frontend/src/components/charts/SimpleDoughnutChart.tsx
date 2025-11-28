@@ -21,13 +21,17 @@ export const SimpleDoughnutChart: React.FC<SimpleDoughnutChartProps> = ({
   height = 45,
   radius = ["55%", "95%"],
 }) => {
+  // Calcular total para porcentajes
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+
   const option: EChartsOption = {
     tooltip: showTooltip ? {
       trigger: 'item',
       formatter: (params: any) => {
         if (!params) return '';
-        const value = typeof params.value === 'number' ? params.value.toFixed(2) : params.value;
-        return `${params.name}: ${value}`;
+        const value = typeof params.value === 'number' ? params.value : Number(params.value);
+        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+        return `${params.name}: ${value} (${percentage}%)`;
       },
     } : {
       show: false,

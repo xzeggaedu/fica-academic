@@ -16,9 +16,15 @@ interface CategoryPaymentTableProps {
     data: Record<string, CategoryPaymentItem[]>; // school_acronym -> array of CategoryPaymentItem
     isMaximized?: boolean;
     onToggleMaximize?: () => void;
+    enableMaximize?: boolean;
 }
 
-export const CategoryPaymentTable: React.FC<CategoryPaymentTableProps> = ({ data, isMaximized = false }) => {
+export const CategoryPaymentTable: React.FC<CategoryPaymentTableProps> = ({
+    data,
+    isMaximized = false,
+    onToggleMaximize,
+    enableMaximize = false
+}) => {
     // Obtener todas las escuelas disponibles
     const schools = Object.keys(data).sort();
     const [selectedSchool, setSelectedSchool] = useState<string>("CONSOLIDADO");
@@ -97,6 +103,19 @@ export const CategoryPaymentTable: React.FC<CategoryPaymentTableProps> = ({ data
                             Resumen de categorías de profesores por estado de pago.
                         </p>
                     </div>
+                    {enableMaximize && onToggleMaximize && (
+                        <button
+                            onClick={onToggleMaximize}
+                            className="flex-shrink-0 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            aria-label={isMaximized ? "Minimizar" : "Maximizar"}
+                        >
+                            {isMaximized ? (
+                                <Minimize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            ) : (
+                                <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            )}
+                        </button>
+                    )}
                 </div>
             </CardHeader>
             <CardContent className="flex flex-col flex-1">
