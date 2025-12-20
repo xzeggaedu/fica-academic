@@ -783,6 +783,7 @@ export const VicerrectorDashboard: React.FC = () => {
                     description="Intensidad de horas-clase y costo por bloque de días/horario del ciclo seleccionado."
                     isMaximized={maximizedCard === "heatmap"}
                     onToggleMaximize={handleToggleMaximize}
+                    enableMaximize={true}
                 >
                     <CardContent className="flex flex-col flex-1">
                         <div className="flex-1">
@@ -803,6 +804,7 @@ export const VicerrectorDashboard: React.FC = () => {
                     description="Suma de tasas por nivel académico (GDO/M1/M2/DR/BLG) en cada franja horaria."
                     isMaximized={maximizedCard === "stacked"}
                     onToggleMaximize={handleToggleMaximize}
+                    enableMaximize={true}
                 >
                     <CardContent className="flex flex-col flex-1">
                         <div className="flex-1">
@@ -823,6 +825,7 @@ export const VicerrectorDashboard: React.FC = () => {
                     description="Sesiones, horas-clase y monto mensual calculado a partir de la planilla."
                     isMaximized={maximizedCard === "trend"}
                     onToggleMaximize={handleToggleMaximize}
+                    enableMaximize={true}
                 >
                     <CardContent className="flex flex-col flex-1">
                         <div className="flex-1">
@@ -844,6 +847,7 @@ export const VicerrectorDashboard: React.FC = () => {
                         description="Comparación del número de secciones por modalidad entre dos ciclos académicos."
                         isMaximized={maximizedCard === "comparative"}
                         onToggleMaximize={handleToggleMaximize}
+                        enableMaximize={true}
                     >
                         <CardContent className="flex flex-col flex-1">
                             <div className="flex-1">
@@ -878,6 +882,7 @@ export const VicerrectorDashboard: React.FC = () => {
                         description="Número de secciones por modalidad desglosadas por escuela."
                         isMaximized={maximizedCard === "sections-by-school"}
                         onToggleMaximize={handleToggleMaximize}
+                        enableMaximize={true}
                     >
                         <CardContent className="flex flex-col flex-1">
                             <div className="flex-1">
@@ -909,6 +914,8 @@ export const VicerrectorDashboard: React.FC = () => {
                     <CategoryPaymentTable
                         data={tables.category_payment}
                         isMaximized={maximizedCard === "category-payment"}
+                        onToggleMaximize={() => handleToggleMaximize("category-payment")}
+                        enableMaximize={true}
                     />
                 )}
 

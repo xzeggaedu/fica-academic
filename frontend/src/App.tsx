@@ -45,7 +45,6 @@ import { DirectorDashboard } from "./pages/director-dashboard";
 import { DecanoDashboard } from "./pages/decano-dashboard";
 import { VicerrectorDashboard } from "./pages/vicerrector-dashboard";
 import { Login } from "./pages/login";
-import { SystemUpdate } from "./pages/system";
 import { HomeRedirect } from "./components/home-redirect";
 
 function App() {
@@ -285,17 +284,6 @@ function App() {
                         icon: "Trash2",
                       },
                     },
-                    // TEMPORALMENTE COMENTADO: Item del menú de actualización del sistema
-                    // La funcionalidad sigue disponible accediendo directamente a /configuration/system-update
-                    // {
-                    //   name: "system-update",
-                    //   list: "/configuration/system-update",
-                    //   meta: {
-                    //     label: "Actualización del Sistema",
-                    //     parent: "configuration",
-                    //     icon: "RefreshCw",
-                    //   },
-                    // },
 
                   ]}
                   options={{
@@ -343,7 +331,6 @@ function App() {
                         <Route path="academic-levels" element={<AcademicLevelsList />} />
                         <Route path="hourly-rates" element={<HourlyRatesList />} />
                         <Route path="recycle-bin" element={<RecycleBinList />} />
-                        <Route path="system-update" element={<SystemUpdate />} />
                       </Route>
                       <Route path="/academic-planning">
                         <Route path="terms" element={<TermsList />} />
